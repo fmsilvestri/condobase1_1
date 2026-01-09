@@ -76,6 +76,8 @@ The application consists of these main feature modules:
 - **User Model**: email, name, role, unit, isActive, timestamps
 - **Admin Panel**: Accessible only to admin and síndico roles via sidebar navigation
 - **Session Management**: JWT-based sessions via Supabase
+- **Default Síndico**: fmsilvestri39@gmail.com (Hey123!)
+- **RLS**: Temporarily disabled for development - re-enable with proper policies for production
 
 ## External Dependencies
 
