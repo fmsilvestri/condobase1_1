@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { createStorage } from "./supabase-storage";
 import {
   insertEquipmentSchema,
   insertMaintenanceRequestSchema,
@@ -13,6 +13,8 @@ import {
   insertSupplierSchema,
   insertAnnouncementSchema,
 } from "@shared/schema";
+
+const storage = createStorage();
 
 export async function registerRoutes(
   httpServer: Server,
