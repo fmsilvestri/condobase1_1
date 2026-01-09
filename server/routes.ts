@@ -1,16 +1,447 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import {
+  insertEquipmentSchema,
+  insertMaintenanceRequestSchema,
+  insertPoolReadingSchema,
+  insertWaterReadingSchema,
+  insertGasReadingSchema,
+  insertEnergyEventSchema,
+  insertOccupancyDataSchema,
+  insertDocumentSchema,
+  insertSupplierSchema,
+  insertAnnouncementSchema,
+} from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
+  
+  app.get("/api/dashboard", async (req, res) => {
+    try {
+      const [equipment, requests, poolReadings, waterReadings, gasReadings, energyEvents, occupancy, documents, announcements] = await Promise.all([
+        storage.getEquipment(),
+        storage.getMaintenanceRequests(),
+        storage.getPoolReadings(),
+        storage.getWaterReadings(),
+        storage.getGasReadings(),
+        storage.getEnergyEvents(),
+        storage.getOccupancyData(),
+        storage.getDocuments(),
+        storage.getAnnouncements(),
+      ]);
 
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
+      const openRequests = requests.filter(r => r.status !== "concluído").length;
+      const latestPoolReading = poolReadings[0];
+      const latestWaterReading = waterReadings[0];
+      const latestGasReading = gasReadings[0];
+      const latestEnergyEvent = energyEvents[0];
+      
+      const now = new Date();
+      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const expiringDocuments = documents.filter(d => 
+        d.expirationDate && new Date(d.expirationDate) <= thirtyDaysFromNow
+      ).length;
+
+      res.json({
+        openRequests,
+        totalEquipment: equipment.length,
+        latestPoolReading,
+        latestWaterReading,
+        latestGasReading,
+        currentEnergyStatus: latestEnergyEvent?.status || "ok",
+        occupancy,
+        expiringDocuments,
+        recentAnnouncements: announcements.slice(0, 5),
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch dashboard data" });
+    }
+  });
+
+  app.get("/api/equipment", async (req, res) => {
+    try {
+      const equipment = await storage.getEquipment();
+      res.json(equipment);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch equipment" });
+    }
+  });
+
+  app.get("/api/equipment/:id", async (req, res) => {
+    try {
+      const equipment = await storage.getEquipmentById(req.params.id);
+      if (!equipment) {
+        return res.status(404).json({ error: "Equipment not found" });
+      }
+      res.json(equipment);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch equipment" });
+    }
+  });
+
+  app.post("/api/equipment", async (req, res) => {
+    try {
+      const validatedData = insertEquipmentSchema.parse(req.body);
+      const equipment = await storage.createEquipment(validatedData);
+      res.status(201).json(equipment);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid equipment data" });
+    }
+  });
+
+  app.patch("/api/equipment/:id", async (req, res) => {
+    try {
+      const equipment = await storage.updateEquipment(req.params.id, req.body);
+      if (!equipment) {
+        return res.status(404).json({ error: "Equipment not found" });
+      }
+      res.json(equipment);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update equipment" });
+    }
+  });
+
+  app.delete("/api/equipment/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteEquipment(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Equipment not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete equipment" });
+    }
+  });
+
+  app.get("/api/maintenance", async (req, res) => {
+    try {
+      const requests = await storage.getMaintenanceRequests();
+      res.json(requests);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch maintenance requests" });
+    }
+  });
+
+  app.get("/api/maintenance/:id", async (req, res) => {
+    try {
+      const request = await storage.getMaintenanceRequestById(req.params.id);
+      if (!request) {
+        return res.status(404).json({ error: "Maintenance request not found" });
+      }
+      res.json(request);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch maintenance request" });
+    }
+  });
+
+  app.post("/api/maintenance", async (req, res) => {
+    try {
+      const validatedData = insertMaintenanceRequestSchema.parse(req.body);
+      const request = await storage.createMaintenanceRequest(validatedData);
+      res.status(201).json(request);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid maintenance request data" });
+    }
+  });
+
+  app.patch("/api/maintenance/:id", async (req, res) => {
+    try {
+      const request = await storage.updateMaintenanceRequest(req.params.id, req.body);
+      if (!request) {
+        return res.status(404).json({ error: "Maintenance request not found" });
+      }
+      res.json(request);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update maintenance request" });
+    }
+  });
+
+  app.delete("/api/maintenance/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteMaintenanceRequest(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Maintenance request not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete maintenance request" });
+    }
+  });
+
+  app.get("/api/pool", async (req, res) => {
+    try {
+      const readings = await storage.getPoolReadings();
+      res.json(readings);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch pool readings" });
+    }
+  });
+
+  app.post("/api/pool", async (req, res) => {
+    try {
+      const validatedData = insertPoolReadingSchema.parse(req.body);
+      const reading = await storage.createPoolReading(validatedData);
+      res.status(201).json(reading);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid pool reading data" });
+    }
+  });
+
+  app.get("/api/water", async (req, res) => {
+    try {
+      const readings = await storage.getWaterReadings();
+      res.json(readings);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch water readings" });
+    }
+  });
+
+  app.post("/api/water", async (req, res) => {
+    try {
+      const validatedData = insertWaterReadingSchema.parse(req.body);
+      const reading = await storage.createWaterReading(validatedData);
+      res.status(201).json(reading);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid water reading data" });
+    }
+  });
+
+  app.get("/api/gas", async (req, res) => {
+    try {
+      const readings = await storage.getGasReadings();
+      res.json(readings);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch gas readings" });
+    }
+  });
+
+  app.post("/api/gas", async (req, res) => {
+    try {
+      const validatedData = insertGasReadingSchema.parse(req.body);
+      const reading = await storage.createGasReading(validatedData);
+      res.status(201).json(reading);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid gas reading data" });
+    }
+  });
+
+  app.get("/api/energy", async (req, res) => {
+    try {
+      const events = await storage.getEnergyEvents();
+      res.json(events);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch energy events" });
+    }
+  });
+
+  app.post("/api/energy", async (req, res) => {
+    try {
+      const validatedData = insertEnergyEventSchema.parse(req.body);
+      const event = await storage.createEnergyEvent(validatedData);
+      res.status(201).json(event);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid energy event data" });
+    }
+  });
+
+  app.patch("/api/energy/:id", async (req, res) => {
+    try {
+      const event = await storage.updateEnergyEvent(req.params.id, req.body);
+      if (!event) {
+        return res.status(404).json({ error: "Energy event not found" });
+      }
+      res.json(event);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update energy event" });
+    }
+  });
+
+  app.get("/api/occupancy", async (req, res) => {
+    try {
+      const data = await storage.getOccupancyData();
+      res.json(data || {});
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch occupancy data" });
+    }
+  });
+
+  app.put("/api/occupancy", async (req, res) => {
+    try {
+      const validatedData = insertOccupancyDataSchema.parse(req.body);
+      const data = await storage.updateOccupancyData(validatedData);
+      res.json(data);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid occupancy data" });
+    }
+  });
+
+  app.get("/api/documents", async (req, res) => {
+    try {
+      const documents = await storage.getDocuments();
+      res.json(documents);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch documents" });
+    }
+  });
+
+  app.get("/api/documents/:id", async (req, res) => {
+    try {
+      const document = await storage.getDocumentById(req.params.id);
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+      res.json(document);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch document" });
+    }
+  });
+
+  app.post("/api/documents", async (req, res) => {
+    try {
+      const validatedData = insertDocumentSchema.parse(req.body);
+      const document = await storage.createDocument(validatedData);
+      res.status(201).json(document);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid document data" });
+    }
+  });
+
+  app.patch("/api/documents/:id", async (req, res) => {
+    try {
+      const document = await storage.updateDocument(req.params.id, req.body);
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+      res.json(document);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update document" });
+    }
+  });
+
+  app.delete("/api/documents/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteDocument(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete document" });
+    }
+  });
+
+  app.get("/api/suppliers", async (req, res) => {
+    try {
+      const suppliers = await storage.getSuppliers();
+      res.json(suppliers);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch suppliers" });
+    }
+  });
+
+  app.get("/api/suppliers/:id", async (req, res) => {
+    try {
+      const supplier = await storage.getSupplierById(req.params.id);
+      if (!supplier) {
+        return res.status(404).json({ error: "Supplier not found" });
+      }
+      res.json(supplier);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch supplier" });
+    }
+  });
+
+  app.post("/api/suppliers", async (req, res) => {
+    try {
+      const validatedData = insertSupplierSchema.parse(req.body);
+      const supplier = await storage.createSupplier(validatedData);
+      res.status(201).json(supplier);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid supplier data" });
+    }
+  });
+
+  app.patch("/api/suppliers/:id", async (req, res) => {
+    try {
+      const supplier = await storage.updateSupplier(req.params.id, req.body);
+      if (!supplier) {
+        return res.status(404).json({ error: "Supplier not found" });
+      }
+      res.json(supplier);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update supplier" });
+    }
+  });
+
+  app.delete("/api/suppliers/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteSupplier(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Supplier not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete supplier" });
+    }
+  });
+
+  app.get("/api/announcements", async (req, res) => {
+    try {
+      const announcements = await storage.getAnnouncements();
+      res.json(announcements);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch announcements" });
+    }
+  });
+
+  app.get("/api/announcements/:id", async (req, res) => {
+    try {
+      const announcement = await storage.getAnnouncementById(req.params.id);
+      if (!announcement) {
+        return res.status(404).json({ error: "Announcement not found" });
+      }
+      res.json(announcement);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch announcement" });
+    }
+  });
+
+  app.post("/api/announcements", async (req, res) => {
+    try {
+      const validatedData = insertAnnouncementSchema.parse(req.body);
+      const announcement = await storage.createAnnouncement(validatedData);
+      res.status(201).json(announcement);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid announcement data" });
+    }
+  });
+
+  app.patch("/api/announcements/:id", async (req, res) => {
+    try {
+      const announcement = await storage.updateAnnouncement(req.params.id, req.body);
+      if (!announcement) {
+        return res.status(404).json({ error: "Announcement not found" });
+      }
+      res.json(announcement);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update announcement" });
+    }
+  });
+
+  app.delete("/api/announcements/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteAnnouncement(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Announcement not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete announcement" });
+    }
+  });
 
   return httpServer;
 }
