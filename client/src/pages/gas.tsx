@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/hooks/use-auth";
 import {
   AreaChart,
   Area,
@@ -44,6 +45,7 @@ const chartData = mockReadings.map((r) => ({
 
 export default function Gas() {
   const [isNewReadingOpen, setIsNewReadingOpen] = useState(false);
+  const { canEdit } = useAuth();
   const latestReading = mockReadings[0];
   
   const weeklyConsumption = 4;
@@ -62,51 +64,53 @@ export default function Gas() {
         description="Monitoramento do nível e consumo de gás"
         backHref="/"
         actions={
-          <Dialog open={isNewReadingOpen} onOpenChange={setIsNewReadingOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-new-gas-reading">
-                <Plus className="mr-2 h-4 w-4" />
-                Nova Leitura
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Registrar Leitura de Gás</DialogTitle>
-                <DialogDescription>
-                  Insira o nível atual e tire uma foto do medidor.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="level">Nível Atual (%)</Label>
-                  <Input id="level" type="number" placeholder="78" data-testid="input-gas-level" />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Foto do Medidor</Label>
-                  <div className="flex items-center justify-center rounded-lg border-2 border-dashed p-6">
-                    <div className="text-center">
-                      <Camera className="mx-auto h-8 w-8 text-muted-foreground" />
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        Tire uma foto ou faça upload
-                      </p>
+          canEdit && (
+            <Dialog open={isNewReadingOpen} onOpenChange={setIsNewReadingOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-new-gas-reading">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nova Leitura
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Registrar Leitura de Gás</DialogTitle>
+                  <DialogDescription>
+                    Insira o nível atual e tire uma foto do medidor.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="level">Nível Atual (%)</Label>
+                    <Input id="level" type="number" placeholder="78" data-testid="input-gas-level" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Foto do Medidor</Label>
+                    <div className="flex items-center justify-center rounded-lg border-2 border-dashed p-6">
+                      <div className="text-center">
+                        <Camera className="mx-auto h-8 w-8 text-muted-foreground" />
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          Tire uma foto ou faça upload
+                        </p>
+                      </div>
                     </div>
                   </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="notes">Observações</Label>
+                    <Textarea id="notes" placeholder="Observações adicionais..." data-testid="input-gas-notes" />
+                  </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="notes">Observações</Label>
-                  <Textarea id="notes" placeholder="Observações adicionais..." data-testid="input-gas-notes" />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsNewReadingOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button onClick={() => setIsNewReadingOpen(false)} data-testid="button-save-gas-reading">
-                  Salvar Leitura
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsNewReadingOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={() => setIsNewReadingOpen(false)} data-testid="button-save-gas-reading">
+                    Salvar Leitura
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )
         }
       />
 

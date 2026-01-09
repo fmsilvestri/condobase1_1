@@ -51,6 +51,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { equipmentCategories, type Equipment, type MaintenanceRequest } from "@shared/schema";
 
@@ -76,6 +77,7 @@ export default function Maintenance() {
   const [isNewRequestOpen, setIsNewRequestOpen] = useState(false);
   const [isNewEquipmentOpen, setIsNewEquipmentOpen] = useState(false);
   const { toast } = useToast();
+  const { canEdit } = useAuth();
 
   const { data: equipment = [], isLoading: loadingEquipment } = useQuery<Equipment[]>({
     queryKey: ["/api/equipment"],
@@ -178,13 +180,14 @@ export default function Maintenance() {
         backHref="/"
         actions={
           <div className="flex gap-2">
-            <Dialog open={isNewEquipmentOpen} onOpenChange={setIsNewEquipmentOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" data-testid="button-new-equipment">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Novo Equipamento
-                </Button>
-              </DialogTrigger>
+            {canEdit && (
+              <Dialog open={isNewEquipmentOpen} onOpenChange={setIsNewEquipmentOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" data-testid="button-new-equipment">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Novo Equipamento
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                   <DialogTitle>Cadastrar Equipamento</DialogTitle>
@@ -270,6 +273,8 @@ export default function Maintenance() {
                 </Form>
               </DialogContent>
             </Dialog>
+            )
+            }
 
             <Dialog open={isNewRequestOpen} onOpenChange={setIsNewRequestOpen}>
               <DialogTrigger asChild>

@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/hooks/use-auth";
 import { documentTypes } from "@shared/schema";
 
 interface Document {
@@ -72,6 +73,7 @@ export default function Documents() {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
+  const { canEdit } = useAuth();
 
   const filteredDocuments = mockDocuments.filter((doc) => {
     const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -96,73 +98,75 @@ export default function Documents() {
         description="Gerencie certificados, alvarás e documentos do condomínio"
         backHref="/"
         actions={
-          <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-upload-document">
-                <Upload className="mr-2 h-4 w-4" />
-                Enviar Documento
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Enviar Documento</DialogTitle>
-                <DialogDescription>
-                  Faça upload de um novo documento ou certificado.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="doc-name">Nome do Documento</Label>
-                  <Input id="doc-name" placeholder="Ex: AVCB 2024" data-testid="input-document-name" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="doc-type">Tipo</Label>
-                  <Select>
-                    <SelectTrigger data-testid="select-document-type">
-                      <SelectValue placeholder="Selecione o tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {documentTypes.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="expiration">Data de Validade</Label>
-                  <Input id="expiration" type="date" data-testid="input-document-expiration" />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Arquivo</Label>
-                  <div className="flex items-center justify-center rounded-lg border-2 border-dashed p-6">
-                    <div className="text-center">
-                      <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        Arraste o arquivo ou clique para fazer upload
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        PDF, JPG ou PNG (máx. 10MB)
-                      </p>
+          canEdit && (
+            <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-upload-document">
+                  <Upload className="mr-2 h-4 w-4" />
+                  Enviar Documento
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Enviar Documento</DialogTitle>
+                  <DialogDescription>
+                    Faça upload de um novo documento ou certificado.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="doc-name">Nome do Documento</Label>
+                    <Input id="doc-name" placeholder="Ex: AVCB 2024" data-testid="input-document-name" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="doc-type">Tipo</Label>
+                    <Select>
+                      <SelectTrigger data-testid="select-document-type">
+                        <SelectValue placeholder="Selecione o tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {documentTypes.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="expiration">Data de Validade</Label>
+                    <Input id="expiration" type="date" data-testid="input-document-expiration" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Arquivo</Label>
+                    <div className="flex items-center justify-center rounded-lg border-2 border-dashed p-6">
+                      <div className="text-center">
+                        <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          Arraste o arquivo ou clique para fazer upload
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          PDF, JPG ou PNG (máx. 10MB)
+                        </p>
+                      </div>
                     </div>
                   </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="notes">Observações</Label>
+                    <Textarea id="notes" placeholder="Observações adicionais..." data-testid="input-document-notes" />
+                  </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="notes">Observações</Label>
-                  <Textarea id="notes" placeholder="Observações adicionais..." data-testid="input-document-notes" />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsUploadOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button onClick={() => setIsUploadOpen(false)} data-testid="button-save-document">
-                  Enviar
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsUploadOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={() => setIsUploadOpen(false)} data-testid="button-save-document">
+                    Enviar
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )
         }
       />
 

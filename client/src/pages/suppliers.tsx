@@ -49,6 +49,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { equipmentCategories, type Supplier } from "@shared/schema";
 
@@ -67,6 +68,7 @@ export default function Suppliers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const { toast } = useToast();
+  const { canEdit } = useAuth();
 
   const { data: suppliers = [], isLoading } = useQuery<Supplier[]>({
     queryKey: ["/api/suppliers"],
@@ -146,68 +148,31 @@ export default function Suppliers() {
         description="Cadastro de fornecedores e prestadores de serviço"
         backHref="/"
         actions={
-          <Dialog open={isNewSupplierOpen} onOpenChange={setIsNewSupplierOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-new-supplier">
-                <Plus className="mr-2 h-4 w-4" />
-                Novo Fornecedor
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Cadastrar Fornecedor</DialogTitle>
-                <DialogDescription>
-                  Adicione um novo fornecedor ou prestador de serviço.
-                </DialogDescription>
-              </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit((data) => createSupplierMutation.mutate(data))} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome / Empresa</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ex: ElevaTec Manutenção" {...field} data-testid="input-supplier-name" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="category"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Categoria</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-supplier-category">
-                              <SelectValue placeholder="Selecione a categoria" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {equipmentCategories.map((cat) => (
-                              <SelectItem key={cat} value={cat}>
-                                {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <div className="grid grid-cols-2 gap-4">
+          canEdit && (
+            <Dialog open={isNewSupplierOpen} onOpenChange={setIsNewSupplierOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-new-supplier">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo Fornecedor
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Cadastrar Fornecedor</DialogTitle>
+                  <DialogDescription>
+                    Adicione um novo fornecedor ou prestador de serviço.
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit((data) => createSupplierMutation.mutate(data))} className="space-y-4">
                     <FormField
                       control={form.control}
-                      name="phone"
+                      name="name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Telefone</FormLabel>
+                          <FormLabel>Nome / Empresa</FormLabel>
                           <FormControl>
-                            <Input placeholder="(48) 3333-1111" {...field} data-testid="input-supplier-phone" />
+                            <Input placeholder="Ex: ElevaTec Manutenção" {...field} data-testid="input-supplier-name" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -215,70 +180,109 @@ export default function Suppliers() {
                     />
                     <FormField
                       control={form.control}
-                      name="whatsapp"
+                      name="category"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>WhatsApp</FormLabel>
+                          <FormLabel>Categoria</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-supplier-category">
+                                <SelectValue placeholder="Selecione a categoria" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {equipmentCategories.map((cat) => (
+                                <SelectItem key={cat} value={cat}>
+                                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="phone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Telefone</FormLabel>
+                            <FormControl>
+                              <Input placeholder="(48) 3333-1111" {...field} data-testid="input-supplier-phone" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="whatsapp"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>WhatsApp</FormLabel>
+                            <FormControl>
+                              <Input placeholder="5548999991111" {...field} data-testid="input-supplier-whatsapp" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>E-mail</FormLabel>
                           <FormControl>
-                            <Input placeholder="5548999991111" {...field} data-testid="input-supplier-whatsapp" />
+                            <Input type="email" placeholder="contato@empresa.com.br" {...field} data-testid="input-supplier-email" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  </div>
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>E-mail</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="contato@empresa.com.br" {...field} data-testid="input-supplier-email" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="address"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Endereço</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Rua, número, bairro" {...field} data-testid="input-supplier-address" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="notes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Observações</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder="Observações adicionais..." {...field} data-testid="input-supplier-notes" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setIsNewSupplierOpen(false)}>
-                      Cancelar
-                    </Button>
-                    <Button type="submit" disabled={createSupplierMutation.isPending} data-testid="button-save-supplier">
-                      {createSupplierMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Salvar
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
+                    <FormField
+                      control={form.control}
+                      name="address"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Endereço</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Rua, número, bairro" {...field} data-testid="input-supplier-address" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="notes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Observações</FormLabel>
+                          <FormControl>
+                            <Textarea placeholder="Observações adicionais..." {...field} data-testid="input-supplier-notes" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setIsNewSupplierOpen(false)}>
+                        Cancelar
+                      </Button>
+                      <Button type="submit" disabled={createSupplierMutation.isPending} data-testid="button-save-supplier">
+                        {createSupplierMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Salvar
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          )
         }
       />
 
@@ -330,21 +334,23 @@ export default function Suppliers() {
                     {supplier.category.charAt(0).toUpperCase() + supplier.category.slice(1)}
                   </Badge>
                 </div>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-edit-${supplier.id}`}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 text-destructive"
-                    onClick={() => deleteSupplierMutation.mutate(supplier.id)}
-                    disabled={deleteSupplierMutation.isPending}
-                    data-testid={`button-delete-${supplier.id}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                {canEdit && (
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-edit-${supplier.id}`}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-destructive"
+                      onClick={() => deleteSupplierMutation.mutate(supplier.id)}
+                      disabled={deleteSupplierMutation.isPending}
+                      data-testid={`button-delete-${supplier.id}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">

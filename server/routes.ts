@@ -118,6 +118,18 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/users/by-email/:email", async (req, res) => {
+    try {
+      const user = await storage.getUserByEmail(decodeURIComponent(req.params.email));
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch user" });
+    }
+  });
+
   app.get("/api/users/:id", async (req, res) => {
     try {
       const user = await storage.getUser(req.params.id);

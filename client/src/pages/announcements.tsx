@@ -47,6 +47,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Announcement } from "@shared/schema";
 
@@ -74,6 +75,7 @@ export default function Announcements() {
   const [isNewAnnouncementOpen, setIsNewAnnouncementOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
+  const { canEdit } = useAuth();
 
   const { data: announcements = [], isLoading } = useQuery<Announcement[]>({
     queryKey: ["/api/announcements"],
@@ -161,101 +163,103 @@ export default function Announcements() {
         description="Avisos e comunicados para os condôminos"
         backHref="/"
         actions={
-          <Dialog open={isNewAnnouncementOpen} onOpenChange={setIsNewAnnouncementOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-new-announcement">
-                <Plus className="mr-2 h-4 w-4" />
-                Novo Comunicado
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
-              <DialogHeader>
-                <DialogTitle>Criar Comunicado</DialogTitle>
-                <DialogDescription>
-                  Crie um novo comunicado para os condôminos.
-                </DialogDescription>
-              </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit((data) => createAnnouncementMutation.mutate(data))} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="title"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Título</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ex: Manutenção programada" {...field} data-testid="input-announcement-title" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="priority"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Prioridade</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+          canEdit && (
+            <Dialog open={isNewAnnouncementOpen} onOpenChange={setIsNewAnnouncementOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-new-announcement">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo Comunicado
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                  <DialogTitle>Criar Comunicado</DialogTitle>
+                  <DialogDescription>
+                    Crie um novo comunicado para os condôminos.
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit((data) => createAnnouncementMutation.mutate(data))} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="title"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Título</FormLabel>
                           <FormControl>
-                            <SelectTrigger data-testid="select-announcement-priority">
-                              <SelectValue placeholder="Selecione a prioridade" />
-                            </SelectTrigger>
+                            <Input placeholder="Ex: Manutenção programada" {...field} data-testid="input-announcement-title" />
                           </FormControl>
-                          <SelectContent>
-                            <SelectItem value="baixa">Baixa</SelectItem>
-                            <SelectItem value="normal">Normal</SelectItem>
-                            <SelectItem value="alta">Alta</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="content"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Conteúdo</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Digite o conteúdo do comunicado..."
-                            className="min-h-[150px]"
-                            {...field}
-                            data-testid="input-announcement-content"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="expiresAt"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Data de Expiração (opcional)</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} data-testid="input-announcement-expires" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setIsNewAnnouncementOpen(false)}>
-                      Cancelar
-                    </Button>
-                    <Button type="submit" disabled={createAnnouncementMutation.isPending} data-testid="button-save-announcement">
-                      {createAnnouncementMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Publicar
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="priority"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Prioridade</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-announcement-priority">
+                                <SelectValue placeholder="Selecione a prioridade" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="baixa">Baixa</SelectItem>
+                              <SelectItem value="normal">Normal</SelectItem>
+                              <SelectItem value="alta">Alta</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="content"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Conteúdo</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Digite o conteúdo do comunicado..."
+                              className="min-h-[150px]"
+                              {...field}
+                              data-testid="input-announcement-content"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="expiresAt"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Data de Expiração (opcional)</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} data-testid="input-announcement-expires" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setIsNewAnnouncementOpen(false)}>
+                        Cancelar
+                      </Button>
+                      <Button type="submit" disabled={createAnnouncementMutation.isPending} data-testid="button-save-announcement">
+                        {createAnnouncementMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Publicar
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          )
         }
       />
 
@@ -318,21 +322,23 @@ export default function Announcements() {
                     </span>
                   </div>
                 </div>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-edit-${announcement.id}`}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 text-destructive"
-                    onClick={() => deleteAnnouncementMutation.mutate(announcement.id)}
-                    disabled={deleteAnnouncementMutation.isPending}
-                    data-testid={`button-delete-${announcement.id}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                {canEdit && (
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-edit-${announcement.id}`}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-destructive"
+                      onClick={() => deleteAnnouncementMutation.mutate(announcement.id)}
+                      disabled={deleteAnnouncementMutation.isPending}
+                      data-testid={`button-delete-${announcement.id}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground leading-relaxed" data-testid={`text-announcement-content-${announcement.id}`}>

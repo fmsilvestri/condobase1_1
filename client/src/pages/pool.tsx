@@ -31,6 +31,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { PoolReading } from "@shared/schema";
 import {
@@ -56,6 +57,7 @@ const poolReadingFormSchema = z.object({
 export default function Pool() {
   const [isNewReadingOpen, setIsNewReadingOpen] = useState(false);
   const { toast } = useToast();
+  const { canEdit } = useAuth();
 
   const { data: readings = [], isLoading } = useQuery<PoolReading[]>({
     queryKey: ["/api/pool"],
@@ -134,121 +136,123 @@ export default function Pool() {
         description="Monitoramento de pH, cloro e parâmetros da água"
         backHref="/"
         actions={
-          <Dialog open={isNewReadingOpen} onOpenChange={setIsNewReadingOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-new-reading">
-                <Plus className="mr-2 h-4 w-4" />
-                Nova Leitura
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Registrar Leitura da Piscina</DialogTitle>
-                <DialogDescription>
-                  Insira os valores medidos e tire uma foto do kit de testes.
-                </DialogDescription>
-              </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit((data) => createReadingMutation.mutate(data))} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+          canEdit && (
+            <Dialog open={isNewReadingOpen} onOpenChange={setIsNewReadingOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-new-reading">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nova Leitura
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Registrar Leitura da Piscina</DialogTitle>
+                  <DialogDescription>
+                    Insira os valores medidos e tire uma foto do kit de testes.
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit((data) => createReadingMutation.mutate(data))} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="ph"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>pH</FormLabel>
+                            <FormControl>
+                              <Input type="number" step="0.1" {...field} data-testid="input-ph" />
+                            </FormControl>
+                            <p className="text-xs text-muted-foreground">Ideal: 7.2 - 7.6</p>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="chlorine"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Cloro (ppm)</FormLabel>
+                            <FormControl>
+                              <Input type="number" step="0.1" {...field} data-testid="input-chlorine" />
+                            </FormControl>
+                            <p className="text-xs text-muted-foreground">Ideal: 1.0 - 3.0</p>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="alkalinity"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Alcalinidade (ppm)</FormLabel>
+                            <FormControl>
+                              <Input type="number" {...field} data-testid="input-alkalinity" />
+                            </FormControl>
+                            <p className="text-xs text-muted-foreground">Ideal: 80 - 120</p>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="calciumHardness"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Dureza Cálcica (ppm)</FormLabel>
+                            <FormControl>
+                              <Input type="number" {...field} data-testid="input-calcium" />
+                            </FormControl>
+                            <p className="text-xs text-muted-foreground">Ideal: 200 - 400</p>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                     <FormField
                       control={form.control}
-                      name="ph"
+                      name="temperature"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>pH</FormLabel>
+                          <FormLabel>Temperatura (°C)</FormLabel>
                           <FormControl>
-                            <Input type="number" step="0.1" {...field} data-testid="input-ph" />
+                            <Input type="number" step="0.1" {...field} data-testid="input-temperature" />
                           </FormControl>
-                          <p className="text-xs text-muted-foreground">Ideal: 7.2 - 7.6</p>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                     <FormField
                       control={form.control}
-                      name="chlorine"
+                      name="notes"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Cloro (ppm)</FormLabel>
+                          <FormLabel>Observações</FormLabel>
                           <FormControl>
-                            <Input type="number" step="0.1" {...field} data-testid="input-chlorine" />
+                            <Textarea placeholder="Observações adicionais..." {...field} data-testid="input-notes" />
                           </FormControl>
-                          <p className="text-xs text-muted-foreground">Ideal: 1.0 - 3.0</p>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="alkalinity"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Alcalinidade (ppm)</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} data-testid="input-alkalinity" />
-                          </FormControl>
-                          <p className="text-xs text-muted-foreground">Ideal: 80 - 120</p>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="calciumHardness"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Dureza Cálcica (ppm)</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} data-testid="input-calcium" />
-                          </FormControl>
-                          <p className="text-xs text-muted-foreground">Ideal: 200 - 400</p>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <FormField
-                    control={form.control}
-                    name="temperature"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Temperatura (°C)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.1" {...field} data-testid="input-temperature" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="notes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Observações</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder="Observações adicionais..." {...field} data-testid="input-notes" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setIsNewReadingOpen(false)}>
-                      Cancelar
-                    </Button>
-                    <Button type="submit" disabled={createReadingMutation.isPending} data-testid="button-save-reading">
-                      {createReadingMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Salvar Leitura
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setIsNewReadingOpen(false)}>
+                        Cancelar
+                      </Button>
+                      <Button type="submit" disabled={createReadingMutation.isPending} data-testid="button-save-reading">
+                        {createReadingMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Salvar Leitura
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          )
         }
       />
 

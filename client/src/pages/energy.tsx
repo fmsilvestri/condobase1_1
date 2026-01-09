@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/hooks/use-auth";
 
 interface EnergyEvent {
   id: string;
@@ -45,6 +46,7 @@ const currentStatus = "ok";
 
 export default function Energy() {
   const [isNewEventOpen, setIsNewEventOpen] = useState(false);
+  const { canEdit } = useAuth();
 
   const totalOutages = mockEvents.filter((e) => e.status !== "ok").length;
   const lastOutage = mockEvents.find((e) => e.status !== "ok");
@@ -83,53 +85,55 @@ export default function Energy() {
         description="Monitoramento do status de energia e ocorrências"
         backHref="/"
         actions={
-          <Dialog open={isNewEventOpen} onOpenChange={setIsNewEventOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-new-energy-event">
-                <Plus className="mr-2 h-4 w-4" />
-                Registrar Ocorrência
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Registrar Ocorrência de Energia</DialogTitle>
-                <DialogDescription>
-                  Registre eventos relacionados ao fornecimento de energia.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select>
-                    <SelectTrigger data-testid="select-energy-status">
-                      <SelectValue placeholder="Selecione o status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ok">Energia OK</SelectItem>
-                      <SelectItem value="falta de energia">Falta de Energia</SelectItem>
-                      <SelectItem value="meia fase">Meia Fase</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="description">Descrição</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Descreva a ocorrência..."
-                    data-testid="input-energy-description"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsNewEventOpen(false)}>
-                  Cancelar
+          canEdit && (
+            <Dialog open={isNewEventOpen} onOpenChange={setIsNewEventOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-new-energy-event">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Registrar Ocorrência
                 </Button>
-                <Button onClick={() => setIsNewEventOpen(false)} data-testid="button-save-energy-event">
-                  Registrar
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Registrar Ocorrência de Energia</DialogTitle>
+                  <DialogDescription>
+                    Registre eventos relacionados ao fornecimento de energia.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="status">Status</Label>
+                    <Select>
+                      <SelectTrigger data-testid="select-energy-status">
+                        <SelectValue placeholder="Selecione o status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ok">Energia OK</SelectItem>
+                        <SelectItem value="falta de energia">Falta de Energia</SelectItem>
+                        <SelectItem value="meia fase">Meia Fase</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="description">Descrição</Label>
+                    <Textarea
+                      id="description"
+                      placeholder="Descreva a ocorrência..."
+                      data-testid="input-energy-description"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsNewEventOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={() => setIsNewEventOpen(false)} data-testid="button-save-energy-event">
+                    Registrar
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )
         }
       />
 

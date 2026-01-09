@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/hooks/use-auth";
 import {
   AreaChart,
   Area,
@@ -52,6 +53,7 @@ const tanks = [
 
 export default function Water() {
   const [isNewReadingOpen, setIsNewReadingOpen] = useState(false);
+  const { canEdit } = useAuth();
 
   const totalCapacity = tanks.reduce((sum, t) => sum + t.capacity, 0);
   const totalVolume = tanks.reduce((sum, t) => sum + (t.capacity * t.level) / 100, 0);
@@ -67,70 +69,72 @@ export default function Water() {
         description="Monitoramento de níveis e qualidade da água"
         backHref="/"
         actions={
-          <Dialog open={isNewReadingOpen} onOpenChange={setIsNewReadingOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-new-water-reading">
-                <Plus className="mr-2 h-4 w-4" />
-                Nova Leitura
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Registrar Leitura de Água</DialogTitle>
-                <DialogDescription>
-                  Atualize os níveis dos reservatórios e a qualidade da água.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="tank">Reservatório</Label>
-                  <Select>
-                    <SelectTrigger data-testid="select-tank">
-                      <SelectValue placeholder="Selecione o reservatório" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tanks.map((tank) => (
-                        <SelectItem key={tank.id} value={tank.id}>
-                          {tank.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+          canEdit && (
+            <Dialog open={isNewReadingOpen} onOpenChange={setIsNewReadingOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-new-water-reading">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nova Leitura
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Registrar Leitura de Água</DialogTitle>
+                  <DialogDescription>
+                    Atualize os níveis dos reservatórios e a qualidade da água.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="level">Nível (%)</Label>
-                    <Input id="level" type="number" placeholder="85" data-testid="input-water-level" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="quality">Qualidade</Label>
+                    <Label htmlFor="tank">Reservatório</Label>
                     <Select>
-                      <SelectTrigger data-testid="select-quality">
-                        <SelectValue placeholder="Selecione" />
+                      <SelectTrigger data-testid="select-tank">
+                        <SelectValue placeholder="Selecione o reservatório" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="boa">Boa</SelectItem>
-                        <SelectItem value="regular">Regular</SelectItem>
-                        <SelectItem value="ruim">Ruim</SelectItem>
+                        {tanks.map((tank) => (
+                          <SelectItem key={tank.id} value={tank.id}>
+                            {tank.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="level">Nível (%)</Label>
+                      <Input id="level" type="number" placeholder="85" data-testid="input-water-level" />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="quality">Qualidade</Label>
+                      <Select>
+                        <SelectTrigger data-testid="select-quality">
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="boa">Boa</SelectItem>
+                          <SelectItem value="regular">Regular</SelectItem>
+                          <SelectItem value="ruim">Ruim</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="notes">Observações</Label>
+                    <Textarea id="notes" placeholder="Observações adicionais..." data-testid="input-water-notes" />
+                  </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="notes">Observações</Label>
-                  <Textarea id="notes" placeholder="Observações adicionais..." data-testid="input-water-notes" />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsNewReadingOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button onClick={() => setIsNewReadingOpen(false)} data-testid="button-save-water-reading">
-                  Salvar Leitura
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsNewReadingOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={() => setIsNewReadingOpen(false)} data-testid="button-save-water-reading">
+                    Salvar Leitura
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )
         }
       />
 

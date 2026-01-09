@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/hooks/use-auth";
 import {
   PieChart,
   Pie,
@@ -72,6 +73,7 @@ const consumptionData = [
 
 export default function Occupancy() {
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const { canEdit } = useAuth();
 
   const occupancyRate = Math.round(
     (mockOccupancy.occupiedUnits / mockOccupancy.totalUnits) * 100
@@ -89,91 +91,93 @@ export default function Occupancy() {
         description="Dados de ocupação e consumo estimado do condomínio"
         backHref="/"
         actions={
-          <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" data-testid="button-edit-occupancy">
-                <Edit className="mr-2 h-4 w-4" />
-                Editar Dados
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Atualizar Dados de Ocupação</DialogTitle>
-                <DialogDescription>
-                  Atualize as informações de ocupação do condomínio.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="total">Total de Unidades</Label>
-                    <Input
-                      id="total"
-                      type="number"
-                      defaultValue={mockOccupancy.totalUnits}
-                      data-testid="input-total-units"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="occupied">Unidades Ocupadas</Label>
-                    <Input
-                      id="occupied"
-                      type="number"
-                      defaultValue={mockOccupancy.occupiedUnits}
-                      data-testid="input-occupied-units"
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="avgPeople">Média de Pessoas por Unidade</Label>
-                  <Input
-                    id="avgPeople"
-                    type="number"
-                    step="0.1"
-                    defaultValue={mockOccupancy.averagePeoplePerUnit}
-                    data-testid="input-avg-people"
-                  />
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="water">Água (L/pessoa/dia)</Label>
-                    <Input
-                      id="water"
-                      type="number"
-                      defaultValue={mockOccupancy.avgWaterConsumption}
-                      data-testid="input-water-consumption"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="gas">Gás (kg/pessoa/mês)</Label>
-                    <Input
-                      id="gas"
-                      type="number"
-                      defaultValue={mockOccupancy.avgGasConsumption}
-                      data-testid="input-gas-consumption"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="energy">Energia (kWh/pessoa/mês)</Label>
-                    <Input
-                      id="energy"
-                      type="number"
-                      defaultValue={mockOccupancy.avgEnergyConsumption}
-                      data-testid="input-energy-consumption"
-                    />
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsEditOpen(false)}>
-                  Cancelar
+          canEdit && (
+            <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" data-testid="button-edit-occupancy">
+                  <Edit className="mr-2 h-4 w-4" />
+                  Editar Dados
                 </Button>
-                <Button onClick={() => setIsEditOpen(false)} data-testid="button-save-occupancy">
-                  Salvar
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Atualizar Dados de Ocupação</DialogTitle>
+                  <DialogDescription>
+                    Atualize as informações de ocupação do condomínio.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="total">Total de Unidades</Label>
+                      <Input
+                        id="total"
+                        type="number"
+                        defaultValue={mockOccupancy.totalUnits}
+                        data-testid="input-total-units"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="occupied">Unidades Ocupadas</Label>
+                      <Input
+                        id="occupied"
+                        type="number"
+                        defaultValue={mockOccupancy.occupiedUnits}
+                        data-testid="input-occupied-units"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="avgPeople">Média de Pessoas por Unidade</Label>
+                    <Input
+                      id="avgPeople"
+                      type="number"
+                      step="0.1"
+                      defaultValue={mockOccupancy.averagePeoplePerUnit}
+                      data-testid="input-avg-people"
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="water">Água (L/pessoa/dia)</Label>
+                      <Input
+                        id="water"
+                        type="number"
+                        defaultValue={mockOccupancy.avgWaterConsumption}
+                        data-testid="input-water-consumption"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="gas">Gás (kg/pessoa/mês)</Label>
+                      <Input
+                        id="gas"
+                        type="number"
+                        defaultValue={mockOccupancy.avgGasConsumption}
+                        data-testid="input-gas-consumption"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="energy">Energia (kWh/pessoa/mês)</Label>
+                      <Input
+                        id="energy"
+                        type="number"
+                        defaultValue={mockOccupancy.avgEnergyConsumption}
+                        data-testid="input-energy-consumption"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsEditOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={() => setIsEditOpen(false)} data-testid="button-save-occupancy">
+                    Salvar
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )
         }
       />
 
