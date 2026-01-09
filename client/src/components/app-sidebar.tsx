@@ -25,7 +25,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
-import logoImage from "@assets/image_1767975985893.png";
+import logoImage from "@assets/image_1767976092597.png";
 
 const mainModules = [
   {
@@ -97,8 +97,8 @@ export function AppSidebar() {
         <Link href="/" className="flex items-center justify-center" data-testid="link-logo">
           <img 
             src={logoImage} 
-            alt="CONDOBASE1 - Tudo do condomínio, conectado" 
-            className="h-16 w-auto object-contain"
+            alt="CONDOBASE1" 
+            className="h-10 w-auto object-contain"
           />
         </Link>
       </SidebarHeader>
