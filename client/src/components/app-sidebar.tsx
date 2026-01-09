@@ -9,7 +9,6 @@ import {
   Trash2,
   Users,
   FileText,
-  Building2,
   Truck,
   Megaphone,
 } from "lucide-react";
@@ -26,6 +25,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
+import logoImage from "@assets/image_1767975985893.png";
 
 const mainModules = [
   {
@@ -94,14 +94,12 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border p-4">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Building2 className="h-6 w-6" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-lg font-bold tracking-tight">CONDOBASE1</span>
-            <span className="text-xs text-muted-foreground">Tudo do condomínio, conectado.</span>
-          </div>
+        <Link href="/" className="flex items-center justify-center" data-testid="link-logo">
+          <img 
+            src={logoImage} 
+            alt="CONDOBASE1 - Tudo do condomínio, conectado" 
+            className="h-16 w-auto object-contain"
+          />
         </Link>
       </SidebarHeader>
       <SidebarContent>
