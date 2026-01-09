@@ -9,8 +9,10 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   userRole: string | null;
   userName: string | null;
+  userEmail: string | null;
   isAdmin: boolean;
   isSindico: boolean;
+  isCondomino: boolean;
   canEdit: boolean;
 }
 
@@ -83,12 +85,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const userRole = dbRole || user?.user_metadata?.role || null;
   const userName = user?.user_metadata?.name || user?.email?.split("@")[0] || null;
+  const userEmail = user?.email || null;
   const isAdmin = userRole === "admin";
   const isSindico = userRole === "síndico";
+  const isCondomino = userRole === "condômino";
   const canEdit = isAdmin || isSindico;
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut, userRole, userName, isAdmin, isSindico, canEdit }}>
+    <AuthContext.Provider value={{ user, session, loading, signOut, userRole, userName, userEmail, isAdmin, isSindico, isCondomino, canEdit }}>
       {children}
     </AuthContext.Provider>
   );

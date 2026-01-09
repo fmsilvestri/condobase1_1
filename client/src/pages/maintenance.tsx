@@ -77,7 +77,7 @@ export default function Maintenance() {
   const [isNewRequestOpen, setIsNewRequestOpen] = useState(false);
   const [isNewEquipmentOpen, setIsNewEquipmentOpen] = useState(false);
   const { toast } = useToast();
-  const { canEdit } = useAuth();
+  const { canEdit, userEmail } = useAuth();
 
   const { data: equipment = [], isLoading: loadingEquipment } = useQuery<Equipment[]>({
     queryKey: ["/api/equipment"],
@@ -126,7 +126,10 @@ export default function Maintenance() {
 
   const createRequestMutation = useMutation({
     mutationFn: (data: z.infer<typeof requestFormSchema>) =>
-      apiRequest("POST", "/api/maintenance", data),
+      apiRequest("POST", "/api/maintenance", {
+        ...data,
+        requestedBy: userEmail,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/maintenance"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
@@ -138,6 +141,11 @@ export default function Maintenance() {
       toast({ title: "Erro ao abrir chamado", variant: "destructive" });
     },
   });
+
+  const canEditRequest = (request: MaintenanceRequest) => {
+    if (canEdit) return true;
+    return request.requestedBy === userEmail;
+  };
 
   const filteredEquipment = equipment.filter((eq) => {
     const matchesSearch = eq.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -509,6 +517,11 @@ export default function Maintenance() {
                         <Button variant="outline" size="sm" data-testid={`button-view-${req.id}`}>
                           Ver Detalhes
                         </Button>
+                        {canEditRequest(req) && (
+                          <Button variant="outline" size="sm" data-testid={`button-edit-request-${req.id}`}>
+                            Editar
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
