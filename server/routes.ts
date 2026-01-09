@@ -14,12 +14,47 @@ import {
   insertAnnouncementSchema,
 } from "@shared/schema";
 
+import { supabase, isSupabaseConfigured } from "./supabase";
+
 const storage = createStorage();
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  app.get("/api/supabase-status", async (req, res) => {
+    if (!isSupabaseConfigured || !supabase) {
+      return res.json({ 
+        configured: false, 
+        message: "Supabase não configurado. Usando armazenamento em memória." 
+      });
+    }
+    
+    try {
+      const { data, error } = await supabase.from("equipment").select("id").limit(1);
+      if (error) {
+        console.log("Supabase test error:", error.message);
+        return res.json({ 
+          configured: true, 
+          connected: false, 
+          error: error.message,
+          hint: "Execute o arquivo supabase/schema.sql no SQL Editor do Supabase para criar as tabelas."
+        });
+      }
+      return res.json({ 
+        configured: true, 
+        connected: true, 
+        message: "Conectado ao Supabase com sucesso!" 
+      });
+    } catch (err: any) {
+      return res.json({ 
+        configured: true, 
+        connected: false, 
+        error: err.message 
+      });
+    }
+  });
   
   app.get("/api/dashboard", async (req, res) => {
     try {
@@ -58,8 +93,9 @@ export async function registerRoutes(
         expiringDocuments,
         recentAnnouncements: announcements.slice(0, 5),
       });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch dashboard data" });
+    } catch (error: any) {
+      console.error("Dashboard error:", error?.message || error);
+      res.status(500).json({ error: "Failed to fetch dashboard data", details: error?.message });
     }
   });
 
