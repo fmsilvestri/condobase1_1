@@ -542,32 +542,38 @@ ORDER BY
 
 -- View de última leitura de cada tipo
 CREATE OR REPLACE VIEW public.latest_readings AS
-SELECT 
-    'pool' as type,
-    id,
-    created_at,
-    jsonb_build_object('ph', ph, 'chlorine', chlorine, 'temperature', temperature) as data
-FROM public.pool_readings
-ORDER BY created_at DESC
-LIMIT 1
+SELECT * FROM (
+    SELECT 
+        'pool' as type,
+        id,
+        created_at,
+        jsonb_build_object('ph', ph, 'chlorine', chlorine, 'temperature', temperature) as data
+    FROM public.pool_readings
+    ORDER BY created_at DESC
+    LIMIT 1
+) pool_latest
 UNION ALL
-SELECT 
-    'water' as type,
-    id,
-    created_at,
-    jsonb_build_object('tank_level', tank_level, 'quality', quality) as data
-FROM public.water_readings
-ORDER BY created_at DESC
-LIMIT 1
+SELECT * FROM (
+    SELECT 
+        'water' as type,
+        id,
+        created_at,
+        jsonb_build_object('tank_level', tank_level, 'quality', quality) as data
+    FROM public.water_readings
+    ORDER BY created_at DESC
+    LIMIT 1
+) water_latest
 UNION ALL
-SELECT 
-    'gas' as type,
-    id,
-    created_at,
-    jsonb_build_object('level', level, 'percent_available', percent_available) as data
-FROM public.gas_readings
-ORDER BY created_at DESC
-LIMIT 1;
+SELECT * FROM (
+    SELECT 
+        'gas' as type,
+        id,
+        created_at,
+        jsonb_build_object('level', level, 'percent_available', percent_available) as data
+    FROM public.gas_readings
+    ORDER BY created_at DESC
+    LIMIT 1
+) gas_latest;
 
 -- =====================================================
 -- 7. DADOS INICIAIS (Opcional - Remover em Produção)
