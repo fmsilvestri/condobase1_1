@@ -12,6 +12,8 @@ import {
   insertDocumentSchema,
   insertSupplierSchema,
   insertAnnouncementSchema,
+  insertUserSchema,
+  updateUserSchema,
 } from "@shared/schema";
 
 import { supabase, isSupabaseConfigured } from "./supabase";
@@ -103,6 +105,63 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Dashboard error:", error?.message || error);
       res.status(500).json({ error: "Failed to fetch dashboard data", details: error?.message });
+    }
+  });
+
+  // Users/Admin routes
+  app.get("/api/users", async (req, res) => {
+    try {
+      const users = await storage.getUsers();
+      res.json(users);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch users", details: error.message });
+    }
+  });
+
+  app.get("/api/users/:id", async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch user" });
+    }
+  });
+
+  app.post("/api/users", async (req, res) => {
+    try {
+      const validatedData = insertUserSchema.parse(req.body);
+      const user = await storage.createUser(validatedData);
+      res.status(201).json(user);
+    } catch (error: any) {
+      res.status(400).json({ error: "Invalid user data", details: error.message });
+    }
+  });
+
+  app.patch("/api/users/:id", async (req, res) => {
+    try {
+      const validatedData = updateUserSchema.parse(req.body);
+      const user = await storage.updateUser(req.params.id, validatedData);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(user);
+    } catch (error: any) {
+      res.status(400).json({ error: "Failed to update user", details: error.message });
+    }
+  });
+
+  app.delete("/api/users/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteUser(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete user" });
     }
   });
 

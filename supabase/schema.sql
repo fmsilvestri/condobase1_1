@@ -15,11 +15,12 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS public.users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     auth_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
-    username TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
     role TEXT NOT NULL DEFAULT 'condômino' CHECK (role IN ('síndico', 'condômino', 'admin', 'porteiro')),
     name TEXT NOT NULL,
     unit TEXT,
     avatar_url TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

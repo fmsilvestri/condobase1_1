@@ -26,8 +26,11 @@ import { randomUUID } from "crypto";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUsers(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
+  deleteUser(id: string): Promise<boolean>;
 
   getEquipment(): Promise<Equipment[]>;
   getEquipmentById(id: string): Promise<Equipment | undefined>;
@@ -107,13 +110,27 @@ export class MemStorage implements IStorage {
   private seedData() {
     const defaultUser: User = {
       id: "1",
-      username: "sindico",
-      password: "123456",
+      email: "sindico@condobase.com",
       role: "síndico",
       name: "João Silva",
       unit: null,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
     this.users.set(defaultUser.id, defaultUser);
+
+    const adminUser: User = {
+      id: "2",
+      email: "admin@condobase.com",
+      role: "admin",
+      name: "Administrador",
+      unit: null,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.users.set(adminUser.id, adminUser);
 
     const equipmentData: Equipment[] = [
       { id: "1", name: "Bomba d'Água Principal", category: "hidráulico", location: "Casa de Máquinas", description: "Bomba centrífuga 5CV", photos: [], status: "operacional", createdAt: new Date() },
@@ -193,15 +210,33 @@ export class MemStorage implements IStorage {
     return this.users.get(id);
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find((user) => user.username === username);
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find((user) => user.email === email);
+  }
+
+  async getUsers(): Promise<User[]> {
+    return Array.from(this.users.values()).sort((a, b) =>
+      (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
+    );
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
-    const user: User = { ...insertUser, id };
+    const user: User = { ...insertUser, id, createdAt: new Date(), updatedAt: new Date() };
     this.users.set(id, user);
     return user;
+  }
+
+  async updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined> {
+    const existing = this.users.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...data, updatedAt: new Date() };
+    this.users.set(id, updated);
+    return updated;
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    return this.users.delete(id);
   }
 
   async getEquipment(): Promise<Equipment[]> {

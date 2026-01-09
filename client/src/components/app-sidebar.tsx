@@ -12,6 +12,7 @@ import {
   Truck,
   Megaphone,
   LogOut,
+  Settings,
 } from "lucide-react";
 import {
   Sidebar,
@@ -99,8 +100,9 @@ interface AppSidebarProps {
 export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
   const [location] = useLocation();
 
-  const displayRole = userRole === "síndico" ? "Síndico" : "Condômino";
+  const displayRole = userRole === "admin" ? "Administrador" : userRole === "síndico" ? "Síndico" : "Condômino";
   const displayName = userName || "Usuário";
+  const isAdmin = userRole === "admin" || userRole === "síndico";
 
   return (
     <Sidebar>
@@ -156,6 +158,27 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Administração</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/admin"}
+                    data-testid="nav-admin"
+                  >
+                    <Link href="/admin">
+                      <Settings className="h-4 w-4" />
+                      <span>Painel Admin</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border p-4">
         <div className="flex items-center justify-between gap-2">

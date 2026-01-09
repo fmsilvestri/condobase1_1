@@ -56,14 +56,23 @@ export class SupabaseStorage implements IStorage {
     return toCamelCase(data) as User;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
+  async getUserByEmail(email: string): Promise<User | undefined> {
     const { data, error } = await this.sb
       .from("users")
       .select("*")
-      .eq("username", username)
+      .eq("email", email)
       .single();
     if (error || !data) return undefined;
     return toCamelCase(data) as User;
+  }
+
+  async getUsers(): Promise<User[]> {
+    const { data, error } = await this.sb
+      .from("users")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data || []).map(d => toCamelCase(d) as User);
   }
 
   async createUser(user: InsertUser): Promise<User> {
@@ -74,6 +83,25 @@ export class SupabaseStorage implements IStorage {
       .single();
     if (error) throw new Error(error.message);
     return toCamelCase(data) as User;
+  }
+
+  async updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined> {
+    const { data, error } = await this.sb
+      .from("users")
+      .update(toSnakeCase(user))
+      .eq("id", id)
+      .select()
+      .single();
+    if (error || !data) return undefined;
+    return toCamelCase(data) as User;
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    const { error } = await this.sb
+      .from("users")
+      .delete()
+      .eq("id", id);
+    return !error;
   }
 
   async getEquipment(): Promise<Equipment[]> {

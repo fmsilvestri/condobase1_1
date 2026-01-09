@@ -21,6 +21,7 @@ import Occupancy from "@/pages/occupancy";
 import Documents from "@/pages/documents";
 import Suppliers from "@/pages/suppliers";
 import Announcements from "@/pages/announcements";
+import Admin from "@/pages/admin";
 import Login from "@/pages/login";
 
 function Router() {
@@ -37,6 +38,7 @@ function Router() {
       <Route path="/documentos" component={Documents} />
       <Route path="/fornecedores" component={Suppliers} />
       <Route path="/comunicados" component={Announcements} />
+      <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>
   );

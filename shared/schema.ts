@@ -3,21 +3,30 @@ import { pgTable, text, varchar, integer, boolean, timestamp, real } from "drizz
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export const userRoles = ["condômino", "síndico", "admin"] as const;
+export type UserRole = (typeof userRoles)[number];
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  email: text("email").notNull().unique(),
   role: text("role").notNull().default("condômino"),
   name: text("name").notNull(),
   unit: text("unit"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-  role: true,
-  name: true,
-  unit: true,
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const updateUserSchema = createInsertSchema(users).partial().omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;

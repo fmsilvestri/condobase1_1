@@ -67,8 +67,15 @@ The application consists of these main feature modules:
 - **Comunicados**: Announcements and resident communications
 
 ### User Roles
-- **Síndico (Admin)**: Full CRUD access to all modules, report generation
+- **Admin**: Super administrator with full system access, can manage all users and settings
+- **Síndico**: Building administrator with full CRUD access to all modules, report generation, user management
 - **Condômino (Resident)**: Read-only access, can open maintenance requests and view supplier contacts
+
+### Authentication
+- **Supabase Auth**: Email/password and Google OAuth authentication
+- **User Model**: email, name, role, unit, isActive, timestamps
+- **Admin Panel**: Accessible only to admin and síndico roles via sidebar navigation
+- **Session Management**: JWT-based sessions via Supabase
 
 ## External Dependencies
 
