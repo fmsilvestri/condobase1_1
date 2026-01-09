@@ -23,6 +23,13 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
+  app.get("/api/supabase-config", (req, res) => {
+    res.json({
+      url: process.env.SUPABASE_URL || "",
+      anonKey: process.env.SUPABASE_ANON_KEY || "",
+    });
+  });
+
   app.get("/api/supabase-status", async (req, res) => {
     if (!isSupabaseConfigured || !supabase) {
       return res.json({ 

@@ -41,5 +41,3 @@ waitForPort = 5000
 [userenv]
 
 [userenv.shared]
-VITE_SUPABASE_URL = "${SUPABASE_URL}"
-VITE_SUPABASE_ANON_KEY = "${SUPABASE_ANON_KEY}"

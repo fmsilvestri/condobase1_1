@@ -11,6 +11,7 @@ import {
   FileText,
   Truck,
   Megaphone,
+  LogOut,
 } from "lucide-react";
 import {
   Sidebar,
@@ -25,6 +26,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import logoImage from "@assets/image_1767976092597.png";
 
 const mainModules = [
@@ -88,8 +90,17 @@ const secondaryModules = [
   },
 ];
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  userName?: string | null;
+  userRole?: string | null;
+  onSignOut?: () => void;
+}
+
+export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
   const [location] = useLocation();
+
+  const displayRole = userRole === "síndico" ? "Síndico" : "Condômino";
+  const displayName = userName || "Usuário";
 
   return (
     <Sidebar>
@@ -147,16 +158,28 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Users className="h-4 w-4" />
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Users className="h-4 w-4" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium truncate max-w-[120px]">{displayName}</span>
+              <Badge variant="secondary" className="w-fit text-xs">
+                {displayRole}
+              </Badge>
+            </div>
           </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-medium">Síndico</span>
-            <Badge variant="secondary" className="w-fit text-xs">
-              Admin
-            </Badge>
-          </div>
+          {onSignOut && (
+            <Button 
+              size="icon" 
+              variant="ghost" 
+              onClick={onSignOut}
+              data-testid="button-logout"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </SidebarFooter>
     </Sidebar>

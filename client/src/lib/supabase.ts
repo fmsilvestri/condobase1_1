@@ -1,14 +1,40 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+let supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
+let supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn("Supabase credentials not found in frontend environment.");
+export let supabase: SupabaseClient | null = null;
+export let isSupabaseConfigured = false;
+
+function isValidUrl(url: string): boolean {
+  try {
+    new URL(url);
+    return url.startsWith('http://') || url.startsWith('https://');
+  } catch {
+    return false;
+  }
 }
 
-export const supabase = supabaseUrl && supabaseAnonKey
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+async function initializeSupabase() {
+  if (supabaseUrl && supabaseAnonKey && isValidUrl(supabaseUrl)) {
+    supabase = createClient(supabaseUrl, supabaseAnonKey);
+    isSupabaseConfigured = true;
+    return;
+  }
 
-export const isSupabaseConfigured = !!supabase;
+  try {
+    const response = await fetch("/api/supabase-config");
+    const config = await response.json();
+    
+    if (config.url && config.anonKey && isValidUrl(config.url)) {
+      supabaseUrl = config.url;
+      supabaseAnonKey = config.anonKey;
+      supabase = createClient(supabaseUrl, supabaseAnonKey);
+      isSupabaseConfigured = true;
+    }
+  } catch (error) {
+    console.warn("Could not fetch Supabase config from server");
+  }
+}
+
+export const supabaseReady = initializeSupabase();
