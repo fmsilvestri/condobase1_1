@@ -132,8 +132,9 @@ export async function registerRoutes(
       const validatedData = insertEquipmentSchema.parse(req.body);
       const equipment = await storage.createEquipment(validatedData);
       res.status(201).json(equipment);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid equipment data" });
+    } catch (error: any) {
+      console.error("Equipment validation error:", error.message || error);
+      res.status(400).json({ error: "Invalid equipment data", details: error.message });
     }
   });
 
