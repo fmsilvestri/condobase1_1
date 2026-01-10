@@ -126,8 +126,25 @@ export const insertPoolReadingSchema = createInsertSchema(poolReadings).omit({
 export type InsertPoolReading = z.infer<typeof insertPoolReadingSchema>;
 export type PoolReading = typeof poolReadings.$inferSelect;
 
+export const reservoirs = pgTable("reservoirs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  location: text("location").notNull(),
+  capacityLiters: real("capacity_liters").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertReservoirSchema = createInsertSchema(reservoirs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertReservoir = z.infer<typeof insertReservoirSchema>;
+export type Reservoir = typeof reservoirs.$inferSelect;
+
 export const waterReadings = pgTable("water_readings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reservoirId: varchar("reservoir_id"),
   tankLevel: real("tank_level").notNull(),
   quality: text("quality").notNull().default("boa"),
   volumeAvailable: real("volume_available").notNull(),

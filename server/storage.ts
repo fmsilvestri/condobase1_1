@@ -7,6 +7,8 @@ import {
   type InsertMaintenanceRequest,
   type PoolReading,
   type InsertPoolReading,
+  type Reservoir,
+  type InsertReservoir,
   type WaterReading,
   type InsertWaterReading,
   type GasReading,
@@ -51,6 +53,12 @@ export interface IStorage {
 
   getPoolReadings(): Promise<PoolReading[]>;
   createPoolReading(reading: InsertPoolReading): Promise<PoolReading>;
+
+  getReservoirs(): Promise<Reservoir[]>;
+  getReservoirById(id: string): Promise<Reservoir | undefined>;
+  createReservoir(reservoir: InsertReservoir): Promise<Reservoir>;
+  updateReservoir(id: string, reservoir: Partial<InsertReservoir>): Promise<Reservoir | undefined>;
+  deleteReservoir(id: string): Promise<boolean>;
 
   getWaterReadings(): Promise<WaterReading[]>;
   createWaterReading(reading: InsertWaterReading): Promise<WaterReading>;
@@ -99,6 +107,7 @@ export class MemStorage implements IStorage {
   private equipment: Map<string, Equipment>;
   private maintenanceRequests: Map<string, MaintenanceRequest>;
   private poolReadings: Map<string, PoolReading>;
+  private reservoirs: Map<string, Reservoir>;
   private waterReadings: Map<string, WaterReading>;
   private gasReadings: Map<string, GasReading>;
   private energyEvents: Map<string, EnergyEvent>;
@@ -112,6 +121,7 @@ export class MemStorage implements IStorage {
     this.equipment = new Map();
     this.maintenanceRequests = new Map();
     this.poolReadings = new Map();
+    this.reservoirs = new Map();
     this.waterReadings = new Map();
     this.gasReadings = new Map();
     this.energyEvents = new Map();
@@ -171,7 +181,7 @@ export class MemStorage implements IStorage {
     poolData.forEach((p) => this.poolReadings.set(p.id, p));
 
     const waterData: WaterReading[] = [
-      { id: "1", tankLevel: 85, quality: "boa", volumeAvailable: 42500, estimatedAutonomy: 8.5, casanStatus: "normal", notes: null, createdAt: new Date(), recordedBy: "1" },
+      { id: "1", reservoirId: null, tankLevel: 85, quality: "boa", volumeAvailable: 42500, estimatedAutonomy: 8.5, casanStatus: "normal", notes: null, createdAt: new Date(), recordedBy: "1" },
     ];
     waterData.forEach((w) => this.waterReadings.set(w.id, w));
 
@@ -338,6 +348,35 @@ export class MemStorage implements IStorage {
     const reading: PoolReading = { ...insertReading, id, createdAt: new Date() };
     this.poolReadings.set(id, reading);
     return reading;
+  }
+
+  async getReservoirs(): Promise<Reservoir[]> {
+    return Array.from(this.reservoirs.values()).sort((a, b) =>
+      (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
+    );
+  }
+
+  async getReservoirById(id: string): Promise<Reservoir | undefined> {
+    return this.reservoirs.get(id);
+  }
+
+  async createReservoir(insertReservoir: InsertReservoir): Promise<Reservoir> {
+    const id = randomUUID();
+    const reservoir: Reservoir = { ...insertReservoir, id, createdAt: new Date() };
+    this.reservoirs.set(id, reservoir);
+    return reservoir;
+  }
+
+  async updateReservoir(id: string, data: Partial<InsertReservoir>): Promise<Reservoir | undefined> {
+    const existing = this.reservoirs.get(id);
+    if (!existing) return undefined;
+    const updated: Reservoir = { ...existing, ...data };
+    this.reservoirs.set(id, updated);
+    return updated;
+  }
+
+  async deleteReservoir(id: string): Promise<boolean> {
+    return this.reservoirs.delete(id);
   }
 
   async getWaterReadings(): Promise<WaterReading[]> {

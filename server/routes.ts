@@ -5,6 +5,7 @@ import {
   insertEquipmentSchema,
   insertMaintenanceRequestSchema,
   insertPoolReadingSchema,
+  insertReservoirSchema,
   insertWaterReadingSchema,
   insertGasReadingSchema,
   insertEnergyEventSchema,
@@ -392,6 +393,61 @@ export async function registerRoutes(
       res.status(201).json(reading);
     } catch (error) {
       res.status(400).json({ error: "Invalid pool reading data" });
+    }
+  });
+
+  app.get("/api/reservoirs", async (req, res) => {
+    try {
+      const reservoirs = await storage.getReservoirs();
+      res.json(reservoirs);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch reservoirs" });
+    }
+  });
+
+  app.get("/api/reservoirs/:id", async (req, res) => {
+    try {
+      const reservoir = await storage.getReservoirById(req.params.id);
+      if (!reservoir) {
+        return res.status(404).json({ error: "Reservoir not found" });
+      }
+      res.json(reservoir);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch reservoir" });
+    }
+  });
+
+  app.post("/api/reservoirs", async (req, res) => {
+    try {
+      const validatedData = insertReservoirSchema.parse(req.body);
+      const reservoir = await storage.createReservoir(validatedData);
+      res.status(201).json(reservoir);
+    } catch (error: any) {
+      res.status(400).json({ error: "Invalid reservoir data", details: error.message });
+    }
+  });
+
+  app.patch("/api/reservoirs/:id", async (req, res) => {
+    try {
+      const reservoir = await storage.updateReservoir(req.params.id, req.body);
+      if (!reservoir) {
+        return res.status(404).json({ error: "Reservoir not found" });
+      }
+      res.json(reservoir);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update reservoir" });
+    }
+  });
+
+  app.delete("/api/reservoirs/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteReservoir(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Reservoir not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete reservoir" });
     }
   });
 
