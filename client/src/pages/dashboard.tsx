@@ -136,34 +136,42 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Chamados Abertos"
-          value={data.openRequests}
-          icon={Wrench}
-          color="amber"
-          testId="stat-chamados"
-        />
-        <StatCard
-          title="Unidades Ocupadas"
-          value={`${data.occupancy?.occupiedUnits || 0}/${data.occupancy?.totalUnits || 0}`}
-          icon={Users}
-          color="green"
-          testId="stat-ocupacao"
-        />
-        <StatCard
-          title="Nível de Gás"
-          value={`${data.latestGasReading?.level || 0}%`}
-          icon={Flame}
-          color="blue"
-          testId="stat-gas"
-        />
-        <StatCard
-          title="Documentos a Vencer"
-          value={data.expiringDocuments}
-          icon={FileText}
-          color="red"
-          testId="stat-documentos"
-        />
+        {canAccessModule("manutencoes") && (
+          <StatCard
+            title="Chamados Abertos"
+            value={data.openRequests}
+            icon={Wrench}
+            color="amber"
+            testId="stat-chamados"
+          />
+        )}
+        {canAccessModule("ocupacao") && (
+          <StatCard
+            title="Unidades Ocupadas"
+            value={`${data.occupancy?.occupiedUnits || 0}/${data.occupancy?.totalUnits || 0}`}
+            icon={Users}
+            color="green"
+            testId="stat-ocupacao"
+          />
+        )}
+        {canAccessModule("gas") && (
+          <StatCard
+            title="Nível de Gás"
+            value={`${data.latestGasReading?.level || 0}%`}
+            icon={Flame}
+            color="blue"
+            testId="stat-gas"
+          />
+        )}
+        {canAccessModule("documentos") && (
+          <StatCard
+            title="Documentos a Vencer"
+            value={data.expiringDocuments}
+            icon={FileText}
+            color="red"
+            testId="stat-documentos"
+          />
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
