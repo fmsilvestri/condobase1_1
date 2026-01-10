@@ -91,11 +91,11 @@ export function ModuleCard({
           <div className="flex items-center gap-3">
             <div
               className={cn(
-                "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110",
+                "icon-3d h-11 w-11 shrink-0",
                 colorStyle.bg
               )}
             >
-              <Icon className={cn("h-5 w-5", colorStyle.text)} />
+              <Icon className={cn("h-5 w-5 relative z-10", colorStyle.text)} />
             </div>
             <div className="min-w-0">
               <CardTitle className="text-base font-semibold">{title}</CardTitle>

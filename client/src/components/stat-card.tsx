@@ -98,11 +98,11 @@ export function StatCard({
           </div>
           <div
             className={cn(
-              "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110",
+              "icon-3d h-12 w-12 shrink-0",
               colorStyle.bg
             )}
           >
-            <Icon className={cn("h-6 w-6", colorStyle.text)} />
+            <Icon className={cn("h-6 w-6 relative z-10", colorStyle.text)} />
           </div>
         </div>
       </CardContent>
