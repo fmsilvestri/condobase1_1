@@ -41,7 +41,7 @@ const iconMap: Record<string, LucideIcon> = {
 
 export default function FeatureAccess() {
   const { toast } = useToast();
-  const { userId, userRole } = useAuth();
+  const { userId, userRole, userEmail } = useAuth();
 
   const isAdmin = userRole === "admin" || userRole === "síndico";
 
@@ -68,7 +68,8 @@ export default function FeatureAccess() {
     mutationFn: async ({ moduleKey, isEnabled }: { moduleKey: string; isEnabled: boolean }) => {
       return apiRequest("PATCH", `/api/module-permissions/${moduleKey}`, { 
         isEnabled,
-        updatedBy: userId 
+        updatedBy: userId,
+        userEmail: userEmail
       });
     },
     onSuccess: () => {

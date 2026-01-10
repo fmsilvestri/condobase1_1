@@ -691,14 +691,19 @@ export async function registerRoutes(
   // The frontend guard in FeatureAccess page provides additional protection.
   app.patch("/api/module-permissions/:moduleKey", async (req, res) => {
     try {
-      const { isEnabled, updatedBy } = req.body;
+      const { isEnabled, updatedBy, userEmail } = req.body;
       
-      if (!updatedBy) {
-        return res.status(401).json({ error: "User ID required" });
+      if (!updatedBy && !userEmail) {
+        return res.status(401).json({ error: "User ID or email required" });
       }
       
       // Verify user exists and has admin/síndico role
-      const user = await storage.getUser(updatedBy);
+      // Try by ID first, then by email (IDs may differ between Supabase Auth and DB)
+      let user = await storage.getUser(updatedBy);
+      if (!user && userEmail) {
+        user = await storage.getUserByEmail(userEmail);
+      }
+      
       if (!user) {
         return res.status(401).json({ error: "User not found" });
       }
@@ -712,7 +717,7 @@ export async function registerRoutes(
       const permission = await storage.updateModulePermission(
         req.params.moduleKey,
         isEnabled,
-        updatedBy
+        user.id
       );
       if (!permission) {
         return res.status(404).json({ error: "Module permission not found" });
