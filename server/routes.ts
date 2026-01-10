@@ -425,11 +425,13 @@ export async function registerRoutes(
 
   app.post("/api/gas", async (req, res) => {
     try {
+      console.log("Gas reading request body:", JSON.stringify(req.body));
       const validatedData = insertGasReadingSchema.parse(req.body);
       const reading = await storage.createGasReading(validatedData);
       res.status(201).json(reading);
     } catch (error) {
-      res.status(400).json({ error: "Invalid gas reading data" });
+      console.error("Gas reading validation error:", error);
+      res.status(400).json({ error: "Invalid gas reading data", details: String(error) });
     }
   });
 
