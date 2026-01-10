@@ -312,12 +312,40 @@ export async function registerRoutes(
 
   app.patch("/api/maintenance/:id", async (req, res) => {
     try {
+      // Get existing request to check if status is changing
+      const existingRequest = await storage.getMaintenanceRequestById(req.params.id);
+      if (!existingRequest) {
+        return res.status(404).json({ error: "Maintenance request not found" });
+      }
+      
+      const oldStatus = existingRequest.status;
       const request = await storage.updateMaintenanceRequest(req.params.id, req.body);
       if (!request) {
         return res.status(404).json({ error: "Maintenance request not found" });
       }
+      
+      // If status changed and there's a requester, notify them
+      if (req.body.status && req.body.status !== oldStatus && request.requestedBy) {
+        const statusLabels: Record<string, string> = {
+          "aberto": "Chamado Aberto",
+          "em andamento": "Em Andamento",
+          "concluído": "Concluído"
+        };
+        const statusLabel = statusLabels[req.body.status] || req.body.status;
+        
+        await storage.createNotification({
+          userId: request.requestedBy,
+          type: "maintenance_update",
+          title: `Chamado Atualizado: ${statusLabel}`,
+          message: `Seu chamado "${request.title}" foi atualizado para "${statusLabel}".`,
+          relatedId: request.id,
+          isRead: false,
+        });
+      }
+      
       res.json(request);
     } catch (error) {
+      console.error("Error updating maintenance request:", error);
       res.status(400).json({ error: "Failed to update maintenance request" });
     }
   });
