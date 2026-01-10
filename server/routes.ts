@@ -256,11 +256,15 @@ export async function registerRoutes(
 
   app.post("/api/maintenance", async (req, res) => {
     try {
+      console.log("[maintenance] Creating request with data:", JSON.stringify(req.body));
       const validatedData = insertMaintenanceRequestSchema.parse(req.body);
+      console.log("[maintenance] Validated data:", JSON.stringify(validatedData));
       const request = await storage.createMaintenanceRequest(validatedData);
+      console.log("[maintenance] Created request:", JSON.stringify(request));
       res.status(201).json(request);
     } catch (error) {
-      res.status(400).json({ error: "Invalid maintenance request data" });
+      console.error("[maintenance] Error creating request:", error);
+      res.status(400).json({ error: "Invalid maintenance request data", details: String(error) });
     }
   });
 

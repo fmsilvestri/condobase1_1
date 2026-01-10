@@ -67,8 +67,8 @@ const requestFormSchema = z.object({
   equipmentId: z.string().min(1, "Equipamento é obrigatório"),
   title: z.string().min(1, "Título é obrigatório"),
   description: z.string().min(1, "Descrição é obrigatória"),
-  priority: z.string().default("normal"),
-  status: z.string().default("aberto"),
+  priority: z.string().optional().default("normal"),
+  status: z.string().optional().default("aberto"),
 });
 
 export default function Maintenance() {
@@ -125,11 +125,13 @@ export default function Maintenance() {
   });
 
   const createRequestMutation = useMutation({
-    mutationFn: (data: z.infer<typeof requestFormSchema>) =>
-      apiRequest("POST", "/api/maintenance", {
+    mutationFn: async (data: z.infer<typeof requestFormSchema>) => {
+      console.log("[maintenance] Submitting request:", data);
+      return apiRequest("POST", "/api/maintenance", {
         ...data,
-        requestedBy: userEmail,
-      }),
+        requestedBy: userEmail || null,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/maintenance"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
@@ -137,8 +139,9 @@ export default function Maintenance() {
       setIsNewRequestOpen(false);
       requestForm.reset();
     },
-    onError: () => {
-      toast({ title: "Erro ao abrir chamado", variant: "destructive" });
+    onError: (error) => {
+      console.error("[maintenance] Error creating request:", error);
+      toast({ title: "Erro ao abrir chamado", description: String(error), variant: "destructive" });
     },
   });
 
@@ -299,7 +302,15 @@ export default function Maintenance() {
                   </DialogDescription>
                 </DialogHeader>
                 <Form {...requestForm}>
-                  <form onSubmit={requestForm.handleSubmit((data) => createRequestMutation.mutate(data))} className="space-y-4">
+                  <form onSubmit={requestForm.handleSubmit(
+                    (data) => {
+                      console.log("[maintenance] Form submitted with data:", data);
+                      createRequestMutation.mutate(data);
+                    },
+                    (errors) => {
+                      console.log("[maintenance] Form validation errors:", errors);
+                    }
+                  )} className="space-y-4">
                     <FormField
                       control={requestForm.control}
                       name="equipmentId"
