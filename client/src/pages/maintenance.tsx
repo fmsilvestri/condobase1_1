@@ -139,9 +139,13 @@ export default function Maintenance() {
       setIsNewRequestOpen(false);
       requestForm.reset();
     },
-    onError: (error) => {
-      console.error("[maintenance] Error creating request:", error);
-      toast({ title: "Erro ao abrir chamado", description: String(error), variant: "destructive" });
+    onError: (error: Error) => {
+      console.error("[maintenance] Error creating request:", error.message || error);
+      toast({ 
+        title: "Erro ao abrir chamado", 
+        description: error.message || "Erro de conexão. Tente novamente.", 
+        variant: "destructive" 
+      });
     },
   });
 
