@@ -23,6 +23,8 @@ import {
   type InsertAnnouncement,
   type Notification,
   type InsertNotification,
+  type ModulePermission,
+  type InsertModulePermission,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -87,6 +89,9 @@ export interface IStorage {
   markNotificationAsRead(id: string): Promise<boolean>;
   markAllNotificationsAsRead(userId: string): Promise<boolean>;
   createNotificationsForAllUsers(notification: Omit<InsertNotification, 'userId'>, excludeUserId?: string): Promise<void>;
+
+  getModulePermissions(): Promise<ModulePermission[]>;
+  updateModulePermission(moduleKey: string, isEnabled: boolean, updatedBy?: string): Promise<ModulePermission | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -527,6 +532,31 @@ export class MemStorage implements IStorage {
       if (excludeUserId && user.id === excludeUserId) continue;
       await this.createNotification({ ...notification, userId: user.id });
     }
+  }
+
+  private modulePermissions: Map<string, ModulePermission> = new Map([
+    ["manutencoes", { id: "1", moduleKey: "manutencoes", moduleLabel: "Manutenções", moduleIcon: "Wrench", isEnabled: true, updatedAt: new Date(), updatedBy: null }],
+    ["piscina", { id: "2", moduleKey: "piscina", moduleLabel: "Piscina", moduleIcon: "Waves", isEnabled: true, updatedAt: new Date(), updatedBy: null }],
+    ["agua", { id: "3", moduleKey: "agua", moduleLabel: "Água", moduleIcon: "Droplet", isEnabled: true, updatedAt: new Date(), updatedBy: null }],
+    ["gas", { id: "4", moduleKey: "gas", moduleLabel: "Gás", moduleIcon: "Flame", isEnabled: true, updatedAt: new Date(), updatedBy: null }],
+    ["energia", { id: "5", moduleKey: "energia", moduleLabel: "Energia", moduleIcon: "Zap", isEnabled: true, updatedAt: new Date(), updatedBy: null }],
+    ["residuos", { id: "6", moduleKey: "residuos", moduleLabel: "Resíduos", moduleIcon: "Trash2", isEnabled: true, updatedAt: new Date(), updatedBy: null }],
+    ["ocupacao", { id: "7", moduleKey: "ocupacao", moduleLabel: "Ocupação", moduleIcon: "Users", isEnabled: true, updatedAt: new Date(), updatedBy: null }],
+    ["documentos", { id: "8", moduleKey: "documentos", moduleLabel: "Documentos", moduleIcon: "FileText", isEnabled: true, updatedAt: new Date(), updatedBy: null }],
+    ["fornecedores", { id: "9", moduleKey: "fornecedores", moduleLabel: "Fornecedores", moduleIcon: "Building2", isEnabled: true, updatedAt: new Date(), updatedBy: null }],
+    ["comunicados", { id: "10", moduleKey: "comunicados", moduleLabel: "Comunicados", moduleIcon: "Megaphone", isEnabled: true, updatedAt: new Date(), updatedBy: null }],
+  ]);
+
+  async getModulePermissions(): Promise<ModulePermission[]> {
+    return Array.from(this.modulePermissions.values());
+  }
+
+  async updateModulePermission(moduleKey: string, isEnabled: boolean, updatedBy?: string): Promise<ModulePermission | undefined> {
+    const permission = this.modulePermissions.get(moduleKey);
+    if (!permission) return undefined;
+    const updated = { ...permission, isEnabled, updatedAt: new Date(), updatedBy: updatedBy || null };
+    this.modulePermissions.set(moduleKey, updated);
+    return updated;
   }
 }
 

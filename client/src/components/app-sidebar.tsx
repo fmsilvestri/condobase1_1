@@ -13,6 +13,7 @@ import {
   Megaphone,
   LogOut,
   Settings,
+  ToggleRight,
 } from "lucide-react";
 import {
   Sidebar,
@@ -28,6 +29,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useModulePermissions, moduleKeyMap } from "@/hooks/use-module-permissions";
 import logoImage from "@assets/image_1767976092597.png";
 
 const mainModules = [
@@ -99,10 +101,23 @@ interface AppSidebarProps {
 
 export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
   const [location] = useLocation();
+  const { canAccessModule } = useModulePermissions();
 
   const displayRole = userRole === "admin" ? "Administrador" : userRole === "síndico" ? "Síndico" : "Condômino";
   const displayName = userName || "Usuário";
   const isAdmin = userRole === "admin" || userRole === "síndico";
+
+  const filteredMainModules = mainModules.filter(item => {
+    const moduleKey = moduleKeyMap[item.url];
+    if (!moduleKey) return true;
+    return canAccessModule(moduleKey);
+  });
+
+  const filteredSecondaryModules = secondaryModules.filter(item => {
+    const moduleKey = moduleKeyMap[item.url];
+    if (!moduleKey) return true;
+    return canAccessModule(moduleKey);
+  });
 
   return (
     <Sidebar className="border-r-0">
@@ -122,7 +137,7 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainModules.map((item) => (
+              {filteredMainModules.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
@@ -146,7 +161,7 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {secondaryModules.map((item) => (
+              {filteredSecondaryModules.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
@@ -181,6 +196,19 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
                     <Link href="/admin">
                       <Settings className="h-4 w-4" />
                       <span>Painel Admin</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/controle-acesso"}
+                    data-testid="nav-controle-acesso"
+                    className="rounded-lg transition-all duration-200 data-[active=true]:bg-gradient-to-r data-[active=true]:from-cyan-500/20 data-[active=true]:to-blue-500/20 data-[active=true]:border-l-2 data-[active=true]:border-l-cyan-500"
+                  >
+                    <Link href="/controle-acesso">
+                      <ToggleRight className="h-4 w-4" />
+                      <span>Controle de Acesso</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

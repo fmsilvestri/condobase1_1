@@ -4,6 +4,7 @@ import { eq, desc, and } from "drizzle-orm";
 import type { IStorage } from "./storage";
 import {
   notifications as notificationsTable,
+  modulePermissions as modulePermissionsTable,
   type User,
   type InsertUser,
   type Equipment,
@@ -28,6 +29,8 @@ import {
   type InsertAnnouncement,
   type Notification,
   type InsertNotification,
+  type ModulePermission,
+  type InsertModulePermission,
 } from "@shared/schema";
 
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
@@ -540,6 +543,25 @@ export class SupabaseStorage implements IStorage {
         console.error("Error creating notifications:", error);
       }
     }
+  }
+
+  async getModulePermissions(): Promise<ModulePermission[]> {
+    const data = await db.select()
+      .from(modulePermissionsTable)
+      .orderBy(modulePermissionsTable.moduleLabel);
+    return data;
+  }
+
+  async updateModulePermission(moduleKey: string, isEnabled: boolean, updatedBy?: string): Promise<ModulePermission | undefined> {
+    const [data] = await db.update(modulePermissionsTable)
+      .set({ 
+        isEnabled, 
+        updatedAt: new Date(),
+        updatedBy: updatedBy || null 
+      })
+      .where(eq(modulePermissionsTable.moduleKey, moduleKey))
+      .returning();
+    return data;
   }
 }
 

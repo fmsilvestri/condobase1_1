@@ -295,3 +295,36 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
 
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
+
+export const modulePermissions = pgTable("module_permissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  moduleKey: text("module_key").notNull().unique(),
+  moduleLabel: text("module_label").notNull(),
+  moduleIcon: text("module_icon"),
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedBy: varchar("updated_by"),
+});
+
+export const insertModulePermissionSchema = createInsertSchema(modulePermissions).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertModulePermission = z.infer<typeof insertModulePermissionSchema>;
+export type ModulePermission = typeof modulePermissions.$inferSelect;
+
+export const MODULE_KEYS = [
+  "manutencoes",
+  "piscina",
+  "agua",
+  "gas",
+  "energia",
+  "residuos",
+  "ocupacao",
+  "documentos",
+  "fornecedores",
+  "comunicados",
+] as const;
+
+export type ModuleKey = typeof MODULE_KEYS[number];

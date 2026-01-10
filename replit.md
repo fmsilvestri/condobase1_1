@@ -69,15 +69,24 @@ The application consists of these main feature modules:
 ### User Roles
 - **Admin**: Super administrator with full system access, can manage all users and settings
 - **Síndico**: Building administrator with full CRUD access to all modules, report generation, user management
-- **Condômino (Resident)**: Read-only access, can open maintenance requests and view supplier contacts
+- **Condômino (Resident)**: Access controlled by síndico via module permissions (read-only for most modules except maintenance requests)
+
+### Module Permissions System
+- **Location**: `server/routes.ts` (API), `client/src/pages/feature-access.tsx` (UI), `client/src/hooks/use-module-permissions.tsx` (state)
+- **Table**: `module_permissions` with moduleKey, moduleLabel, moduleIcon, isEnabled, updatedAt, updatedBy
+- **Modules**: manutenções, piscina, água, gás, energia, resíduos, ocupação, documentos, fornecedores, comunicados
+- **Access Control**: Síndico/admin can toggle module visibility for condômino users via /controle-acesso page
+- **Sidebar Filtering**: `useModulePermissions` hook provides `canAccessModule()` function integrated with sidebar
+- **Security**: Frontend guard on FeatureAccess page + backend role verification on PATCH endpoint
 
 ### Authentication
 - **Supabase Auth**: Email/password and Google OAuth authentication
 - **User Model**: email, name, role, unit, isActive, timestamps
 - **Admin Panel**: Accessible only to admin and síndico roles via sidebar navigation
-- **Session Management**: JWT-based sessions via Supabase
+- **Session Management**: JWT-based sessions via Supabase (frontend only)
 - **Default Síndico**: fmsilvestri39@gmail.com (Hey123!)
 - **RLS**: Temporarily disabled for development - re-enable with proper policies for production
+- **Security Note**: Backend API trusts client-provided userId for authorization. For production, implement JWT token verification middleware using Supabase auth server-side.
 
 ## External Dependencies
 

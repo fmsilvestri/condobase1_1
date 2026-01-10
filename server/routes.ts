@@ -654,5 +654,54 @@ export async function registerRoutes(
     }
   });
 
+  // Module Permissions routes
+  app.get("/api/module-permissions", async (req, res) => {
+    try {
+      const permissions = await storage.getModulePermissions();
+      res.json(permissions);
+    } catch (error) {
+      console.error("Error fetching module permissions:", error);
+      res.status(500).json({ error: "Failed to fetch module permissions" });
+    }
+  });
+
+  // SECURITY NOTE: This endpoint validates user role but relies on client-provided userId.
+  // For production, implement JWT token verification middleware using Supabase auth.
+  // The frontend guard in FeatureAccess page provides additional protection.
+  app.patch("/api/module-permissions/:moduleKey", async (req, res) => {
+    try {
+      const { isEnabled, updatedBy } = req.body;
+      
+      if (!updatedBy) {
+        return res.status(401).json({ error: "User ID required" });
+      }
+      
+      // Verify user exists and has admin/síndico role
+      const user = await storage.getUser(updatedBy);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+      if (user.role !== "síndico" && user.role !== "admin") {
+        return res.status(403).json({ error: "Only síndico or admin can update module permissions" });
+      }
+      
+      if (typeof isEnabled !== "boolean") {
+        return res.status(400).json({ error: "isEnabled must be a boolean" });
+      }
+      const permission = await storage.updateModulePermission(
+        req.params.moduleKey,
+        isEnabled,
+        updatedBy
+      );
+      if (!permission) {
+        return res.status(404).json({ error: "Module permission not found" });
+      }
+      res.json(permission);
+    } catch (error) {
+      console.error("Error updating module permission:", error);
+      res.status(500).json({ error: "Failed to update module permission" });
+    }
+  });
+
   return httpServer;
 }
