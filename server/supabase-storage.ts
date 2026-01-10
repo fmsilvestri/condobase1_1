@@ -1,28 +1,33 @@
 import { supabase, isSupabaseConfigured } from "./supabase";
+import { db } from "./db";
+import { eq, desc, and } from "drizzle-orm";
 import type { IStorage } from "./storage";
-import type {
-  User,
-  InsertUser,
-  Equipment,
-  InsertEquipment,
-  MaintenanceRequest,
-  InsertMaintenanceRequest,
-  PoolReading,
-  InsertPoolReading,
-  WaterReading,
-  InsertWaterReading,
-  GasReading,
-  InsertGasReading,
-  EnergyEvent,
-  InsertEnergyEvent,
-  OccupancyData,
-  InsertOccupancyData,
-  Document,
-  InsertDocument,
-  Supplier,
-  InsertSupplier,
-  Announcement,
-  InsertAnnouncement,
+import {
+  notifications as notificationsTable,
+  type User,
+  type InsertUser,
+  type Equipment,
+  type InsertEquipment,
+  type MaintenanceRequest,
+  type InsertMaintenanceRequest,
+  type PoolReading,
+  type InsertPoolReading,
+  type WaterReading,
+  type InsertWaterReading,
+  type GasReading,
+  type InsertGasReading,
+  type EnergyEvent,
+  type InsertEnergyEvent,
+  type OccupancyData,
+  type InsertOccupancyData,
+  type Document,
+  type InsertDocument,
+  type Supplier,
+  type InsertSupplier,
+  type Announcement,
+  type InsertAnnouncement,
+  type Notification,
+  type InsertNotification,
 } from "@shared/schema";
 
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
@@ -480,6 +485,61 @@ export class SupabaseStorage implements IStorage {
       .delete()
       .eq("id", id);
     return !error;
+  }
+
+  async getNotifications(userId: string): Promise<Notification[]> {
+    const data = await db.select()
+      .from(notificationsTable)
+      .where(eq(notificationsTable.userId, userId))
+      .orderBy(desc(notificationsTable.createdAt));
+    return data;
+  }
+
+  async getUnreadNotifications(userId: string): Promise<Notification[]> {
+    const data = await db.select()
+      .from(notificationsTable)
+      .where(and(
+        eq(notificationsTable.userId, userId),
+        eq(notificationsTable.isRead, false)
+      ))
+      .orderBy(desc(notificationsTable.createdAt));
+    return data;
+  }
+
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const [data] = await db.insert(notificationsTable)
+      .values(notification)
+      .returning();
+    return data;
+  }
+
+  async markNotificationAsRead(id: string): Promise<boolean> {
+    const result = await db.update(notificationsTable)
+      .set({ isRead: true })
+      .where(eq(notificationsTable.id, id));
+    return true;
+  }
+
+  async markAllNotificationsAsRead(userId: string): Promise<boolean> {
+    await db.update(notificationsTable)
+      .set({ isRead: true })
+      .where(eq(notificationsTable.userId, userId));
+    return true;
+  }
+
+  async createNotificationsForAllUsers(notification: Omit<InsertNotification, 'userId'>, excludeUserId?: string): Promise<void> {
+    const users = await this.getUsers();
+    const notificationsToInsert = users
+      .filter(user => !excludeUserId || user.id !== excludeUserId)
+      .map(user => ({ ...notification, userId: user.id }));
+    
+    if (notificationsToInsert.length > 0) {
+      try {
+        await db.insert(notificationsTable).values(notificationsToInsert);
+      } catch (error) {
+        console.error("Error creating notifications:", error);
+      }
+    }
   }
 }
 

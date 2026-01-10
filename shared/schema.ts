@@ -276,3 +276,22 @@ export const insertAnnouncementSchema = createInsertSchema(announcements).omit({
 
 export type InsertAnnouncement = z.infer<typeof insertAnnouncementSchema>;
 export type Announcement = typeof announcements.$inferSelect;
+
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  type: text("type").notNull(), // "announcement_new", "announcement_updated", "maintenance_update"
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  relatedId: varchar("related_id"), // announcement id, maintenance request id, etc.
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;

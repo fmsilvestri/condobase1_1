@@ -555,6 +555,20 @@ export async function registerRoutes(
     try {
       const validatedData = insertAnnouncementSchema.parse(req.body);
       const announcement = await storage.createAnnouncement(validatedData);
+      
+      // Create notifications for all users about the new announcement
+      try {
+        await storage.createNotificationsForAllUsers({
+          type: "announcement_new",
+          title: "Novo Comunicado",
+          message: announcement.title,
+          relatedId: announcement.id,
+          isRead: false,
+        }, validatedData.createdBy || undefined);
+      } catch (notifError) {
+        console.error("Error creating notifications:", notifError);
+      }
+      
       res.status(201).json(announcement);
     } catch (error) {
       res.status(400).json({ error: "Invalid announcement data" });
@@ -567,6 +581,20 @@ export async function registerRoutes(
       if (!announcement) {
         return res.status(404).json({ error: "Announcement not found" });
       }
+      
+      // Create notifications for all users about the updated announcement
+      try {
+        await storage.createNotificationsForAllUsers({
+          type: "announcement_updated",
+          title: "Comunicado Atualizado",
+          message: announcement.title,
+          relatedId: announcement.id,
+          isRead: false,
+        });
+      } catch (notifError) {
+        console.error("Error creating notifications:", notifError);
+      }
+      
       res.json(announcement);
     } catch (error) {
       res.status(400).json({ error: "Failed to update announcement" });
@@ -582,6 +610,47 @@ export async function registerRoutes(
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete announcement" });
+    }
+  });
+
+  // Notifications routes
+  app.get("/api/notifications/:userId", async (req, res) => {
+    try {
+      const notifications = await storage.getNotifications(req.params.userId);
+      res.json(notifications);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
+  app.get("/api/notifications/:userId/unread", async (req, res) => {
+    try {
+      const notifications = await storage.getUnreadNotifications(req.params.userId);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching unread notifications:", error);
+      res.status(500).json({ error: "Failed to fetch unread notifications" });
+    }
+  });
+
+  app.patch("/api/notifications/:id/read", async (req, res) => {
+    try {
+      const success = await storage.markNotificationAsRead(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Notification not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to mark notification as read" });
+    }
+  });
+
+  app.patch("/api/notifications/:userId/read-all", async (req, res) => {
+    try {
+      await storage.markAllNotificationsAsRead(req.params.userId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to mark all notifications as read" });
     }
   });
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -73,6 +73,8 @@ const getPriorityColor = (priority: string) => {
 
 export default function Announcements() {
   const [isNewAnnouncementOpen, setIsNewAnnouncementOpen] = useState(false);
+  const [isEditAnnouncementOpen, setIsEditAnnouncementOpen] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
   const { canEdit } = useAuth();
@@ -91,6 +93,29 @@ export default function Announcements() {
     },
   });
 
+  const editForm = useForm<z.infer<typeof announcementFormSchema>>({
+    resolver: zodResolver(announcementFormSchema),
+    defaultValues: {
+      title: "",
+      content: "",
+      priority: "normal",
+      expiresAt: "",
+    },
+  });
+
+  useEffect(() => {
+    if (editingAnnouncement) {
+      editForm.reset({
+        title: editingAnnouncement.title,
+        content: editingAnnouncement.content,
+        priority: editingAnnouncement.priority,
+        expiresAt: editingAnnouncement.expiresAt 
+          ? new Date(editingAnnouncement.expiresAt).toISOString().split('T')[0] 
+          : "",
+      });
+    }
+  }, [editingAnnouncement, editForm]);
+
   const createAnnouncementMutation = useMutation({
     mutationFn: (data: z.infer<typeof announcementFormSchema>) => {
       const payload = {
@@ -102,12 +127,36 @@ export default function Announcements() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/announcements"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
       toast({ title: "Comunicado publicado com sucesso!" });
       setIsNewAnnouncementOpen(false);
       form.reset();
     },
     onError: () => {
       toast({ title: "Erro ao publicar comunicado", variant: "destructive" });
+    },
+  });
+
+  const updateAnnouncementMutation = useMutation({
+    mutationFn: (data: z.infer<typeof announcementFormSchema> & { id: string }) => {
+      const { id, ...rest } = data;
+      const payload = {
+        ...rest,
+        expiresAt: rest.expiresAt ? new Date(rest.expiresAt).toISOString() : undefined,
+      };
+      return apiRequest("PATCH", `/api/announcements/${id}`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/announcements"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      toast({ title: "Comunicado atualizado com sucesso!" });
+      setIsEditAnnouncementOpen(false);
+      setEditingAnnouncement(null);
+      editForm.reset();
+    },
+    onError: () => {
+      toast({ title: "Erro ao atualizar comunicado", variant: "destructive" });
     },
   });
 
@@ -123,21 +172,36 @@ export default function Announcements() {
     },
   });
 
+  const handleEditClick = (announcement: Announcement) => {
+    setEditingAnnouncement(announcement);
+    setIsEditAnnouncementOpen(true);
+  };
+
+  const handleEditSubmit = (data: z.infer<typeof announcementFormSchema>) => {
+    if (editingAnnouncement) {
+      updateAnnouncementMutation.mutate({ ...data, id: editingAnnouncement.id });
+    }
+  };
+
   const filteredAnnouncements = announcements.filter((announcement) =>
     announcement.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     announcement.content.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("pt-BR", {
+  const formatDate = (dateValue: string | Date | null) => {
+    if (!dateValue) return "-";
+    const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
+    return date.toLocaleDateString("pt-BR", {
       day: "2-digit",
       month: "long",
       year: "numeric",
     });
   };
 
-  const formatTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleTimeString("pt-BR", {
+  const formatTime = (dateValue: string | Date | null) => {
+    if (!dateValue) return "-";
+    const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
+    return date.toLocaleTimeString("pt-BR", {
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -263,6 +327,103 @@ export default function Announcements() {
         }
       />
 
+      {/* Edit Dialog */}
+      <Dialog open={isEditAnnouncementOpen} onOpenChange={(open) => {
+        setIsEditAnnouncementOpen(open);
+        if (!open) setEditingAnnouncement(null);
+      }}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Editar Comunicado</DialogTitle>
+            <DialogDescription>
+              Atualize as informações do comunicado.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(handleEditSubmit)} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Título</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: Manutenção programada" {...field} data-testid="input-edit-announcement-title" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="priority"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Prioridade</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-edit-announcement-priority">
+                          <SelectValue placeholder="Selecione a prioridade" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="baixa">Baixa</SelectItem>
+                        <SelectItem value="normal">Normal</SelectItem>
+                        <SelectItem value="alta">Alta</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="content"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Conteúdo</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Digite o conteúdo do comunicado..."
+                        className="min-h-[150px]"
+                        {...field}
+                        data-testid="input-edit-announcement-content"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="expiresAt"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Data de Expiração (opcional)</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} data-testid="input-edit-announcement-expires" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => {
+                  setIsEditAnnouncementOpen(false);
+                  setEditingAnnouncement(null);
+                }}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={updateAnnouncementMutation.isPending} data-testid="button-update-announcement">
+                  {updateAnnouncementMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Salvar Alterações
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -314,17 +475,23 @@ export default function Announcements() {
                   <div className="mt-1 flex items-center gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3.5 w-3.5" />
-                      {announcement.createdAt ? formatDate(announcement.createdAt as string) : "-"}
+                      {formatDate(announcement.createdAt)}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-3.5 w-3.5" />
-                      {announcement.createdAt ? formatTime(announcement.createdAt as string) : "-"}
+                      {formatTime(announcement.createdAt)}
                     </span>
                   </div>
                 </div>
                 {canEdit && (
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-edit-${announcement.id}`}>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8" 
+                      onClick={() => handleEditClick(announcement)}
+                      data-testid={`button-edit-${announcement.id}`}
+                    >
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button 
@@ -347,7 +514,7 @@ export default function Announcements() {
                 {announcement.expiresAt && (
                   <div className="mt-4 flex items-center gap-2">
                     <Badge variant="outline" className="text-xs">
-                      Válido até {formatDate(announcement.expiresAt as string)}
+                      Válido até {formatDate(announcement.expiresAt)}
                     </Badge>
                   </div>
                 )}

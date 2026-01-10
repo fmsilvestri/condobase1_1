@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { NotificationBell } from "@/components/notification-bell";
 import { Loader2 } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
@@ -71,7 +72,10 @@ function AuthenticatedApp() {
         <SidebarInset className="flex flex-1 flex-col">
           <header className="flex h-14 items-center justify-between gap-4 border-b px-4 lg:px-6">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <ThemeToggle />
+            <div className="flex items-center gap-2">
+              <NotificationBell />
+              <ThemeToggle />
+            </div>
           </header>
           <main className="flex-1 overflow-auto p-4 lg:p-6">
             <Router />

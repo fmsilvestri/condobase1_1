@@ -21,6 +21,8 @@ import {
   type InsertSupplier,
   type Announcement,
   type InsertAnnouncement,
+  type Notification,
+  type InsertNotification,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -78,6 +80,13 @@ export interface IStorage {
   createAnnouncement(announcement: InsertAnnouncement): Promise<Announcement>;
   updateAnnouncement(id: string, announcement: Partial<InsertAnnouncement>): Promise<Announcement | undefined>;
   deleteAnnouncement(id: string): Promise<boolean>;
+
+  getNotifications(userId: string): Promise<Notification[]>;
+  getUnreadNotifications(userId: string): Promise<Notification[]>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationAsRead(id: string): Promise<boolean>;
+  markAllNotificationsAsRead(userId: string): Promise<boolean>;
+  createNotificationsForAllUsers(notification: Omit<InsertNotification, 'userId'>, excludeUserId?: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -471,6 +480,53 @@ export class MemStorage implements IStorage {
 
   async deleteAnnouncement(id: string): Promise<boolean> {
     return this.announcements.delete(id);
+  }
+
+  private notifications: Map<string, Notification> = new Map();
+
+  async getNotifications(userId: string): Promise<Notification[]> {
+    return Array.from(this.notifications.values())
+      .filter(n => n.userId === userId)
+      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+
+  async getUnreadNotifications(userId: string): Promise<Notification[]> {
+    return Array.from(this.notifications.values())
+      .filter(n => n.userId === userId && !n.isRead)
+      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const id = randomUUID();
+    const newNotification: Notification = { ...notification, id, createdAt: new Date() };
+    this.notifications.set(id, newNotification);
+    return newNotification;
+  }
+
+  async markNotificationAsRead(id: string): Promise<boolean> {
+    const notification = this.notifications.get(id);
+    if (!notification) return false;
+    notification.isRead = true;
+    this.notifications.set(id, notification);
+    return true;
+  }
+
+  async markAllNotificationsAsRead(userId: string): Promise<boolean> {
+    for (const [id, notification] of this.notifications.entries()) {
+      if (notification.userId === userId) {
+        notification.isRead = true;
+        this.notifications.set(id, notification);
+      }
+    }
+    return true;
+  }
+
+  async createNotificationsForAllUsers(notification: Omit<InsertNotification, 'userId'>, excludeUserId?: string): Promise<void> {
+    const users = await this.getUsers();
+    for (const user of users) {
+      if (excludeUserId && user.id === excludeUserId) continue;
+      await this.createNotification({ ...notification, userId: user.id });
+    }
   }
 }
 
