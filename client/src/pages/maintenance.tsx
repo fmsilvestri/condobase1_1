@@ -14,6 +14,10 @@ import {
   MapPin,
   Loader2,
   AlertTriangle,
+  Edit,
+  CheckCircle,
+  Clock,
+  CircleDot,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
@@ -76,8 +80,13 @@ export default function Maintenance() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [isNewRequestOpen, setIsNewRequestOpen] = useState(false);
   const [isNewEquipmentOpen, setIsNewEquipmentOpen] = useState(false);
+  const [editingRequest, setEditingRequest] = useState<MaintenanceRequest | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string>("");
   const { toast } = useToast();
-  const { canEdit, userId } = useAuth();
+  const { canEdit, userId, isSindico, isAdmin } = useAuth();
+  
+  // Only síndicos and admins can update status
+  const canUpdateStatus = isSindico || isAdmin;
 
   const { data: equipment = [], isLoading: loadingEquipment } = useQuery<Equipment[]>({
     queryKey: ["/api/equipment"],
@@ -149,9 +158,62 @@ export default function Maintenance() {
     },
   });
 
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      return apiRequest("PATCH", `/api/maintenance/${id}`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/maintenance"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      toast({ title: "Status atualizado com sucesso!" });
+      setEditingRequest(null);
+      setSelectedStatus("");
+    },
+    onError: () => {
+      toast({ title: "Erro ao atualizar status", variant: "destructive" });
+    },
+  });
+
+  const handleEditStatus = (request: MaintenanceRequest) => {
+    setEditingRequest(request);
+    setSelectedStatus(request.status);
+  };
+
+  const handleSaveStatus = () => {
+    if (editingRequest && selectedStatus) {
+      updateStatusMutation.mutate({ id: editingRequest.id, status: selectedStatus });
+    }
+  };
+
   const canEditRequest = (request: MaintenanceRequest) => {
     if (canEdit) return true;
     return request.requestedBy === userId;
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "aberto":
+        return <CircleDot className="h-4 w-4 text-blue-500" />;
+      case "em andamento":
+        return <Clock className="h-4 w-4 text-yellow-500" />;
+      case "concluído":
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      default:
+        return null;
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "aberto":
+        return "Chamado Aberto";
+      case "em andamento":
+        return "Em Andamento";
+      case "concluído":
+        return "Concluído";
+      default:
+        return status;
+    }
   };
 
   const filteredEquipment = equipment.filter((eq) => {
@@ -532,9 +594,15 @@ export default function Maintenance() {
                         <Button variant="outline" size="sm" data-testid={`button-view-${req.id}`}>
                           Ver Detalhes
                         </Button>
-                        {canEditRequest(req) && (
-                          <Button variant="outline" size="sm" data-testid={`button-edit-request-${req.id}`}>
-                            Editar
+                        {canUpdateStatus && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleEditStatus(req)}
+                            data-testid={`button-edit-status-${req.id}`}
+                          >
+                            <Edit className="mr-1 h-3 w-3" />
+                            Status
                           </Button>
                         )}
                         <Button
@@ -555,6 +623,67 @@ export default function Maintenance() {
           )}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!editingRequest} onOpenChange={(open) => !open && setEditingRequest(null)}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Atualizar Status do Chamado</DialogTitle>
+            <DialogDescription>
+              {editingRequest?.title}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Status Atual</Label>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                {editingRequest && getStatusIcon(editingRequest.status)}
+                {editingRequest && getStatusLabel(editingRequest.status)}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="status">Novo Status</Label>
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <SelectTrigger data-testid="select-update-status">
+                  <SelectValue placeholder="Selecione o status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="aberto">
+                    <div className="flex items-center gap-2">
+                      <CircleDot className="h-4 w-4 text-blue-500" />
+                      Chamado Aberto
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="em andamento">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-yellow-500" />
+                      Em Andamento
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="concluído">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      Concluído
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingRequest(null)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleSaveStatus} 
+              disabled={updateStatusMutation.isPending || !selectedStatus || selectedStatus === editingRequest?.status}
+              data-testid="button-save-status"
+            >
+              {updateStatusMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

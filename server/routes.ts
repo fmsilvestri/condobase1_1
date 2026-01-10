@@ -312,6 +312,20 @@ export async function registerRoutes(
 
   app.patch("/api/maintenance/:id", async (req, res) => {
     try {
+      // Validate that only allowed fields are updated (status only for now)
+      const allowedFields = ["status"];
+      const updateData: Record<string, any> = {};
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          updateData[field] = req.body[field];
+        }
+      }
+      
+      // Validate status value if provided
+      if (updateData.status && !["aberto", "em andamento", "concluído"].includes(updateData.status)) {
+        return res.status(400).json({ error: "Invalid status value" });
+      }
+      
       // Get existing request to check if status is changing
       const existingRequest = await storage.getMaintenanceRequestById(req.params.id);
       if (!existingRequest) {
@@ -319,19 +333,19 @@ export async function registerRoutes(
       }
       
       const oldStatus = existingRequest.status;
-      const request = await storage.updateMaintenanceRequest(req.params.id, req.body);
+      const request = await storage.updateMaintenanceRequest(req.params.id, updateData);
       if (!request) {
         return res.status(404).json({ error: "Maintenance request not found" });
       }
       
       // If status changed and there's a requester, notify them
-      if (req.body.status && req.body.status !== oldStatus && request.requestedBy) {
+      if (updateData.status && updateData.status !== oldStatus && request.requestedBy) {
         const statusLabels: Record<string, string> = {
           "aberto": "Chamado Aberto",
           "em andamento": "Em Andamento",
           "concluído": "Concluído"
         };
-        const statusLabel = statusLabels[req.body.status] || req.body.status;
+        const statusLabel = statusLabels[updateData.status] || updateData.status;
         
         await storage.createNotification({
           userId: request.requestedBy,
