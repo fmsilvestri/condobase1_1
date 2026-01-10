@@ -105,19 +105,21 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
   const isAdmin = userRole === "admin" || userRole === "síndico";
 
   return (
-    <Sidebar>
-      <SidebarHeader className="border-b border-sidebar-border p-4">
+    <Sidebar className="border-r-0">
+      <SidebarHeader className="border-b border-cyan-500/10 p-4 bg-gradient-to-b from-cyan-500/5 to-transparent">
         <Link href="/" className="flex items-center justify-center" data-testid="link-logo">
           <img 
             src={logoImage} 
             alt="CONDOBASE1" 
-            className="h-16 w-auto object-contain"
+            className="h-16 w-auto object-contain drop-shadow-lg"
           />
         </Link>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="px-2">
         <SidebarGroup>
-          <SidebarGroupLabel>Módulos Principais</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider text-cyan-500/70 px-2">
+            Módulos Principais
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainModules.map((item) => (
@@ -126,6 +128,7 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
                     asChild
                     isActive={location === item.url}
                     data-testid={`nav-${item.url.replace("/", "") || "dashboard"}`}
+                    className="rounded-lg transition-all duration-200 data-[active=true]:bg-gradient-to-r data-[active=true]:from-cyan-500/20 data-[active=true]:to-blue-500/20 data-[active=true]:border-l-2 data-[active=true]:border-l-cyan-500"
                   >
                     <Link href={item.url}>
                       <item.icon className="h-4 w-4" />
@@ -138,7 +141,9 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup>
-          <SidebarGroupLabel>Gestão</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider text-cyan-500/70 px-2">
+            Gestão
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {secondaryModules.map((item) => (
@@ -147,6 +152,7 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
                     asChild
                     isActive={location === item.url}
                     data-testid={`nav-${item.url.replace("/", "")}`}
+                    className="rounded-lg transition-all duration-200 data-[active=true]:bg-gradient-to-r data-[active=true]:from-cyan-500/20 data-[active=true]:to-blue-500/20 data-[active=true]:border-l-2 data-[active=true]:border-l-cyan-500"
                   >
                     <Link href={item.url}>
                       <item.icon className="h-4 w-4" />
@@ -160,7 +166,9 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
         </SidebarGroup>
         {isAdmin && (
           <SidebarGroup>
-            <SidebarGroupLabel>Administração</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider text-cyan-500/70 px-2">
+              Administração
+            </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
@@ -168,6 +176,7 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
                     asChild
                     isActive={location === "/admin"}
                     data-testid="nav-admin"
+                    className="rounded-lg transition-all duration-200 data-[active=true]:bg-gradient-to-r data-[active=true]:from-cyan-500/20 data-[active=true]:to-blue-500/20 data-[active=true]:border-l-2 data-[active=true]:border-l-cyan-500"
                   >
                     <Link href="/admin">
                       <Settings className="h-4 w-4" />
@@ -180,15 +189,18 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
           </SidebarGroup>
         )}
       </SidebarContent>
-      <SidebarFooter className="border-t border-sidebar-border p-4">
+      <SidebarFooter className="border-t border-cyan-500/10 p-4 bg-gradient-to-t from-cyan-500/5 to-transparent">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Users className="h-4 w-4" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 ring-1 ring-cyan-500/20">
+              <Users className="h-4 w-4 text-cyan-500" />
             </div>
             <div className="flex flex-col">
               <span className="text-sm font-medium truncate max-w-[120px]">{displayName}</span>
-              <Badge variant="secondary" className="w-fit text-xs">
+              <Badge 
+                variant="secondary" 
+                className="w-fit text-xs bg-cyan-500/10 text-cyan-500 border-cyan-500/20"
+              >
                 {displayRole}
               </Badge>
             </div>
@@ -199,6 +211,7 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
               variant="ghost" 
               onClick={onSignOut}
               data-testid="button-logout"
+              className="rounded-lg"
             >
               <LogOut className="h-4 w-4" />
             </Button>

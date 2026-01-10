@@ -16,15 +16,22 @@ export function PageHeader({ title, description, backHref, actions }: PageHeader
       <div className="flex items-center gap-4">
         {backHref && (
           <Link href={backHref}>
-            <Button variant="ghost" size="icon" data-testid="button-back">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              data-testid="button-back"
+              className="rounded-xl"
+            >
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
         )}
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text">
+            {title}
+          </h1>
           {description && (
-            <p className="text-muted-foreground">{description}</p>
+            <p className="text-muted-foreground text-sm">{description}</p>
           )}
         </div>
       </div>

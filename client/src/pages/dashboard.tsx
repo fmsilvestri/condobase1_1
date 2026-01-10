@@ -118,13 +118,17 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight" data-testid="text-dashboard-title">
+    <div className="space-y-8 fade-in">
+      <div className="relative">
+        <h1 
+          className="text-3xl font-bold tracking-tight bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 bg-clip-text text-transparent" 
+          data-testid="text-dashboard-title"
+        >
           Dashboard
         </h1>
-        <p className="text-muted-foreground" data-testid="text-dashboard-subtitle">
-          Visão geral do condomínio • Atualizado agora
+        <p className="text-muted-foreground flex items-center gap-2" data-testid="text-dashboard-subtitle">
+          <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          Visão geral do condomínio
         </p>
       </div>
 
@@ -162,7 +166,10 @@ export default function Dashboard() {
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           <div>
-            <h2 className="mb-4 text-lg font-semibold">Módulos do Sistema</h2>
+            <h2 className="mb-4 text-lg font-semibold flex items-center gap-2">
+              <span className="h-5 w-1 rounded-full bg-gradient-to-b from-cyan-500 to-blue-500" />
+              Módulos do Sistema
+            </h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <ModuleCard
                 title="Ativos & Manutenções"
@@ -252,13 +259,16 @@ export default function Dashboard() {
         </div>
 
         <div className="space-y-6">
-          <Card>
+          <Card className="relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500" />
             <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Bell className="h-4 w-4" />
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20">
+                  <Bell className="h-4 w-4 text-cyan-500" />
+                </div>
                 Comunicados
               </CardTitle>
-              <Badge variant="secondary" className="text-xs" data-testid="badge-announcements-count">
+              <Badge variant="secondary" className="text-xs bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20" data-testid="badge-announcements-count">
                 {data.recentAnnouncements.length} novos
               </Badge>
             </CardHeader>
