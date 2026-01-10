@@ -42,7 +42,7 @@ const energyFormSchema = z.object({
 
 export default function Energy() {
   const [isNewEventOpen, setIsNewEventOpen] = useState(false);
-  const { canEdit, userId } = useAuth();
+  const { canEdit, dbUserId } = useAuth();
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof energyFormSchema>>({
@@ -62,7 +62,7 @@ export default function Energy() {
       return apiRequest("POST", "/api/energy", {
         status: data.status,
         description: data.description,
-        recordedBy: userId || null,
+        recordedBy: dbUserId || null,
         resolvedAt: data.status === "ok" ? new Date().toISOString() : null,
       });
     },

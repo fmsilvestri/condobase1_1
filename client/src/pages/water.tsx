@@ -54,7 +54,7 @@ const waterFormSchema = z.object({
 
 export default function Water() {
   const [isNewReadingOpen, setIsNewReadingOpen] = useState(false);
-  const { canEdit, userId } = useAuth();
+  const { canEdit, dbUserId } = useAuth();
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof waterFormSchema>>({
@@ -85,7 +85,7 @@ export default function Water() {
         estimatedAutonomy: estimatedAutonomy,
         casanStatus: data.casanStatus || "normal",
         notes: data.notes || null,
-        recordedBy: userId || null,
+        recordedBy: dbUserId || null,
       });
     },
     onSuccess: () => {

@@ -11,6 +11,7 @@ interface AuthContextType {
   userName: string | null;
   userEmail: string | null;
   userId: string | null;
+  dbUserId: string | null;
   isAdmin: boolean;
   isSindico: boolean;
   isCondomino: boolean;
@@ -24,6 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [dbRole, setDbRole] = useState<string | null>(null);
+  const [dbUserId, setDbUserId] = useState<string | null>(null);
 
   useEffect(() => {
     async function initAuth() {
@@ -83,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         const userData = await response.json();
         setDbRole(userData.role);
+        setDbUserId(userData.id);
         return userData;
       }
     } catch (error) {
@@ -107,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (supabase) {
       await supabase.auth.signOut();
       setDbRole(null);
+      setDbUserId(null);
     }
   };
 
@@ -120,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const canEdit = isAdmin || isSindico;
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut, userRole, userName, userEmail, userId, isAdmin, isSindico, isCondomino, canEdit }}>
+    <AuthContext.Provider value={{ user, session, loading, signOut, userRole, userName, userEmail, userId, dbUserId, isAdmin, isSindico, isCondomino, canEdit }}>
       {children}
     </AuthContext.Provider>
   );

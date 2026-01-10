@@ -83,7 +83,7 @@ export default function Maintenance() {
   const [editingRequest, setEditingRequest] = useState<MaintenanceRequest | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const { toast } = useToast();
-  const { canEdit, userId, isSindico, isAdmin } = useAuth();
+  const { canEdit, userId, dbUserId, isSindico, isAdmin } = useAuth();
   
   // Only síndicos and admins can update status
   const canUpdateStatus = isSindico || isAdmin;
@@ -135,10 +135,10 @@ export default function Maintenance() {
 
   const createRequestMutation = useMutation({
     mutationFn: async (data: z.infer<typeof requestFormSchema>) => {
-      console.log("[maintenance] Submitting request:", data, "userId:", userId);
+      console.log("[maintenance] Submitting request:", data, "dbUserId:", dbUserId);
       return apiRequest("POST", "/api/maintenance", {
         ...data,
-        requestedBy: userId || null,
+        requestedBy: dbUserId || null,
       });
     },
     onSuccess: () => {
@@ -187,7 +187,7 @@ export default function Maintenance() {
 
   const canEditRequest = (request: MaintenanceRequest) => {
     if (canEdit) return true;
-    return request.requestedBy === userId;
+    return request.requestedBy === dbUserId;
   };
 
   const getStatusIcon = (status: string) => {

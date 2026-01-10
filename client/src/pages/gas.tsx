@@ -45,7 +45,7 @@ const gasFormSchema = z.object({
 
 export default function Gas() {
   const [isNewReadingOpen, setIsNewReadingOpen] = useState(false);
-  const { canEdit, userId } = useAuth();
+  const { canEdit, dbUserId } = useAuth();
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof gasFormSchema>>({
@@ -67,7 +67,7 @@ export default function Gas() {
         percentAvailable: data.level,
         notes: data.notes || null,
         photo: null,
-        recordedBy: userId || null,
+        recordedBy: dbUserId || null,
       });
     },
     onSuccess: () => {
