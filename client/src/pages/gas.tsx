@@ -20,6 +20,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import type { GasReading } from "@shared/schema";
 import {
   AreaChart,
   Area,
@@ -30,31 +38,73 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const mockReadings = [
-  { id: "1", level: 78, date: "2024-01-15", photo: true },
-  { id: "2", level: 82, date: "2024-01-08", photo: true },
-  { id: "3", level: 88, date: "2024-01-01", photo: true },
-  { id: "4", level: 95, date: "2023-12-25", photo: false },
-  { id: "5", level: 100, date: "2023-12-18", photo: true },
-];
-
-const chartData = mockReadings.map((r) => ({
-  date: new Date(r.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
-  level: r.level,
-})).reverse();
+const gasFormSchema = z.object({
+  level: z.coerce.number().min(0).max(100),
+  notes: z.string().optional(),
+});
 
 export default function Gas() {
   const [isNewReadingOpen, setIsNewReadingOpen] = useState(false);
-  const { canEdit } = useAuth();
-  const latestReading = mockReadings[0];
+  const { canEdit, userId } = useAuth();
+  const { toast } = useToast();
+
+  const form = useForm<z.infer<typeof gasFormSchema>>({
+    resolver: zodResolver(gasFormSchema),
+    defaultValues: {
+      level: 0,
+      notes: "",
+    },
+  });
+
+  const { data: readings = [], isLoading } = useQuery<GasReading[]>({
+    queryKey: ["/api/gas"],
+  });
+
+  const createReadingMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof gasFormSchema>) => {
+      return apiRequest("POST", "/api/gas", {
+        level: data.level,
+        percentAvailable: data.level,
+        notes: data.notes || null,
+        photo: null,
+        recordedBy: userId || null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/gas"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      toast({ title: "Leitura registrada com sucesso!" });
+      setIsNewReadingOpen(false);
+      form.reset();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao registrar leitura", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const latestReading = readings[0];
+  const currentLevel = latestReading?.level ?? 0;
   
-  const weeklyConsumption = 4;
-  const estimatedDaysRemaining = Math.round((latestReading.level / weeklyConsumption) * 7);
+  const weeklyConsumption = readings.length >= 2 
+    ? Math.abs((readings[0]?.level ?? 0) - (readings[1]?.level ?? 0))
+    : 4;
+  const estimatedDaysRemaining = weeklyConsumption > 0 
+    ? Math.round((currentLevel / weeklyConsumption) * 7) 
+    : 0;
+
+  const chartData = readings.slice(0, 10).map((r) => ({
+    date: r.createdAt ? new Date(r.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : "",
+    level: r.level,
+  })).reverse();
 
   const getLevelStatus = (level: number) => {
     if (level >= 50) return "ok";
     if (level >= 25) return "atenção";
     return "alerta";
+  };
+
+  const onSubmit = (data: z.infer<typeof gasFormSchema>) => {
+    createReadingMutation.mutate(data);
   };
 
   return (
@@ -79,35 +129,55 @@ export default function Gas() {
                     Insira o nível atual e tire uma foto do medidor.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="level">Nível Atual (%)</Label>
-                    <Input id="level" type="number" placeholder="78" data-testid="input-gas-level" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Foto do Medidor</Label>
-                    <div className="flex items-center justify-center rounded-lg border-2 border-dashed p-6">
-                      <div className="text-center">
-                        <Camera className="mx-auto h-8 w-8 text-muted-foreground" />
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          Tire uma foto ou faça upload
-                        </p>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="level"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nível Atual (%)</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="78" data-testid="input-gas-level" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="grid gap-2">
+                      <Label>Foto do Medidor</Label>
+                      <div className="flex items-center justify-center rounded-lg border-2 border-dashed p-6">
+                        <div className="text-center">
+                          <Camera className="mx-auto h-8 w-8 text-muted-foreground" />
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            Tire uma foto ou faça upload
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="notes">Observações</Label>
-                    <Textarea id="notes" placeholder="Observações adicionais..." data-testid="input-gas-notes" />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsNewReadingOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button onClick={() => setIsNewReadingOpen(false)} data-testid="button-save-gas-reading">
-                    Salvar Leitura
-                  </Button>
-                </DialogFooter>
+                    <FormField
+                      control={form.control}
+                      name="notes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Observações</FormLabel>
+                          <FormControl>
+                            <Textarea placeholder="Observações adicionais..." data-testid="input-gas-notes" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setIsNewReadingOpen(false)}>
+                        Cancelar
+                      </Button>
+                      <Button type="submit" disabled={createReadingMutation.isPending} data-testid="button-save-gas-reading">
+                        {createReadingMutation.isPending ? "Salvando..." : "Salvar Leitura"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
               </DialogContent>
             </Dialog>
           )
@@ -117,7 +187,7 @@ export default function Gas() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Nível Atual"
-          value={`${latestReading.level}%`}
+          value={`${currentLevel}%`}
           icon={Flame}
           color="amber"
           testId="stat-gas-level"
@@ -139,7 +209,7 @@ export default function Gas() {
         />
         <StatCard
           title="Última Leitura"
-          value={new Date(latestReading.date).toLocaleDateString("pt-BR")}
+          value={latestReading?.createdAt ? new Date(latestReading.createdAt).toLocaleDateString("pt-BR") : "-"}
           icon={Calendar}
           color="purple"
           testId="stat-gas-last-reading"
@@ -157,83 +227,75 @@ export default function Gas() {
             </CardHeader>
             <CardContent>
               <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="date" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                    <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} domain={[0, 100]} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                      formatter={(value: number) => [`${value}%`, 'Nível']}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="level"
-                      stroke="hsl(35, 90%, 50%)"
-                      fill="hsl(35, 90%, 50%)"
-                      fillOpacity={0.2}
-                      strokeWidth={2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                {chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="date" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                      <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} domain={[0, 100]} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                        }}
+                        formatter={(value: number) => [`${value}%`, 'Nível']}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="level"
+                        stroke="hsl(var(--chart-1))"
+                        fill="hsl(var(--chart-1))"
+                        fillOpacity={0.3}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    Nenhuma leitura registrada
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Histórico de Leituras
-              </CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between gap-4">
+              <CardTitle className="text-base font-semibold">Histórico de Leituras</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {mockReadings.map((reading, index) => {
-                  const prevReading = mockReadings[index + 1];
-                  const change = prevReading ? prevReading.level - reading.level : 0;
-                  
-                  return (
-                    <div
-                      key={reading.id}
-                      className="flex items-center justify-between p-3 rounded-lg hover-elevate"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-500/10">
-                          <Flame className="h-5 w-5 text-orange-500" />
+              <div className="space-y-3">
+                {readings.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">Nenhuma leitura registrada</p>
+                ) : (
+                  readings.slice(0, 5).map((reading) => (
+                    <div key={reading.id} className="flex items-center justify-between rounded-lg border p-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                          getLevelStatus(reading.level) === "ok" ? "bg-emerald-500/10" :
+                          getLevelStatus(reading.level) === "atenção" ? "bg-amber-500/10" : "bg-red-500/10"
+                        }`}>
+                          <Flame className={`h-5 w-5 ${
+                            getLevelStatus(reading.level) === "ok" ? "text-emerald-600" :
+                            getLevelStatus(reading.level) === "atenção" ? "text-amber-600" : "text-red-600"
+                          }`} />
                         </div>
                         <div>
-                          <p className="font-medium">
-                            {new Date(reading.date).toLocaleDateString("pt-BR", {
-                              day: "2-digit",
-                              month: "long",
-                              year: "numeric",
-                            })}
+                          <p className="font-medium">{reading.level}%</p>
+                          <p className="text-sm text-muted-foreground">
+                            {reading.createdAt ? new Date(reading.createdAt).toLocaleDateString("pt-BR") : "-"}
                           </p>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            {reading.photo && (
-                              <Badge variant="outline" className="text-xs">
-                                <Camera className="mr-1 h-3 w-3" />
-                                Foto
-                              </Badge>
-                            )}
-                            {change > 0 && (
-                              <span className="text-red-500">-{change}%</span>
-                            )}
-                          </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold">{reading.level}%</p>
-                        <Progress value={reading.level} className="mt-1 h-2 w-20" />
-                      </div>
+                      <Badge variant={
+                        getLevelStatus(reading.level) === "ok" ? "default" :
+                        getLevelStatus(reading.level) === "atenção" ? "secondary" : "destructive"
+                      }>
+                        {getLevelStatus(reading.level)}
+                      </Badge>
                     </div>
-                  );
-                })}
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -242,62 +304,79 @@ export default function Gas() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base font-semibold">
-                Nível Atual
+              <CardTitle className="text-base font-semibold">Nível do Tanque</CardTitle>
+            </CardHeader>
+            <CardContent className="flex justify-center">
+              <GaugeChart value={currentLevel} max={100} label="Nível" unit="%" />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                Alertas
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col items-center">
-              <GaugeChart
-                value={latestReading.level}
-                label="Disponível"
-                color={getLevelStatus(latestReading.level) === "ok" ? "amber" : getLevelStatus(latestReading.level) === "atenção" ? "amber" : "red"}
-                size="lg"
-              />
-              <div className="mt-4 w-full">
-                <Progress value={latestReading.level} className="h-4" />
-                <div className="mt-2 flex justify-between text-sm text-muted-foreground">
-                  <span>Vazio</span>
-                  <span>Cheio</span>
-                </div>
+            <CardContent>
+              <div className="space-y-3">
+                {currentLevel < 25 ? (
+                  <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 text-red-600" />
+                      <div>
+                        <p className="font-medium text-red-600">Nível Crítico!</p>
+                        <p className="text-sm text-muted-foreground">
+                          Agendar reabastecimento com urgência.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : currentLevel < 50 ? (
+                  <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600" />
+                      <div>
+                        <p className="font-medium text-amber-600">Atenção</p>
+                        <p className="text-sm text-muted-foreground">
+                          Considere agendar reabastecimento.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-emerald-500/50 bg-emerald-500/10 p-3">
+                    <div className="flex items-start gap-2">
+                      <Flame className="mt-0.5 h-4 w-4 text-emerald-600" />
+                      <div>
+                        <p className="font-medium text-emerald-600">Nível Normal</p>
+                        <p className="text-sm text-muted-foreground">
+                          Nenhuma ação necessária.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
 
-          {latestReading.level < 30 && (
-            <Card className="border-red-500/50 bg-red-500/5">
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-500/20">
-                    <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-red-600 dark:text-red-400">
-                      Nível Baixo
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      O nível de gás está abaixo de 30%. Agende o reabastecimento.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card className="border-orange-500/50 bg-orange-500/5">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-500/20">
-                  <Flame className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                </div>
-                <div>
-                  <p className="font-medium text-orange-600 dark:text-orange-400">
-                    Previsão de Reabastecimento
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Com o consumo atual, estima-se que o gás dure mais{" "}
-                    <strong>{estimatedDaysRemaining} dias</strong>.
-                  </p>
-                </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">Informações do Fornecedor</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Fornecedor</span>
+                <span className="font-medium">Ultragaz</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Telefone</span>
+                <span className="font-medium">(48) 3333-4444</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Próx. Reabast.</span>
+                <span className="font-medium">Sob demanda</span>
               </div>
             </CardContent>
           </Card>

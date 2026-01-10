@@ -26,31 +26,66 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import type { EnergyEvent } from "@shared/schema";
 
-interface EnergyEvent {
-  id: string;
-  status: "ok" | "falta de energia" | "meia fase";
-  description: string;
-  createdAt: string;
-  resolvedAt?: string;
-}
-
-const mockEvents: EnergyEvent[] = [
-  { id: "1", status: "ok", description: "Energia restabelecida após manutenção da CELESC", createdAt: "2024-01-15T10:30:00", resolvedAt: "2024-01-15T10:30:00" },
-  { id: "2", status: "falta de energia", description: "Queda de energia em toda a região", createdAt: "2024-01-15T08:00:00", resolvedAt: "2024-01-15T10:30:00" },
-  { id: "3", status: "meia fase", description: "Problema na rede da CELESC - meia fase", createdAt: "2024-01-10T14:00:00", resolvedAt: "2024-01-10T16:30:00" },
-  { id: "4", status: "falta de energia", description: "Temporal causou interrupção", createdAt: "2024-01-05T20:00:00", resolvedAt: "2024-01-05T22:00:00" },
-];
-
-const currentStatus = "ok";
+const energyFormSchema = z.object({
+  status: z.enum(["ok", "falta de energia", "meia fase"]),
+  description: z.string().min(1, "Descrição é obrigatória"),
+});
 
 export default function Energy() {
   const [isNewEventOpen, setIsNewEventOpen] = useState(false);
-  const { canEdit } = useAuth();
+  const { canEdit, userId } = useAuth();
+  const { toast } = useToast();
 
-  const totalOutages = mockEvents.filter((e) => e.status !== "ok").length;
-  const lastOutage = mockEvents.find((e) => e.status !== "ok");
-  const averageDowntime = 2.5;
+  const form = useForm<z.infer<typeof energyFormSchema>>({
+    resolver: zodResolver(energyFormSchema),
+    defaultValues: {
+      status: "ok",
+      description: "",
+    },
+  });
+
+  const { data: events = [], isLoading } = useQuery<EnergyEvent[]>({
+    queryKey: ["/api/energy"],
+  });
+
+  const createEventMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof energyFormSchema>) => {
+      return apiRequest("POST", "/api/energy", {
+        status: data.status,
+        description: data.description,
+        recordedBy: userId || null,
+        resolvedAt: data.status === "ok" ? new Date().toISOString() : null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/energy"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      toast({ title: "Ocorrência registrada com sucesso!" });
+      setIsNewEventOpen(false);
+      form.reset();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao registrar ocorrência", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const latestEvent = events[0];
+  const currentStatus = latestEvent?.status || "ok";
+  const totalOutages = events.filter((e) => e.status !== "ok").length;
+  const lastOutage = events.find((e) => e.status !== "ok");
+
+  const onSubmit = (data: z.infer<typeof energyFormSchema>) => {
+    createEventMutation.mutate(data);
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -78,6 +113,19 @@ export default function Energy() {
     }
   };
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "ok":
+        return "Energia OK";
+      case "falta de energia":
+        return "Falta de Energia";
+      case "meia fase":
+        return "Meia Fase";
+      default:
+        return status;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -100,37 +148,57 @@ export default function Energy() {
                     Registre eventos relacionados ao fornecimento de energia.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="status">Status</Label>
-                    <Select>
-                      <SelectTrigger data-testid="select-energy-status">
-                        <SelectValue placeholder="Selecione o status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ok">Energia OK</SelectItem>
-                        <SelectItem value="falta de energia">Falta de Energia</SelectItem>
-                        <SelectItem value="meia fase">Meia Fase</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="description">Descrição</Label>
-                    <Textarea
-                      id="description"
-                      placeholder="Descreva a ocorrência..."
-                      data-testid="input-energy-description"
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="status"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Status</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-energy-status">
+                                <SelectValue placeholder="Selecione o status" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="ok">Energia OK</SelectItem>
+                              <SelectItem value="falta de energia">Falta de Energia</SelectItem>
+                              <SelectItem value="meia fase">Meia Fase</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsNewEventOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button onClick={() => setIsNewEventOpen(false)} data-testid="button-save-energy-event">
-                    Registrar
-                  </Button>
-                </DialogFooter>
+                    <FormField
+                      control={form.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Descrição</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Descreva a ocorrência..."
+                              data-testid="input-energy-description"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setIsNewEventOpen(false)}>
+                        Cancelar
+                      </Button>
+                      <Button type="submit" disabled={createEventMutation.isPending} data-testid="button-save-energy-event">
+                        {createEventMutation.isPending ? "Registrando..." : "Registrar"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
               </DialogContent>
             </Dialog>
           )
@@ -179,26 +247,24 @@ export default function Energy() {
                     : "text-amber-600 dark:text-amber-400"
                 }`}
               >
-                {currentStatus === "ok"
-                  ? "Energia Normal"
-                  : currentStatus === "falta de energia"
-                  ? "Sem Energia"
-                  : "Meia Fase"}
+                {getStatusLabel(currentStatus)}
               </h2>
               <p className="text-muted-foreground">
-                Status CELESC: Fornecimento normal
+                {latestEvent?.createdAt
+                  ? `Atualizado em ${new Date(latestEvent.createdAt).toLocaleString("pt-BR")}`
+                  : "Nenhum registro"}
               </p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <StatCard
           title="Status Atual"
-          value="OK"
-          icon={Zap}
-          color="green"
+          value={getStatusLabel(currentStatus)}
+          icon={currentStatus === "ok" ? Check : AlertTriangle}
+          color={currentStatus === "ok" ? "green" : currentStatus === "falta de energia" ? "red" : "amber"}
           testId="stat-energy-status"
         />
         <StatCard
@@ -206,100 +272,81 @@ export default function Energy() {
           value={totalOutages}
           icon={AlertTriangle}
           color="amber"
-          testId="stat-energy-outages"
-        />
-        <StatCard
-          title="Tempo Médio de Queda"
-          value={`${averageDowntime}h`}
-          icon={Clock}
-          color="blue"
-          testId="stat-energy-downtime"
+          testId="stat-outages"
         />
         <StatCard
           title="Última Ocorrência"
-          value={
-            lastOutage
-              ? new Date(lastOutage.createdAt).toLocaleDateString("pt-BR")
-              : "Nenhuma"
-          }
+          value={lastOutage?.createdAt ? new Date(lastOutage.createdAt).toLocaleDateString("pt-BR") : "-"}
           icon={Calendar}
           color="purple"
-          testId="stat-energy-last"
+          testId="stat-last-outage"
         />
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            Histórico de Eventos
+            <Clock className="h-4 w-4" />
+            Histórico de Ocorrências
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {mockEvents.length === 0 ? (
+          {events.length === 0 ? (
             <EmptyState
               icon={Zap}
-              title="Nenhum evento registrado"
-              description="Registre ocorrências de energia para manter o histórico."
+              title="Nenhuma ocorrência registrada"
+              description="O histórico de energia aparecerá aqui."
             />
           ) : (
-            <div className="space-y-4">
-              {mockEvents.map((event) => {
-                const duration =
-                  event.resolvedAt && event.status !== "ok"
-                    ? Math.round(
-                        (new Date(event.resolvedAt).getTime() -
-                          new Date(event.createdAt).getTime()) /
-                          (1000 * 60 * 60)
-                      )
-                    : null;
-
-                return (
-                  <div
-                    key={event.id}
-                    className={`flex items-start gap-4 rounded-lg p-4 ${getStatusColor(
-                      event.status
-                    )}`}
-                  >
-                    <div className="mt-0.5">{getStatusIcon(event.status)}</div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <StatusBadge
-                          status={
-                            event.status === "ok"
-                              ? "ok"
-                              : event.status === "falta de energia"
-                              ? "alerta"
-                              : "atenção"
-                          }
-                          size="sm"
-                        />
-                        {duration !== null && (
-                          <Badge variant="outline" className="text-xs">
-                            <Clock className="mr-1 h-3 w-3" />
-                            {duration}h de duração
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="mt-2 text-sm">{event.description}</p>
-                      <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>
-                          {new Date(event.createdAt).toLocaleString("pt-BR")}
-                        </span>
+            <div className="space-y-3">
+              {events.map((event) => (
+                <div
+                  key={event.id}
+                  className={`flex items-center justify-between rounded-lg border p-4 ${getStatusColor(event.status)}`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div
+                      className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                        event.status === "ok"
+                          ? "bg-emerald-500/20"
+                          : event.status === "falta de energia"
+                          ? "bg-red-500/20"
+                          : "bg-amber-500/20"
+                      }`}
+                    >
+                      {getStatusIcon(event.status)}
+                    </div>
+                    <div>
+                      <p className="font-medium">{event.description}</p>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span>{event.createdAt ? new Date(event.createdAt).toLocaleString("pt-BR") : "-"}</span>
                         {event.resolvedAt && event.status !== "ok" && (
-                          <span className="text-emerald-600 dark:text-emerald-400">
-                            Resolvido:{" "}
-                            {new Date(event.resolvedAt).toLocaleTimeString("pt-BR", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
+                          <>
+                            <span>→</span>
+                            <span>Resolvido: {new Date(event.resolvedAt).toLocaleString("pt-BR")}</span>
+                          </>
                         )}
                       </div>
                     </div>
                   </div>
-                );
-              })}
+                  <Badge
+                    variant={
+                      event.status === "ok"
+                        ? "default"
+                        : event.status === "falta de energia"
+                        ? "destructive"
+                        : "secondary"
+                    }
+                    className={
+                      event.status === "ok"
+                        ? "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
+                        : ""
+                    }
+                  >
+                    {getStatusLabel(event.status)}
+                  </Badge>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>

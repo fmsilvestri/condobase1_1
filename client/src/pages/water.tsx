@@ -27,6 +27,14 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import type { WaterReading } from "@shared/schema";
 import {
   AreaChart,
   Area,
@@ -37,30 +45,90 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const mockReadings = [
-  { date: "10/01", level: 92, volume: 46000 },
-  { date: "11/01", level: 88, volume: 44000 },
-  { date: "12/01", level: 85, volume: 42500 },
-  { date: "13/01", level: 95, volume: 47500 },
-  { date: "14/01", level: 90, volume: 45000 },
-  { date: "15/01", level: 85, volume: 42500 },
-];
-
-const tanks = [
-  { id: "1", name: "Caixa d'Água Superior", capacity: 30000, level: 85, location: "Cobertura" },
-  { id: "2", name: "Cisterna Principal", capacity: 20000, level: 78, location: "Subsolo" },
-];
+const waterFormSchema = z.object({
+  tankLevel: z.coerce.number().min(0).max(100),
+  quality: z.enum(["boa", "regular", "ruim"]),
+  casanStatus: z.enum(["normal", "interrompido", "baixa pressão"]).optional(),
+  notes: z.string().optional(),
+});
 
 export default function Water() {
   const [isNewReadingOpen, setIsNewReadingOpen] = useState(false);
-  const { canEdit } = useAuth();
+  const { canEdit, userId } = useAuth();
+  const { toast } = useToast();
 
-  const totalCapacity = tanks.reduce((sum, t) => sum + t.capacity, 0);
-  const totalVolume = tanks.reduce((sum, t) => sum + (t.capacity * t.level) / 100, 0);
-  const averageLevel = Math.round((totalVolume / totalCapacity) * 100);
+  const form = useForm<z.infer<typeof waterFormSchema>>({
+    resolver: zodResolver(waterFormSchema),
+    defaultValues: {
+      tankLevel: 0,
+      quality: "boa",
+      casanStatus: "normal",
+      notes: "",
+    },
+  });
 
+  const { data: readings = [], isLoading } = useQuery<WaterReading[]>({
+    queryKey: ["/api/water"],
+  });
+
+  const createReadingMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof waterFormSchema>) => {
+      const totalCapacity = 50000;
+      const volumeAvailable = (data.tankLevel / 100) * totalCapacity;
+      const estimatedDailyConsumption = 5000;
+      const estimatedAutonomy = volumeAvailable / estimatedDailyConsumption;
+      
+      return apiRequest("POST", "/api/water", {
+        tankLevel: data.tankLevel,
+        quality: data.quality,
+        volumeAvailable: volumeAvailable,
+        estimatedAutonomy: estimatedAutonomy,
+        casanStatus: data.casanStatus || "normal",
+        notes: data.notes || null,
+        recordedBy: userId || null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/water"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      toast({ title: "Leitura registrada com sucesso!" });
+      setIsNewReadingOpen(false);
+      form.reset();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao registrar leitura", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const latestReading = readings[0];
+  const currentLevel = latestReading?.tankLevel ?? 0;
+  const totalCapacity = 50000;
+  const totalVolume = (currentLevel / 100) * totalCapacity;
   const estimatedDailyConsumption = 5000;
   const autonomyDays = Math.round(totalVolume / estimatedDailyConsumption);
+
+  const chartData = readings.slice(0, 10).map((r) => ({
+    date: r.createdAt ? new Date(r.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : "",
+    level: r.tankLevel,
+    volume: r.volumeAvailable,
+  })).reverse();
+
+  const onSubmit = (data: z.infer<typeof waterFormSchema>) => {
+    createReadingMutation.mutate(data);
+  };
+
+  const getQualityBadge = (quality: string) => {
+    switch (quality) {
+      case "boa":
+        return <Badge className="bg-emerald-500/10 text-emerald-600">Boa</Badge>;
+      case "regular":
+        return <Badge className="bg-amber-500/10 text-amber-600">Regular</Badge>;
+      case "ruim":
+        return <Badge variant="destructive">Ruim</Badge>;
+      default:
+        return <Badge variant="secondary">{quality}</Badge>;
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -84,54 +152,88 @@ export default function Water() {
                     Atualize os níveis dos reservatórios e a qualidade da água.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="tank">Reservatório</Label>
-                    <Select>
-                      <SelectTrigger data-testid="select-tank">
-                        <SelectValue placeholder="Selecione o reservatório" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {tanks.map((tank) => (
-                          <SelectItem key={tank.id} value={tank.id}>
-                            {tank.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="level">Nível (%)</Label>
-                      <Input id="level" type="number" placeholder="85" data-testid="input-water-level" />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="quality">Qualidade</Label>
-                      <Select>
-                        <SelectTrigger data-testid="select-quality">
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="boa">Boa</SelectItem>
-                          <SelectItem value="regular">Regular</SelectItem>
-                          <SelectItem value="ruim">Ruim</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="notes">Observações</Label>
-                    <Textarea id="notes" placeholder="Observações adicionais..." data-testid="input-water-notes" />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsNewReadingOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button onClick={() => setIsNewReadingOpen(false)} data-testid="button-save-water-reading">
-                    Salvar Leitura
-                  </Button>
-                </DialogFooter>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="tankLevel"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nível do Reservatório (%)</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="85" data-testid="input-water-level" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="quality"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Qualidade da Água</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-quality">
+                                <SelectValue placeholder="Selecione a qualidade" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="boa">Boa</SelectItem>
+                              <SelectItem value="regular">Regular</SelectItem>
+                              <SelectItem value="ruim">Ruim</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="casanStatus"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Status CASAN</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-casan">
+                                <SelectValue placeholder="Selecione o status" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="normal">Normal</SelectItem>
+                              <SelectItem value="interrompido">Interrompido</SelectItem>
+                              <SelectItem value="baixa pressão">Baixa Pressão</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="notes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Observações</FormLabel>
+                          <FormControl>
+                            <Textarea placeholder="Observações adicionais..." data-testid="input-water-notes" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setIsNewReadingOpen(false)}>
+                        Cancelar
+                      </Button>
+                      <Button type="submit" disabled={createReadingMutation.isPending} data-testid="button-save-water-reading">
+                        {createReadingMutation.isPending ? "Salvando..." : "Salvar Leitura"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
               </DialogContent>
             </Dialog>
           )
@@ -141,7 +243,7 @@ export default function Water() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Nível Médio"
-          value={`${averageLevel}%`}
+          value={`${currentLevel}%`}
           icon={Droplets}
           color="blue"
           testId="stat-water-level"
@@ -164,9 +266,9 @@ export default function Water() {
         />
         <StatCard
           title="Status CASAN"
-          value="Normal"
-          icon={Check}
-          color="green"
+          value={latestReading?.casanStatus === "normal" ? "Normal" : latestReading?.casanStatus || "Normal"}
+          icon={latestReading?.casanStatus === "normal" || !latestReading?.casanStatus ? Check : AlertTriangle}
+          color={latestReading?.casanStatus === "normal" || !latestReading?.casanStatus ? "green" : "amber"}
           testId="stat-casan"
         />
       </div>
@@ -174,67 +276,75 @@ export default function Water() {
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">
-                Reservatórios
+            <CardHeader className="flex flex-row items-center justify-between gap-4">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Histórico de Níveis
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {tanks.map((tank) => (
-                <div key={tank.id} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{tank.name}</p>
-                      <p className="text-sm text-muted-foreground">{tank.location}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold">{tank.level}%</p>
-                      <p className="text-sm text-muted-foreground">
-                        {Math.round((tank.capacity * tank.level) / 1000)}k / {tank.capacity / 1000}k L
-                      </p>
-                    </div>
+            <CardContent>
+              <div className="h-[300px]">
+                {chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="date" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                      <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} domain={[0, 100]} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                        }}
+                        formatter={(value: number, name: string) => [
+                          name === 'level' ? `${value}%` : `${value}L`,
+                          name === 'level' ? 'Nível' : 'Volume'
+                        ]}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="level"
+                        stroke="hsl(var(--chart-1))"
+                        fill="hsl(var(--chart-1))"
+                        fillOpacity={0.3}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    Nenhuma leitura registrada
                   </div>
-                  <Progress
-                    value={tank.level}
-                    className="h-3"
-                  />
-                </div>
-              ))}
+                )}
+              </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-4">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Histórico de Níveis - Últimos 6 Dias
-              </CardTitle>
+              <CardTitle className="text-base font-semibold">Histórico de Leituras</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={mockReadings}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="date" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                    <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} domain={[0, 100]} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                      formatter={(value: number) => [`${value}%`, 'Nível']}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="level"
-                      stroke="hsl(200, 70%, 50%)"
-                      fill="hsl(200, 70%, 50%)"
-                      fillOpacity={0.2}
-                      strokeWidth={2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+              <div className="space-y-3">
+                {readings.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">Nenhuma leitura registrada</p>
+                ) : (
+                  readings.slice(0, 5).map((reading) => (
+                    <div key={reading.id} className="flex items-center justify-between rounded-lg border p-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10">
+                          <Droplets className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{reading.tankLevel}% - {Math.round(reading.volumeAvailable / 1000)}k L</p>
+                          <p className="text-sm text-muted-foreground">
+                            {reading.createdAt ? new Date(reading.createdAt).toLocaleDateString("pt-BR") : "-"}
+                          </p>
+                        </div>
+                      </div>
+                      {getQualityBadge(reading.quality)}
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -243,75 +353,80 @@ export default function Water() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base font-semibold">
-                Nível Total
-              </CardTitle>
+              <CardTitle className="text-base font-semibold">Nível do Reservatório</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col items-center">
-              <GaugeChart
-                value={averageLevel}
-                label="Capacidade"
-                color={averageLevel >= 70 ? "blue" : averageLevel >= 40 ? "amber" : "red"}
-                size="lg"
-              />
-              <div className="mt-4 grid w-full grid-cols-2 gap-4 text-center">
-                <div>
-                  <p className="text-2xl font-bold">{Math.round(totalVolume / 1000)}k</p>
-                  <p className="text-sm text-muted-foreground">Litros Disponíveis</p>
+            <CardContent className="flex justify-center">
+              <GaugeChart value={currentLevel} max={100} label="Nível" unit="%" />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">Qualidade da Água</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center">
+                <div className={`inline-flex h-20 w-20 items-center justify-center rounded-full ${
+                  latestReading?.quality === "boa" ? "bg-emerald-500/10" :
+                  latestReading?.quality === "regular" ? "bg-amber-500/10" : "bg-red-500/10"
+                }`}>
+                  <Droplets className={`h-10 w-10 ${
+                    latestReading?.quality === "boa" ? "text-emerald-600" :
+                    latestReading?.quality === "regular" ? "text-amber-600" : "text-red-600"
+                  }`} />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{totalCapacity / 1000}k</p>
-                  <p className="text-sm text-muted-foreground">Capacidade Total</p>
-                </div>
+                <p className="mt-4 text-2xl font-bold capitalize">{latestReading?.quality || "Boa"}</p>
+                <p className="text-sm text-muted-foreground">Última verificação</p>
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base font-semibold">
-                Qualidade da Água
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                Status
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10">
-                  <div className="flex items-center gap-2">
-                    <Check className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                    <span className="font-medium">Potabilidade</span>
+              <div className="space-y-3">
+                {currentLevel < 30 ? (
+                  <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 text-red-600" />
+                      <div>
+                        <p className="font-medium text-red-600">Nível Crítico!</p>
+                        <p className="text-sm text-muted-foreground">
+                          Verificar abastecimento.
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
-                    Aprovada
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10">
-                  <div className="flex items-center gap-2">
-                    <Check className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                    <span className="font-medium">Limpeza</span>
+                ) : currentLevel < 50 ? (
+                  <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600" />
+                      <div>
+                        <p className="font-medium text-amber-600">Atenção</p>
+                        <p className="text-sm text-muted-foreground">
+                          Nível abaixo do ideal.
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
-                    Em dia
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-blue-500/50 bg-blue-500/5">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-500/20">
-                  <Droplets className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div>
-                  <p className="font-medium text-blue-600 dark:text-blue-400">
-                    Consumo Estimado
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    ~{estimatedDailyConsumption.toLocaleString()} litros/dia baseado na
-                    ocupação atual de 48 unidades.
-                  </p>
-                </div>
+                ) : (
+                  <div className="rounded-lg border border-emerald-500/50 bg-emerald-500/10 p-3">
+                    <div className="flex items-start gap-2">
+                      <Check className="mt-0.5 h-4 w-4 text-emerald-600" />
+                      <div>
+                        <p className="font-medium text-emerald-600">Nível Normal</p>
+                        <p className="text-sm text-muted-foreground">
+                          Tudo funcionando bem.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
