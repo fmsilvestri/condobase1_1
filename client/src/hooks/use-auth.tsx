@@ -38,8 +38,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       
-      if (session?.user?.email) {
-        await fetchUserRole(session.user.email);
+      if (session?.user) {
+        await syncUser(
+          session.user.id,
+          session.user.email!,
+          session.user.user_metadata?.name || session.user.user_metadata?.full_name
+        );
       }
       
       setLoading(false);
@@ -49,8 +53,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSession(session);
           setUser(session?.user ?? null);
           
-          if (session?.user?.email) {
-            await fetchUserRole(session.user.email);
+          if (session?.user) {
+            await syncUser(
+              session.user.id,
+              session.user.email!,
+              session.user.user_metadata?.name || session.user.user_metadata?.full_name
+            );
           } else {
             setDbRole(null);
           }
@@ -64,6 +72,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     initAuth();
   }, []);
+
+  const syncUser = async (userId: string, email: string, name?: string | null) => {
+    try {
+      const response = await fetch("/api/users/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: userId, email, name }),
+      });
+      if (response.ok) {
+        const userData = await response.json();
+        setDbRole(userData.role);
+        return userData;
+      }
+    } catch (error) {
+      console.error("Error syncing user:", error);
+    }
+    return null;
+  };
 
   const fetchUserRole = async (email: string) => {
     try {

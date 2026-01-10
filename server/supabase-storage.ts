@@ -85,6 +85,16 @@ export class SupabaseStorage implements IStorage {
     return toCamelCase(data) as User;
   }
 
+  async upsertUser(userData: InsertUser & { id: string }): Promise<User> {
+    const { data, error } = await this.sb
+      .from("users")
+      .upsert(toSnakeCase(userData), { onConflict: "id" })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data) as User;
+  }
+
   async updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined> {
     const { data, error } = await this.sb
       .from("users")

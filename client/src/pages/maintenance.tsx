@@ -126,7 +126,7 @@ export default function Maintenance() {
 
   const createRequestMutation = useMutation({
     mutationFn: async (data: z.infer<typeof requestFormSchema>) => {
-      console.log("[maintenance] Submitting request:", data);
+      console.log("[maintenance] Submitting request:", data, "userId:", userId);
       return apiRequest("POST", "/api/maintenance", {
         ...data,
         requestedBy: userId || null,

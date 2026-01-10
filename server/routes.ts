@@ -152,6 +152,27 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/users/sync", async (req, res) => {
+    try {
+      const { id, email, name, role } = req.body;
+      if (!id || !email) {
+        return res.status(400).json({ error: "id and email are required" });
+      }
+      const user = await storage.upsertUser({
+        id,
+        email,
+        name: name || email.split("@")[0],
+        role: role || "condômino",
+        unit: null,
+        isActive: true,
+      });
+      res.json(user);
+    } catch (error: any) {
+      console.error("User sync error:", error);
+      res.status(500).json({ error: "Failed to sync user", details: error.message });
+    }
+  });
+
   app.patch("/api/users/:id", async (req, res) => {
     try {
       const validatedData = updateUserSchema.parse(req.body);
