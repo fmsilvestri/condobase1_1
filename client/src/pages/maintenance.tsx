@@ -77,7 +77,7 @@ export default function Maintenance() {
   const [isNewRequestOpen, setIsNewRequestOpen] = useState(false);
   const [isNewEquipmentOpen, setIsNewEquipmentOpen] = useState(false);
   const { toast } = useToast();
-  const { canEdit, userEmail } = useAuth();
+  const { canEdit, userId } = useAuth();
 
   const { data: equipment = [], isLoading: loadingEquipment } = useQuery<Equipment[]>({
     queryKey: ["/api/equipment"],
@@ -129,7 +129,7 @@ export default function Maintenance() {
       console.log("[maintenance] Submitting request:", data);
       return apiRequest("POST", "/api/maintenance", {
         ...data,
-        requestedBy: userEmail || null,
+        requestedBy: userId || null,
       });
     },
     onSuccess: () => {
@@ -151,7 +151,7 @@ export default function Maintenance() {
 
   const canEditRequest = (request: MaintenanceRequest) => {
     if (canEdit) return true;
-    return request.requestedBy === userEmail;
+    return request.requestedBy === userId;
   };
 
   const filteredEquipment = equipment.filter((eq) => {
