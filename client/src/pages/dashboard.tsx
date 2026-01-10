@@ -13,6 +13,7 @@ import {
   Bell,
   Calendar,
   Loader2,
+  Phone,
 } from "lucide-react";
 import { ModuleCard } from "@/components/module-card";
 import { StatCard } from "@/components/stat-card";
@@ -20,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useModulePermissions } from "@/hooks/use-module-permissions";
 
 interface DashboardData {
   openRequests: number;
@@ -42,6 +44,7 @@ export default function Dashboard() {
   const { data: dashboardData, isLoading, error } = useQuery<DashboardData>({
     queryKey: ["/api/dashboard"],
   });
+  const { canAccessModule } = useModulePermissions();
 
   if (isLoading) {
     return (
@@ -171,146 +174,174 @@ export default function Dashboard() {
               Módulos do Sistema
             </h2>
             <div className="grid gap-4 sm:grid-cols-2">
-              <ModuleCard
-                title="Ativos & Manutenções"
-                description="Equipamentos e chamados"
-                icon={Wrench}
-                status={getMaintenanceStatus()}
-                value={data.openRequests}
-                unit="chamados"
-                href="/manutencoes"
-                color="amber"
-                testId="card-manutencoes"
-              />
-              <ModuleCard
-                title="Piscina & Qualidade"
-                description="Leituras e análises"
-                icon={Waves}
-                status={getPoolStatus()}
-                value={data.latestPoolReading?.ph || 0}
-                unit="pH"
-                href="/piscina"
-                color="cyan"
-                testId="card-piscina"
-              />
-              <ModuleCard
-                title="Água & Reservatórios"
-                description="Níveis e qualidade"
-                icon={Droplets}
-                status={getWaterStatus()}
-                value={data.latestWaterReading?.tankLevel || 0}
-                unit="%"
-                href="/agua"
-                color="blue"
-                testId="card-agua"
-              />
-              <ModuleCard
-                title="Gás"
-                description="Nível e histórico"
-                icon={Flame}
-                status={data.latestGasReading && data.latestGasReading.level < 30 ? "alerta" : "ok"}
-                value={data.latestGasReading?.level || 0}
-                unit="%"
-                href="/gas"
-                color="orange"
-                testId="card-gas"
-              />
-              <ModuleCard
-                title="Energia"
-                description="Status e ocorrências"
-                icon={Zap}
-                status={data.currentEnergyStatus === "ok" ? "ok" : "alerta"}
-                value={data.currentEnergyStatus === "ok" ? "OK" : "Alerta"}
-                href="/energia"
-                color="yellow"
-                testId="card-energia"
-              />
-              <ModuleCard
-                title="Resíduos & Coleta"
-                description="Regras e calendário"
-                icon={Trash2}
-                href="/residuos"
-                color="green"
-                testId="card-residuos"
-              />
-              <ModuleCard
-                title="Ocupação & População"
-                description="Unidades e consumo"
-                icon={Users}
-                value={data.occupancy?.occupiedUnits || 0}
-                unit="unid."
-                href="/ocupacao"
-                color="purple"
-                testId="card-ocupacao"
-              />
-              <ModuleCard
-                title="Documentos & Licenças"
-                description="Certificados e alvarás"
-                icon={FileText}
-                status={data.expiringDocuments > 0 ? "atenção" : "ok"}
-                value={data.expiringDocuments}
-                unit="a vencer"
-                href="/documentos"
-                color="red"
-                testId="card-documentos"
-              />
+              {canAccessModule("manutencoes") && (
+                <ModuleCard
+                  title="Ativos & Manutenções"
+                  description="Equipamentos e chamados"
+                  icon={Wrench}
+                  status={getMaintenanceStatus()}
+                  value={data.openRequests}
+                  unit="chamados"
+                  href="/manutencoes"
+                  color="amber"
+                  testId="card-manutencoes"
+                />
+              )}
+              {canAccessModule("piscina") && (
+                <ModuleCard
+                  title="Piscina & Qualidade"
+                  description="Leituras e análises"
+                  icon={Waves}
+                  status={getPoolStatus()}
+                  value={data.latestPoolReading?.ph || 0}
+                  unit="pH"
+                  href="/piscina"
+                  color="cyan"
+                  testId="card-piscina"
+                />
+              )}
+              {canAccessModule("agua") && (
+                <ModuleCard
+                  title="Água & Reservatórios"
+                  description="Níveis e qualidade"
+                  icon={Droplets}
+                  status={getWaterStatus()}
+                  value={data.latestWaterReading?.tankLevel || 0}
+                  unit="%"
+                  href="/agua"
+                  color="blue"
+                  testId="card-agua"
+                />
+              )}
+              {canAccessModule("gas") && (
+                <ModuleCard
+                  title="Gás"
+                  description="Nível e histórico"
+                  icon={Flame}
+                  status={data.latestGasReading && data.latestGasReading.level < 30 ? "alerta" : "ok"}
+                  value={data.latestGasReading?.level || 0}
+                  unit="%"
+                  href="/gas"
+                  color="orange"
+                  testId="card-gas"
+                />
+              )}
+              {canAccessModule("energia") && (
+                <ModuleCard
+                  title="Energia"
+                  description="Status e ocorrências"
+                  icon={Zap}
+                  status={data.currentEnergyStatus === "ok" ? "ok" : "alerta"}
+                  value={data.currentEnergyStatus === "ok" ? "OK" : "Alerta"}
+                  href="/energia"
+                  color="yellow"
+                  testId="card-energia"
+                />
+              )}
+              {canAccessModule("residuos") && (
+                <ModuleCard
+                  title="Resíduos & Coleta"
+                  description="Regras e calendário"
+                  icon={Trash2}
+                  href="/residuos"
+                  color="green"
+                  testId="card-residuos"
+                />
+              )}
+              {canAccessModule("ocupacao") && (
+                <ModuleCard
+                  title="Ocupação & População"
+                  description="Unidades e consumo"
+                  icon={Users}
+                  value={data.occupancy?.occupiedUnits || 0}
+                  unit="unid."
+                  href="/ocupacao"
+                  color="purple"
+                  testId="card-ocupacao"
+                />
+              )}
+              {canAccessModule("documentos") && (
+                <ModuleCard
+                  title="Documentos & Licenças"
+                  description="Certificados e alvarás"
+                  icon={FileText}
+                  status={data.expiringDocuments > 0 ? "atenção" : "ok"}
+                  value={data.expiringDocuments}
+                  unit="a vencer"
+                  href="/documentos"
+                  color="red"
+                  testId="card-documentos"
+                />
+              )}
+              {canAccessModule("fornecedores") && (
+                <ModuleCard
+                  title="Fornecedores"
+                  description="Contatos e serviços"
+                  icon={Phone}
+                  href="/fornecedores"
+                  color="indigo"
+                  testId="card-fornecedores"
+                />
+              )}
             </div>
           </div>
         </div>
 
         <div className="space-y-6">
-          <Card className="relative overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500" />
-            <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20">
-                  <Bell className="h-4 w-4 text-cyan-500" />
-                </div>
-                Comunicados
-              </CardTitle>
-              <Badge variant="secondary" className="text-xs bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20" data-testid="badge-announcements-count">
-                {data.recentAnnouncements.length} novos
-              </Badge>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[200px] pr-4">
-                <div className="space-y-3">
-                  {data.recentAnnouncements.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      Nenhum comunicado recente.
-                    </p>
-                  ) : (
-                    data.recentAnnouncements.map((announcement) => (
-                      <Link key={announcement.id} href="/comunicados">
-                        <div
-                          className="flex items-start gap-3 rounded-lg p-2 hover-elevate cursor-pointer"
-                          data-testid={`announcement-${announcement.id}`}
-                        >
+          {canAccessModule("comunicados") && (
+            <Card className="relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500" />
+              <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20">
+                    <Bell className="h-4 w-4 text-cyan-500" />
+                  </div>
+                  Comunicados
+                </CardTitle>
+                <Badge variant="secondary" className="text-xs bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20" data-testid="badge-announcements-count">
+                  {data.recentAnnouncements.length} novos
+                </Badge>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[200px] pr-4">
+                  <div className="space-y-3">
+                    {data.recentAnnouncements.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        Nenhum comunicado recente.
+                      </p>
+                    ) : (
+                      data.recentAnnouncements.map((announcement) => (
+                        <Link key={announcement.id} href="/comunicados">
                           <div
-                            className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
-                              announcement.priority === "alta"
-                                ? "bg-red-500"
-                                : "bg-blue-500"
-                            }`}
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium leading-tight">
-                              {announcement.title}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {formatDate(announcement.createdAt)}
-                            </p>
+                            className="flex items-start gap-3 rounded-lg p-2 hover-elevate cursor-pointer"
+                            data-testid={`announcement-${announcement.id}`}
+                          >
+                            <div
+                              className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
+                                announcement.priority === "alta"
+                                  ? "bg-red-500"
+                                  : "bg-blue-500"
+                              }`}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium leading-tight">
+                                {announcement.title}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {formatDate(announcement.createdAt)}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      </Link>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+                        </Link>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          )}
 
-          {data.expiringDocuments > 0 && (
+          {canAccessModule("documentos") && data.expiringDocuments > 0 && (
             <Card className="border-amber-500/50 bg-amber-500/5">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
