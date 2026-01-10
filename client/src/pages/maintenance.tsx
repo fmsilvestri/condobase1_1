@@ -81,6 +81,7 @@ export default function Maintenance() {
   const [isNewRequestOpen, setIsNewRequestOpen] = useState(false);
   const [isNewEquipmentOpen, setIsNewEquipmentOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState<MaintenanceRequest | null>(null);
+  const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const { toast } = useToast();
   const { canEdit, userId, dbUserId, isSindico, isAdmin } = useAuth();
@@ -132,6 +133,38 @@ export default function Maintenance() {
       toast({ title: "Erro ao cadastrar equipamento", variant: "destructive" });
     },
   });
+
+  const updateEquipmentMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: z.infer<typeof equipmentFormSchema> }) =>
+      apiRequest("PATCH", `/api/equipment/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      toast({ title: "Equipamento atualizado com sucesso!" });
+      setEditingEquipment(null);
+      equipmentForm.reset();
+    },
+    onError: () => {
+      toast({ title: "Erro ao atualizar equipamento", variant: "destructive" });
+    },
+  });
+
+  const handleEditEquipment = (eq: Equipment) => {
+    setEditingEquipment(eq);
+    equipmentForm.reset({
+      name: eq.name,
+      category: eq.category,
+      location: eq.location,
+      description: eq.description || "",
+      status: eq.status,
+    });
+  };
+
+  const handleSaveEquipment = (data: z.infer<typeof equipmentFormSchema>) => {
+    if (editingEquipment) {
+      updateEquipmentMutation.mutate({ id: editingEquipment.id, data });
+    }
+  };
 
   const createRequestMutation = useMutation({
     mutationFn: async (data: z.infer<typeof requestFormSchema>) => {
@@ -353,6 +386,116 @@ export default function Maintenance() {
             )
             }
 
+            {/* Edit Equipment Dialog */}
+            <Dialog open={!!editingEquipment} onOpenChange={(open) => !open && setEditingEquipment(null)}>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Editar Equipamento</DialogTitle>
+                  <DialogDescription>
+                    Atualize as informações do equipamento.
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...equipmentForm}>
+                  <form onSubmit={equipmentForm.handleSubmit(handleSaveEquipment)} className="space-y-4">
+                    <FormField
+                      control={equipmentForm.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nome do Equipamento</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ex: Bomba d'água principal" {...field} data-testid="input-edit-equipment-name" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={equipmentForm.control}
+                      name="category"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Categoria</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-edit-equipment-category">
+                                <SelectValue placeholder="Selecione a categoria" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {equipmentCategories.map((cat) => (
+                                <SelectItem key={cat} value={cat}>
+                                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={equipmentForm.control}
+                      name="location"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Localização</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ex: Casa de máquinas" {...field} data-testid="input-edit-equipment-location" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={equipmentForm.control}
+                      name="status"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Status</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-edit-equipment-status">
+                                <SelectValue placeholder="Selecione o status" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="operacional">Operacional</SelectItem>
+                              <SelectItem value="manutenção">Em Manutenção</SelectItem>
+                              <SelectItem value="inoperante">Inoperante</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={equipmentForm.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Descrição</FormLabel>
+                          <FormControl>
+                            <Textarea placeholder="Detalhes adicionais..." {...field} data-testid="input-edit-equipment-description" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setEditingEquipment(null)}>
+                        Cancelar
+                      </Button>
+                      <Button type="submit" disabled={updateEquipmentMutation.isPending} data-testid="button-update-equipment">
+                        {updateEquipmentMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Atualizar
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+
             <Dialog open={isNewRequestOpen} onOpenChange={setIsNewRequestOpen}>
               <DialogTrigger asChild>
                 <Button data-testid="button-new-request">
@@ -538,16 +681,28 @@ export default function Maintenance() {
                       <Badge variant="secondary" className="text-xs">
                         {eq.category.charAt(0).toUpperCase() + eq.category.slice(1)}
                       </Badge>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleWhatsAppContact(eq.name, "Solicitar orçamento")}
-                        className="gap-1 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
-                        data-testid={`button-whatsapp-${eq.id}`}
-                      >
-                        <MessageCircle className="h-4 w-4" />
-                        WhatsApp
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        {canEdit && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditEquipment(eq)}
+                            data-testid={`button-edit-equipment-${eq.id}`}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleWhatsAppContact(eq.name, "Solicitar orçamento")}
+                          className="gap-1 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
+                          data-testid={`button-whatsapp-${eq.id}`}
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                          WhatsApp
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
