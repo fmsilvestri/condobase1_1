@@ -158,6 +158,27 @@ export async function registerRoutes(
       if (!id || !email) {
         return res.status(400).json({ error: "id and email are required" });
       }
+      
+      // Check if user already exists by ID - preserve their existing role from database
+      let existingUser = await storage.getUser(id);
+      if (existingUser) {
+        // User exists - return their data with the role from database (not from Supabase Auth)
+        res.json(existingUser);
+        return;
+      }
+      
+      // Check by email as well (user might have different ID in database)
+      existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        // Update the user ID to match Supabase Auth ID, but keep the role
+        const updatedUser = await storage.updateUser(existingUser.id, { 
+          name: name || existingUser.name 
+        });
+        res.json(updatedUser || existingUser);
+        return;
+      }
+      
+      // New user - create with role from Supabase Auth or default to condômino
       const user = await storage.upsertUser({
         id,
         email,
