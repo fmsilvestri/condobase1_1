@@ -5,6 +5,7 @@ import type { IStorage } from "./storage";
 import {
   notifications as notificationsTable,
   modulePermissions as modulePermissionsTable,
+  reservoirs as reservoirsTable,
   type User,
   type InsertUser,
   type Equipment,
@@ -244,51 +245,27 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getReservoirs(): Promise<Reservoir[]> {
-    const { data, error } = await this.sb
-      .from("reservoirs")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) throw new Error(error.message);
-    return (data || []).map(d => toCamelCase(d) as Reservoir);
+    return await db.select().from(reservoirsTable).orderBy(desc(reservoirsTable.createdAt));
   }
 
   async getReservoirById(id: string): Promise<Reservoir | undefined> {
-    const { data, error } = await this.sb
-      .from("reservoirs")
-      .select("*")
-      .eq("id", id)
-      .single();
-    if (error || !data) return undefined;
-    return toCamelCase(data) as Reservoir;
+    const [reservoir] = await db.select().from(reservoirsTable).where(eq(reservoirsTable.id, id));
+    return reservoir;
   }
 
   async createReservoir(reservoir: InsertReservoir): Promise<Reservoir> {
-    const { data, error } = await this.sb
-      .from("reservoirs")
-      .insert(toSnakeCase(reservoir))
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-    return toCamelCase(data) as Reservoir;
+    const [created] = await db.insert(reservoirsTable).values(reservoir).returning();
+    return created;
   }
 
   async updateReservoir(id: string, reservoir: Partial<InsertReservoir>): Promise<Reservoir | undefined> {
-    const { data, error } = await this.sb
-      .from("reservoirs")
-      .update(toSnakeCase(reservoir))
-      .eq("id", id)
-      .select()
-      .single();
-    if (error || !data) return undefined;
-    return toCamelCase(data) as Reservoir;
+    const [updated] = await db.update(reservoirsTable).set(reservoir).where(eq(reservoirsTable.id, id)).returning();
+    return updated;
   }
 
   async deleteReservoir(id: string): Promise<boolean> {
-    const { error } = await this.sb
-      .from("reservoirs")
-      .delete()
-      .eq("id", id);
-    return !error;
+    const result = await db.delete(reservoirsTable).where(eq(reservoirsTable.id, id));
+    return true;
   }
 
   async getWaterReadings(): Promise<WaterReading[]> {
