@@ -345,3 +345,22 @@ export const MODULE_KEYS = [
 ] as const;
 
 export type ModuleKey = typeof MODULE_KEYS[number];
+
+export const wasteConfig = pgTable("waste_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schedule: text("schedule").notNull(),
+  organicItems: text("organic_items").notNull(),
+  recyclableCategories: text("recyclable_categories").notNull(),
+  notRecyclable: text("not_recyclable").notNull(),
+  collectionTime: text("collection_time").default("07:00"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedBy: varchar("updated_by"),
+});
+
+export const insertWasteConfigSchema = createInsertSchema(wasteConfig).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertWasteConfig = z.infer<typeof insertWasteConfigSchema>;
+export type WasteConfig = typeof wasteConfig.$inferSelect;

@@ -6,6 +6,7 @@ import {
   notifications as notificationsTable,
   modulePermissions as modulePermissionsTable,
   reservoirs as reservoirsTable,
+  wasteConfig as wasteConfigTable,
   type User,
   type InsertUser,
   type Equipment,
@@ -34,6 +35,8 @@ import {
   type InsertNotification,
   type ModulePermission,
   type InsertModulePermission,
+  type WasteConfig,
+  type InsertWasteConfig,
 } from "@shared/schema";
 
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
@@ -589,6 +592,45 @@ export class SupabaseStorage implements IStorage {
       .where(eq(modulePermissionsTable.moduleKey, moduleKey))
       .returning();
     return data;
+  }
+
+  async getWasteConfig(): Promise<WasteConfig | undefined> {
+    const [config] = await db.select().from(wasteConfigTable).limit(1);
+    return config;
+  }
+
+  async updateWasteConfig(config: Partial<InsertWasteConfig>): Promise<WasteConfig | undefined> {
+    const existing = await this.getWasteConfig();
+    if (existing) {
+      const [updated] = await db.update(wasteConfigTable)
+        .set({ ...config, updatedAt: new Date() })
+        .where(eq(wasteConfigTable.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const defaultSchedule = JSON.stringify([
+      { day: "Segunda", organic: true, recyclable: false },
+      { day: "Terça", organic: false, recyclable: true },
+      { day: "Quarta", organic: true, recyclable: false },
+      { day: "Quinta", organic: false, recyclable: true },
+      { day: "Sexta", organic: true, recyclable: false },
+      { day: "Sábado", organic: false, recyclable: true },
+    ]);
+    const defaultOrganic = JSON.stringify(["Restos de alimentos", "Cascas de frutas"]);
+    const defaultRecyclable = JSON.stringify([{ category: "Papel", items: ["Jornais"] }]);
+    const defaultNotRecyclable = JSON.stringify(["Papel higiênico"]);
+    
+    const [created] = await db.insert(wasteConfigTable)
+      .values({
+        schedule: config.schedule || defaultSchedule,
+        organicItems: config.organicItems || defaultOrganic,
+        recyclableCategories: config.recyclableCategories || defaultRecyclable,
+        notRecyclable: config.notRecyclable || defaultNotRecyclable,
+        collectionTime: config.collectionTime || "07:00",
+        updatedBy: config.updatedBy || null,
+      })
+      .returning();
+    return created;
   }
 }
 

@@ -27,6 +27,8 @@ import {
   type InsertNotification,
   type ModulePermission,
   type InsertModulePermission,
+  type WasteConfig,
+  type InsertWasteConfig,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -100,6 +102,9 @@ export interface IStorage {
 
   getModulePermissions(): Promise<ModulePermission[]>;
   updateModulePermission(moduleKey: string, isEnabled: boolean, updatedBy?: string): Promise<ModulePermission | undefined>;
+
+  getWasteConfig(): Promise<WasteConfig | undefined>;
+  updateWasteConfig(config: Partial<InsertWasteConfig>): Promise<WasteConfig | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -596,6 +601,50 @@ export class MemStorage implements IStorage {
     const updated = { ...permission, isEnabled, updatedAt: new Date(), updatedBy: updatedBy || null };
     this.modulePermissions.set(moduleKey, updated);
     return updated;
+  }
+
+  private wasteConfig: WasteConfig = {
+    id: "1",
+    schedule: JSON.stringify([
+      { day: "Segunda", organic: true, recyclable: false },
+      { day: "Terça", organic: false, recyclable: true },
+      { day: "Quarta", organic: true, recyclable: false },
+      { day: "Quinta", organic: false, recyclable: true },
+      { day: "Sexta", organic: true, recyclable: false },
+      { day: "Sábado", organic: false, recyclable: true },
+    ]),
+    organicItems: JSON.stringify([
+      "Restos de alimentos",
+      "Cascas de frutas e vegetais",
+      "Borra de café e saquinhos de chá",
+      "Guardanapos e papel toalha usados",
+      "Folhas e podas de jardim",
+    ]),
+    recyclableCategories: JSON.stringify([
+      { category: "Papel", items: ["Jornais", "Revistas", "Caixas de papelão", "Papel de escritório"] },
+      { category: "Plástico", items: ["Garrafas PET", "Embalagens limpas", "Sacolas plásticas", "Potes"] },
+      { category: "Metal", items: ["Latas de alumínio", "Latas de aço", "Tampas metálicas", "Papel alumínio"] },
+      { category: "Vidro", items: ["Garrafas", "Potes", "Frascos", "Copos (não quebrados)"] },
+    ]),
+    notRecyclable: JSON.stringify([
+      "Papel higiênico e fraldas",
+      "Espelhos e vidros quebrados",
+      "Cerâmicas e porcelanas",
+      "Isopor sujo",
+      "Embalagens metalizadas (como de salgadinho)",
+    ]),
+    collectionTime: "07:00",
+    updatedAt: new Date(),
+    updatedBy: null,
+  };
+
+  async getWasteConfig(): Promise<WasteConfig | undefined> {
+    return this.wasteConfig;
+  }
+
+  async updateWasteConfig(config: Partial<InsertWasteConfig>): Promise<WasteConfig | undefined> {
+    this.wasteConfig = { ...this.wasteConfig, ...config, updatedAt: new Date() };
+    return this.wasteConfig;
   }
 }
 

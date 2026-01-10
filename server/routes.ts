@@ -829,5 +829,90 @@ export async function registerRoutes(
     }
   });
 
+  // Waste Config routes
+  app.get("/api/waste-config", async (req, res) => {
+    try {
+      const config = await storage.getWasteConfig();
+      res.json(config || null);
+    } catch (error) {
+      console.error("Error fetching waste config:", error);
+      res.status(500).json({ error: "Failed to fetch waste config" });
+    }
+  });
+
+  app.patch("/api/waste-config", async (req, res) => {
+    try {
+      const { updatedBy, userEmail, schedule, organicItems, recyclableCategories, notRecyclable, collectionTime } = req.body;
+      
+      if (!updatedBy && !userEmail) {
+        return res.status(401).json({ error: "User ID or email required" });
+      }
+      
+      let user = await storage.getUser(updatedBy);
+      if (!user && userEmail) {
+        user = await storage.getUserByEmail(userEmail);
+      }
+      
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+      if (user.role !== "síndico" && user.role !== "admin") {
+        return res.status(403).json({ error: "Only síndico or admin can update waste config" });
+      }
+      
+      const configUpdate: Record<string, string | null> = { updatedBy: user.id };
+      
+      if (schedule !== undefined) {
+        try {
+          const parsed = JSON.parse(schedule);
+          if (!Array.isArray(parsed)) throw new Error("Schedule must be an array");
+          configUpdate.schedule = schedule;
+        } catch {
+          return res.status(400).json({ error: "Invalid schedule format" });
+        }
+      }
+      
+      if (organicItems !== undefined) {
+        try {
+          const parsed = JSON.parse(organicItems);
+          if (!Array.isArray(parsed)) throw new Error("Organic items must be an array");
+          configUpdate.organicItems = organicItems;
+        } catch {
+          return res.status(400).json({ error: "Invalid organic items format" });
+        }
+      }
+      
+      if (recyclableCategories !== undefined) {
+        try {
+          const parsed = JSON.parse(recyclableCategories);
+          if (!Array.isArray(parsed)) throw new Error("Recyclable categories must be an array");
+          configUpdate.recyclableCategories = recyclableCategories;
+        } catch {
+          return res.status(400).json({ error: "Invalid recyclable categories format" });
+        }
+      }
+      
+      if (notRecyclable !== undefined) {
+        try {
+          const parsed = JSON.parse(notRecyclable);
+          if (!Array.isArray(parsed)) throw new Error("Not recyclable must be an array");
+          configUpdate.notRecyclable = notRecyclable;
+        } catch {
+          return res.status(400).json({ error: "Invalid not recyclable format" });
+        }
+      }
+      
+      if (collectionTime !== undefined) {
+        configUpdate.collectionTime = collectionTime;
+      }
+      
+      const config = await storage.updateWasteConfig(configUpdate as any);
+      res.json(config);
+    } catch (error) {
+      console.error("Error updating waste config:", error);
+      res.status(500).json({ error: "Failed to update waste config" });
+    }
+  });
+
   return httpServer;
 }
