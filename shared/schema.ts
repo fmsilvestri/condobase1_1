@@ -147,7 +147,7 @@ export const waterReadings = pgTable("water_readings", {
   reservoirId: varchar("reservoir_id"),
   tankLevel: real("tank_level").notNull(),
   quality: text("quality").notNull().default("boa"),
-  volumeAvailable: real("volume_available").notNull(),
+  volumeAvailable: real("volume_available").notNull().default(0),
   estimatedAutonomy: real("estimated_autonomy"),
   casanStatus: text("casan_status").default("normal"),
   notes: text("notes"),
@@ -158,6 +158,10 @@ export const waterReadings = pgTable("water_readings", {
 export const insertWaterReadingSchema = createInsertSchema(waterReadings).omit({
   id: true,
   createdAt: true,
+}).extend({
+  volumeAvailable: z.coerce.number().default(0),
+  tankLevel: z.coerce.number().min(0).max(100),
+  estimatedAutonomy: z.coerce.number().optional().nullable(),
 });
 
 export type InsertWaterReading = z.infer<typeof insertWaterReadingSchema>;
