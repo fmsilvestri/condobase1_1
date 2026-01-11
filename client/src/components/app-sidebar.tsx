@@ -14,6 +14,7 @@ import {
   LogOut,
   Settings,
   ToggleRight,
+  ClipboardList,
 } from "lucide-react";
 import {
   Sidebar,
@@ -209,6 +210,19 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
                     <Link href="/controle-acesso">
                       <ToggleRight className="h-4 w-4" />
                       <span>Controle de Acesso</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/relatorios"}
+                    data-testid="nav-relatorios"
+                    className="rounded-lg transition-all duration-200 data-[active=true]:bg-gradient-to-r data-[active=true]:from-cyan-500/20 data-[active=true]:to-blue-500/20 data-[active=true]:border-l-2 data-[active=true]:border-l-cyan-500"
+                  >
+                    <Link href="/relatorios">
+                      <ClipboardList className="h-4 w-4" />
+                      <span>Relatórios</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
