@@ -16,6 +16,7 @@ import {
   Loader2,
   CheckSquare,
   Square,
+  Package,
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import { PageHeader } from "@/components/page-header";
@@ -27,7 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import type { MaintenanceRequest, PoolReading, WaterReading, GasReading, EnergyEvent, OccupancyData, Document, Supplier, Announcement } from "@shared/schema";
+import type { MaintenanceRequest, PoolReading, WaterReading, GasReading, EnergyEvent, OccupancyData, Document, Supplier, Announcement, Equipment } from "@shared/schema";
 
 interface ReportModule {
   id: string;
@@ -37,6 +38,7 @@ interface ReportModule {
 }
 
 const availableModules: ReportModule[] = [
+  { id: "ativos", label: "Ativos", icon: Package, description: "Equipamentos e status de cada um" },
   { id: "manutencoes", label: "Manutenções", icon: Wrench, description: "Chamados abertos e em andamento" },
   { id: "piscina", label: "Piscina", icon: Waves, description: "Última leitura de qualidade" },
   { id: "agua", label: "Água", icon: Droplets, description: "Nível dos reservatórios" },
@@ -49,10 +51,15 @@ const availableModules: ReportModule[] = [
 ];
 
 export default function Reports() {
-  const [selectedModules, setSelectedModules] = useState<string[]>(["manutencoes", "piscina", "agua"]);
+  const [selectedModules, setSelectedModules] = useState<string[]>(["ativos", "manutencoes", "piscina", "agua"]);
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
   const { canEdit, userName } = useAuth();
+
+  const { data: equipment = [] } = useQuery<Equipment[]>({
+    queryKey: ["/api/equipment"],
+    enabled: selectedModules.includes("ativos"),
+  });
 
   const { data: maintenance = [] } = useQuery<MaintenanceRequest[]>({
     queryKey: ["/api/maintenance"],
@@ -151,6 +158,65 @@ export default function Reports() {
       doc.setLineWidth(0.5);
       doc.line(20, yPos, pageWidth - 20, yPos);
       yPos += 10;
+
+      if (selectedModules.includes("ativos") && equipment.length > 0) {
+        doc.setFontSize(14);
+        doc.setTextColor(0, 0, 0);
+        doc.text("Ativos do Condomínio", 20, yPos);
+        yPos += 8;
+
+        const statusLabels: Record<string, string> = {
+          "operacional": "Operacional",
+          "atenção": "Atenção",
+          "alerta": "Alerta",
+          "inativo": "Inativo",
+        };
+
+        const tableData = equipment.map(e => [
+          e.name.substring(0, 25),
+          e.category,
+          e.location.substring(0, 20),
+          statusLabels[e.status] || e.status,
+        ]);
+
+        autoTable(doc, {
+          startY: yPos,
+          head: [["Equipamento", "Categoria", "Localização", "Status"]],
+          body: tableData,
+          theme: "striped",
+          headStyles: { fillColor: [0, 150, 180] },
+          margin: { left: 20, right: 20 },
+          bodyStyles: { fontSize: 9 },
+          didParseCell: (data: any) => {
+            if (data.column.index === 3 && data.section === "body") {
+              const status = data.cell.raw?.toLowerCase();
+              if (status === "operacional") {
+                data.cell.styles.textColor = [34, 197, 94];
+              } else if (status === "atenção") {
+                data.cell.styles.textColor = [234, 179, 8];
+              } else if (status === "alerta") {
+                data.cell.styles.textColor = [239, 68, 68];
+              } else if (status === "inativo") {
+                data.cell.styles.textColor = [107, 114, 128];
+              }
+            }
+          },
+        });
+
+        yPos = (doc as any).lastAutoTable.finalY + 10;
+
+        const statusCounts = {
+          operacional: equipment.filter(e => e.status === "operacional").length,
+          atencao: equipment.filter(e => e.status === "atenção").length,
+          alerta: equipment.filter(e => e.status === "alerta").length,
+          inativo: equipment.filter(e => e.status === "inativo").length,
+        };
+
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Resumo: ${statusCounts.operacional} operacionais | ${statusCounts.atencao} em atenção | ${statusCounts.alerta} em alerta | ${statusCounts.inativo} inativos`, 20, yPos);
+        yPos += 10;
+      }
 
       if (selectedModules.includes("manutencoes") && maintenance.length > 0) {
         doc.setFontSize(14);
@@ -395,6 +461,13 @@ export default function Reports() {
 
     let message = `*Relatório do Condomínio - CONDOBASE1*\n`;
     message += `_Gerado em: ${formatDate(new Date())}_\n\n`;
+
+    if (selectedModules.includes("ativos") && equipment.length > 0) {
+      const operacional = equipment.filter(e => e.status === "operacional").length;
+      const atencao = equipment.filter(e => e.status === "atenção").length;
+      const alerta = equipment.filter(e => e.status === "alerta").length;
+      message += `📦 *Ativos:* ${equipment.length} equipamentos (${operacional} ok, ${atencao} atenção, ${alerta} alerta)\n`;
+    }
 
     if (selectedModules.includes("manutencoes")) {
       const openCount = maintenance.filter(m => m.status !== "concluído").length;
