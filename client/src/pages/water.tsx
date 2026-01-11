@@ -135,14 +135,15 @@ export default function Water() {
 
   const createReadingMutation = useMutation({
     mutationFn: async (data: z.infer<typeof waterFormSchema>) => {
-      const reservoir = reservoirs.find(r => r.id === data.reservoirId);
+      const reservoirId = data.reservoirId === "all" ? null : data.reservoirId;
+      const reservoir = reservoirs.find(r => r.id === reservoirId);
       const capacity = reservoir?.capacityLiters || 50000;
       const volumeAvailable = (data.tankLevel / 100) * capacity;
       const estimatedDailyConsumption = 5000;
       const estimatedAutonomy = volumeAvailable / estimatedDailyConsumption;
       
       return apiRequest("POST", "/api/water", {
-        reservoirId: data.reservoirId || null,
+        reservoirId: reservoirId || null,
         tankLevel: data.tankLevel,
         quality: data.quality,
         volumeAvailable: volumeAvailable,
@@ -321,7 +322,7 @@ export default function Water() {
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="">Geral (todos)</SelectItem>
+                                  <SelectItem value="all">Geral (todos)</SelectItem>
                                   {reservoirs.map((r) => (
                                     <SelectItem key={r.id} value={r.id}>
                                       {r.name}
