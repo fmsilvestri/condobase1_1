@@ -230,22 +230,12 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getPoolReadings(): Promise<PoolReading[]> {
-    const { data, error } = await this.sb
-      .from("pool_readings")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) throw new Error(error.message);
-    return (data || []).map(d => toCamelCase(d) as PoolReading);
+    return await db.select().from(poolReadingsTable).orderBy(desc(poolReadingsTable.createdAt));
   }
 
   async createPoolReading(reading: InsertPoolReading): Promise<PoolReading> {
-    const { data, error } = await this.sb
-      .from("pool_readings")
-      .insert(toSnakeCase(reading))
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-    return toCamelCase(data) as PoolReading;
+    const [created] = await db.insert(poolReadingsTable).values(reading).returning();
+    return created;
   }
 
   async getReservoirs(): Promise<Reservoir[]> {

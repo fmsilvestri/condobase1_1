@@ -30,6 +30,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -52,12 +53,30 @@ const poolReadingFormSchema = z.object({
   calciumHardness: z.coerce.number().min(0).max(1000),
   temperature: z.coerce.number().min(0).max(50),
   notes: z.string().optional(),
+  photo: z.string().optional(),
 });
 
 export default function Pool() {
   const [isNewReadingOpen, setIsNewReadingOpen] = useState(false);
+  const [poolPhoto, setPoolPhoto] = useState<string | null>(null);
   const { toast } = useToast();
   const { canEdit } = useAuth();
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ title: "Arquivo muito grande", description: "Máximo 5MB", variant: "destructive" });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setPoolPhoto(base64);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const { data: readings = [], isLoading } = useQuery<PoolReading[]>({
     queryKey: ["/api/pool"],
@@ -76,13 +95,16 @@ export default function Pool() {
   });
 
   const createReadingMutation = useMutation({
-    mutationFn: (data: z.infer<typeof poolReadingFormSchema>) =>
-      apiRequest("POST", "/api/pool", data),
+    mutationFn: (data: z.infer<typeof poolReadingFormSchema>) => {
+      const payload = { ...data, photo: poolPhoto };
+      return apiRequest("POST", "/api/pool", payload);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/pool"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       toast({ title: "Leitura registrada com sucesso!" });
       setIsNewReadingOpen(false);
+      setPoolPhoto(null);
       form.reset();
     },
     onError: () => {
@@ -239,8 +261,40 @@ export default function Pool() {
                         </FormItem>
                       )}
                     />
+                    <div className="space-y-2">
+                      <Label>Foto da Piscina / Kit de Testes</Label>
+                      <div className="flex items-center gap-4">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={handlePhotoChange}
+                          className="flex-1"
+                          data-testid="input-pool-photo"
+                        />
+                        {poolPhoto && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setPoolPhoto(null)}
+                          >
+                            Remover
+                          </Button>
+                        )}
+                      </div>
+                      {poolPhoto && (
+                        <div className="mt-2 rounded-lg border overflow-hidden">
+                          <img
+                            src={poolPhoto}
+                            alt="Preview"
+                            className="w-full h-32 object-cover"
+                          />
+                        </div>
+                      )}
+                    </div>
                     <DialogFooter>
-                      <Button type="button" variant="outline" onClick={() => setIsNewReadingOpen(false)}>
+                      <Button type="button" variant="outline" onClick={() => { setIsNewReadingOpen(false); setPoolPhoto(null); }}>
                         Cancelar
                       </Button>
                       <Button type="submit" disabled={createReadingMutation.isPending} data-testid="button-save-reading">
@@ -322,6 +376,18 @@ export default function Pool() {
                     testId="reading-calcium"
                   />
                 </div>
+                {latestReading.photo && (
+                  <div className="mt-6 space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">Foto da Leitura</p>
+                    <div className="rounded-lg border overflow-hidden max-w-md bg-muted/30">
+                      <img
+                        src={latestReading.photo}
+                        alt="Foto da piscina"
+                        className="w-full h-auto object-contain max-h-[300px]"
+                      />
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
