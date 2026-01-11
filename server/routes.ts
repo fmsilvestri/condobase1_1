@@ -17,6 +17,7 @@ import {
   updateUserSchema,
 } from "@shared/schema";
 
+import { z } from "zod";
 import { supabase, isSupabaseConfigured } from "./supabase";
 
 const storage = createStorage();
@@ -388,16 +389,17 @@ export async function registerRoutes(
 
   app.post("/api/pool", async (req, res) => {
     try {
-      console.log("Pool reading request body:", req.body);
+      console.log("Pool reading request body:", JSON.stringify(req.body));
       const validatedData = insertPoolReadingSchema.parse(req.body);
+      console.log("Validated pool data:", JSON.stringify(validatedData));
       const reading = await storage.createPoolReading(validatedData);
       res.status(201).json(reading);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating pool reading:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Invalid pool reading data", details: error.errors });
       }
-      res.status(500).json({ error: "Failed to create pool reading" });
+      res.status(500).json({ error: "Failed to create pool reading", details: error?.message || String(error) });
     }
   });
 

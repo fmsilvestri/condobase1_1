@@ -235,8 +235,23 @@ export class SupabaseStorage implements IStorage {
   }
 
   async createPoolReading(reading: InsertPoolReading): Promise<PoolReading> {
-    const [created] = await db.insert(poolReadingsTable).values(reading).returning();
-    return created;
+    try {
+      console.log("Storage: Inserting pool reading:", JSON.stringify(reading));
+      // Ensure all numeric fields are actually numbers and not NaN
+      const cleanedReading = {
+        ...reading,
+        ph: Number(reading.ph) || 0,
+        chlorine: Number(reading.chlorine) || 0,
+        alkalinity: Number(reading.alkalinity) || 0,
+        calciumHardness: Number(reading.calciumHardness) || 0,
+        temperature: Number(reading.temperature) || 0,
+      };
+      const [created] = await db.insert(poolReadingsTable).values(cleanedReading).returning();
+      return created;
+    } catch (error: any) {
+      console.error("Drizzle createPoolReading error:", error);
+      throw error;
+    }
   }
 
   async getReservoirs(): Promise<Reservoir[]> {
