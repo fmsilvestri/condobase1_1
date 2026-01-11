@@ -462,11 +462,13 @@ export async function registerRoutes(
 
   app.post("/api/water", async (req, res) => {
     try {
+      console.log("Water reading request body:", JSON.stringify(req.body));
       const validatedData = insertWaterReadingSchema.parse(req.body);
       const reading = await storage.createWaterReading(validatedData);
       res.status(201).json(reading);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid water reading data" });
+    } catch (error: any) {
+      console.error("Water reading validation error:", error?.message || error);
+      res.status(400).json({ error: "Invalid water reading data", details: error?.message });
     }
   });
 
