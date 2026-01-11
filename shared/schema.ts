@@ -285,6 +285,7 @@ export const announcements = pgTable("announcements", {
   title: text("title").notNull(),
   content: text("content").notNull(),
   priority: text("priority").notNull().default("normal"),
+  photos: text("photos").array(),
   createdBy: varchar("created_by"),
   createdAt: timestamp("created_at").defaultNow(),
   expiresAt: timestamp("expires_at"),

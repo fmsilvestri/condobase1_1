@@ -13,6 +13,9 @@ import {
   Edit,
   Trash2,
   Loader2,
+  Smile,
+  Paperclip,
+  X,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -46,6 +49,12 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -56,7 +65,10 @@ const announcementFormSchema = z.object({
   content: z.string().min(1, "Conteúdo é obrigatório"),
   priority: z.string().default("normal"),
   expiresAt: z.string().optional(),
+  photos: z.array(z.string()).optional(),
 });
+
+const commonEmojis = ["📢", "⚠️", "🔧", "🎉", "📅", "🧹", "💧", "⚡", "🔥", "🏠", "🤝", "💡"];
 
 const getPriorityColor = (priority: string) => {
   switch (priority) {
@@ -76,6 +88,7 @@ export default function Announcements() {
   const [isEditAnnouncementOpen, setIsEditAnnouncementOpen] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [announcementPhotos, setAnnouncementPhotos] = useState<string[]>([]);
   const { toast } = useToast();
   const { canEdit } = useAuth();
 
@@ -90,6 +103,7 @@ export default function Announcements() {
       content: "",
       priority: "normal",
       expiresAt: "",
+      photos: [],
     },
   });
 
@@ -100,27 +114,42 @@ export default function Announcements() {
       content: "",
       priority: "normal",
       expiresAt: "",
+      photos: [],
     },
   });
 
-  useEffect(() => {
-    if (editingAnnouncement) {
-      editForm.reset({
-        title: editingAnnouncement.title,
-        content: editingAnnouncement.content,
-        priority: editingAnnouncement.priority,
-        expiresAt: editingAnnouncement.expiresAt 
-          ? new Date(editingAnnouncement.expiresAt).toISOString().split('T')[0] 
-          : "",
-      });
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>, isEdit = false) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ title: "Arquivo muito grande", description: "Máximo 5MB", variant: "destructive" });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setAnnouncementPhotos(prev => [...prev, base64]);
+      };
+      reader.readAsDataURL(file);
     }
-  }, [editingAnnouncement, editForm]);
+  };
+
+  const removePhoto = (index: number) => {
+    setAnnouncementPhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const addEmoji = (emoji: string, isEdit = false) => {
+    const currentForm = isEdit ? editForm : form;
+    const currentContent = currentForm.getValues("content");
+    currentForm.setValue("content", currentContent + emoji);
+  };
 
   const createAnnouncementMutation = useMutation({
     mutationFn: (data: z.infer<typeof announcementFormSchema>) => {
       const payload = {
         ...data,
         expiresAt: data.expiresAt ? new Date(data.expiresAt).toISOString() : undefined,
+        photos: announcementPhotos,
       };
       return apiRequest("POST", "/api/announcements", payload);
     },
@@ -130,6 +159,7 @@ export default function Announcements() {
       queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
       toast({ title: "Comunicado publicado com sucesso!" });
       setIsNewAnnouncementOpen(false);
+      setAnnouncementPhotos([]);
       form.reset();
     },
     onError: () => {
@@ -143,6 +173,7 @@ export default function Announcements() {
       const payload = {
         ...rest,
         expiresAt: rest.expiresAt ? new Date(rest.expiresAt).toISOString() : undefined,
+        photos: announcementPhotos,
       };
       return apiRequest("PATCH", `/api/announcements/${id}`, payload);
     },
@@ -153,12 +184,27 @@ export default function Announcements() {
       toast({ title: "Comunicado atualizado com sucesso!" });
       setIsEditAnnouncementOpen(false);
       setEditingAnnouncement(null);
+      setAnnouncementPhotos([]);
       editForm.reset();
     },
     onError: () => {
       toast({ title: "Erro ao atualizar comunicado", variant: "destructive" });
     },
   });
+
+  useEffect(() => {
+    if (editingAnnouncement) {
+      editForm.reset({
+        title: editingAnnouncement.title,
+        content: editingAnnouncement.content,
+        priority: editingAnnouncement.priority,
+        expiresAt: editingAnnouncement.expiresAt 
+          ? new Date(editingAnnouncement.expiresAt).toISOString().split('T')[0] 
+          : "",
+      });
+      setAnnouncementPhotos(editingAnnouncement.photos || []);
+    }
+  }, [editingAnnouncement, editForm]);
 
   const deleteAnnouncementMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/announcements/${id}`),
@@ -284,7 +330,31 @@ export default function Announcements() {
                       name="content"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Conteúdo</FormLabel>
+                          <div className="flex items-center justify-between">
+                            <FormLabel>Conteúdo</FormLabel>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 px-2">
+                                  <Smile className="h-4 w-4 mr-1" />
+                                  Emojis
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-full p-2" align="end">
+                                <div className="grid grid-cols-6 gap-2">
+                                  {commonEmojis.map(emoji => (
+                                    <button
+                                      key={emoji}
+                                      type="button"
+                                      onClick={() => addEmoji(emoji)}
+                                      className="text-xl hover:bg-muted p-1 rounded"
+                                    >
+                                      {emoji}
+                                    </button>
+                                  ))}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
                           <FormControl>
                             <Textarea
                               placeholder="Digite o conteúdo do comunicado..."
@@ -297,6 +367,34 @@ export default function Announcements() {
                         </FormItem>
                       )}
                     />
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <Paperclip className="h-4 w-4" />
+                        Anexar Fotos / Arquivos
+                      </Label>
+                      <Input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={(e) => handlePhotoChange(e)}
+                        data-testid="input-announcement-file"
+                      />
+                      {announcementPhotos.length > 0 && (
+                        <div className="grid grid-cols-4 gap-2 mt-2">
+                          {announcementPhotos.map((photo, index) => (
+                            <div key={index} className="relative group rounded-md overflow-hidden border">
+                              <img src={photo} alt="Preview" className="w-full h-16 object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => removePhoto(index)}
+                                className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <FormField
                       control={form.control}
                       name="expiresAt"
@@ -376,24 +474,76 @@ export default function Announcements() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={editForm.control}
-                name="content"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Conteúdo</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Digite o conteúdo do comunicado..."
-                        className="min-h-[150px]"
-                        {...field}
-                        data-testid="input-edit-announcement-content"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={editForm.control}
+                  name="content"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <FormLabel>Conteúdo</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 px-2">
+                              <Smile className="h-4 w-4 mr-1" />
+                              Emojis
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-full p-2" align="end">
+                            <div className="grid grid-cols-6 gap-2">
+                              {commonEmojis.map(emoji => (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  onClick={() => addEmoji(emoji, true)}
+                                  className="text-xl hover:bg-muted p-1 rounded"
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Digite o conteúdo do comunicado..."
+                          className="min-h-[150px]"
+                          {...field}
+                          data-testid="input-edit-announcement-content"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Paperclip className="h-4 w-4" />
+                    Anexar Fotos / Arquivos
+                  </Label>
+                  <Input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={(e) => handlePhotoChange(e, true)}
+                    data-testid="input-edit-announcement-file"
+                  />
+                  {announcementPhotos.length > 0 && (
+                    <div className="grid grid-cols-4 gap-2 mt-2">
+                      {announcementPhotos.map((photo, index) => (
+                        <div key={index} className="relative group rounded-md overflow-hidden border">
+                          <img src={photo} alt="Preview" className="w-full h-16 object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => removePhoto(index)}
+                            className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               <FormField
                 control={editForm.control}
                 name="expiresAt"
@@ -511,6 +661,15 @@ export default function Announcements() {
                 <p className="text-sm text-muted-foreground leading-relaxed" data-testid={`text-announcement-content-${announcement.id}`}>
                   {announcement.content}
                 </p>
+                {announcement.photos && announcement.photos.length > 0 && (
+                  <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {announcement.photos.map((photo, idx) => (
+                      <div key={idx} className="rounded-md overflow-hidden border aspect-video">
+                        <img src={photo} alt="Anexo" className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {announcement.expiresAt && (
                   <div className="mt-4 flex items-center gap-2">
                     <Badge variant="outline" className="text-xs">
