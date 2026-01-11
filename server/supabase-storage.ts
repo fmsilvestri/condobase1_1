@@ -9,6 +9,8 @@ import {
   waterReadings as waterReadingsTable,
   poolReadings as poolReadingsTable,
   wasteConfig as wasteConfigTable,
+  securityDevices as securityDevicesTable,
+  securityEvents as securityEventsTable,
   type User,
   type InsertUser,
   type Equipment,
@@ -39,6 +41,10 @@ import {
   type InsertModulePermission,
   type WasteConfig,
   type InsertWasteConfig,
+  type SecurityDevice,
+  type InsertSecurityDevice,
+  type SecurityEvent,
+  type InsertSecurityEvent,
 } from "@shared/schema";
 
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
@@ -628,6 +634,71 @@ export class SupabaseStorage implements IStorage {
       })
       .returning();
     return created;
+  }
+
+  async getSecurityDevices(): Promise<SecurityDevice[]> {
+    const data = await db.select()
+      .from(securityDevicesTable)
+      .orderBy(desc(securityDevicesTable.createdAt));
+    return data;
+  }
+
+  async getSecurityDeviceById(id: string): Promise<SecurityDevice | undefined> {
+    const [data] = await db.select()
+      .from(securityDevicesTable)
+      .where(eq(securityDevicesTable.id, id));
+    return data;
+  }
+
+  async createSecurityDevice(device: InsertSecurityDevice): Promise<SecurityDevice> {
+    const [data] = await db.insert(securityDevicesTable)
+      .values(device)
+      .returning();
+    return data;
+  }
+
+  async updateSecurityDevice(id: string, device: Partial<InsertSecurityDevice>): Promise<SecurityDevice | undefined> {
+    const [data] = await db.update(securityDevicesTable)
+      .set({ ...device, updatedAt: new Date() })
+      .where(eq(securityDevicesTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteSecurityDevice(id: string): Promise<boolean> {
+    const result = await db.delete(securityDevicesTable)
+      .where(eq(securityDevicesTable.id, id));
+    return true;
+  }
+
+  async getSecurityEvents(): Promise<SecurityEvent[]> {
+    const data = await db.select()
+      .from(securityEventsTable)
+      .orderBy(desc(securityEventsTable.createdAt));
+    return data;
+  }
+
+  async getSecurityEventsByDeviceId(deviceId: string): Promise<SecurityEvent[]> {
+    const data = await db.select()
+      .from(securityEventsTable)
+      .where(eq(securityEventsTable.deviceId, deviceId))
+      .orderBy(desc(securityEventsTable.createdAt));
+    return data;
+  }
+
+  async createSecurityEvent(event: InsertSecurityEvent): Promise<SecurityEvent> {
+    const [data] = await db.insert(securityEventsTable)
+      .values(event)
+      .returning();
+    return data;
+  }
+
+  async updateSecurityEvent(id: string, event: Partial<InsertSecurityEvent>): Promise<SecurityEvent | undefined> {
+    const [data] = await db.update(securityEventsTable)
+      .set(event)
+      .where(eq(securityEventsTable.id, id))
+      .returning();
+    return data;
   }
 }
 

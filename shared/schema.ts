@@ -375,3 +375,54 @@ export const insertWasteConfigSchema = createInsertSchema(wasteConfig).omit({
 
 export type InsertWasteConfig = z.infer<typeof insertWasteConfigSchema>;
 export type WasteConfig = typeof wasteConfig.$inferSelect;
+
+export const securityDeviceTypes = ["portão", "porta", "câmera", "facial"] as const;
+export type SecurityDeviceType = (typeof securityDeviceTypes)[number];
+
+export const securityDeviceStatuses = ["operacional", "atenção", "falha", "inativo"] as const;
+export type SecurityDeviceStatus = (typeof securityDeviceStatuses)[number];
+
+export const securityDevices = pgTable("security_devices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  type: text("type").notNull(),
+  location: text("location").notNull(),
+  brand: text("brand"),
+  model: text("model"),
+  serialNumber: text("serial_number"),
+  status: text("status").notNull().default("operacional"),
+  lastMaintenanceDate: timestamp("last_maintenance_date"),
+  nextMaintenanceDate: timestamp("next_maintenance_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSecurityDeviceSchema = createInsertSchema(securityDevices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSecurityDevice = z.infer<typeof insertSecurityDeviceSchema>;
+export type SecurityDevice = typeof securityDevices.$inferSelect;
+
+export const securityEvents = pgTable("security_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  deviceId: varchar("device_id").notNull(),
+  eventType: text("event_type").notNull(),
+  description: text("description"),
+  status: text("status").notNull(),
+  resolvedAt: timestamp("resolved_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  recordedBy: varchar("recorded_by"),
+});
+
+export const insertSecurityEventSchema = createInsertSchema(securityEvents).omit({
+  id: true,
+  createdAt: true,
+  resolvedAt: true,
+});
+
+export type InsertSecurityEvent = z.infer<typeof insertSecurityEventSchema>;
+export type SecurityEvent = typeof securityEvents.$inferSelect;

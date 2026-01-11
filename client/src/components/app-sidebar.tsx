@@ -15,6 +15,7 @@ import {
   Settings,
   ToggleRight,
   ClipboardList,
+  Shield,
 } from "lucide-react";
 import {
   Sidebar,
@@ -63,6 +64,11 @@ const mainModules = [
     title: "Energia",
     url: "/energia",
     icon: Zap,
+  },
+  {
+    title: "Segurança & Acessos",
+    url: "/seguranca",
+    icon: Shield,
   },
 ];
 

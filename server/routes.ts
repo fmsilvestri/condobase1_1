@@ -15,6 +15,8 @@ import {
   insertAnnouncementSchema,
   insertUserSchema,
   updateUserSchema,
+  insertSecurityDeviceSchema,
+  insertSecurityEventSchema,
 } from "@shared/schema";
 
 import { z } from "zod";
@@ -920,6 +922,101 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating waste config:", error);
       res.status(500).json({ error: "Failed to update waste config" });
+    }
+  });
+
+  app.get("/api/security-devices", async (req, res) => {
+    try {
+      const devices = await storage.getSecurityDevices();
+      res.json(devices);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch security devices" });
+    }
+  });
+
+  app.get("/api/security-devices/:id", async (req, res) => {
+    try {
+      const device = await storage.getSecurityDeviceById(req.params.id);
+      if (!device) {
+        return res.status(404).json({ error: "Security device not found" });
+      }
+      res.json(device);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch security device" });
+    }
+  });
+
+  app.post("/api/security-devices", async (req, res) => {
+    try {
+      const validatedData = insertSecurityDeviceSchema.parse(req.body);
+      const device = await storage.createSecurityDevice(validatedData);
+      res.status(201).json(device);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid security device data" });
+    }
+  });
+
+  app.patch("/api/security-devices/:id", async (req, res) => {
+    try {
+      const device = await storage.updateSecurityDevice(req.params.id, req.body);
+      if (!device) {
+        return res.status(404).json({ error: "Security device not found" });
+      }
+      res.json(device);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update security device" });
+    }
+  });
+
+  app.delete("/api/security-devices/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteSecurityDevice(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Security device not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete security device" });
+    }
+  });
+
+  app.get("/api/security-events", async (req, res) => {
+    try {
+      const events = await storage.getSecurityEvents();
+      res.json(events);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch security events" });
+    }
+  });
+
+  app.get("/api/security-events/device/:deviceId", async (req, res) => {
+    try {
+      const events = await storage.getSecurityEventsByDeviceId(req.params.deviceId);
+      res.json(events);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch security events" });
+    }
+  });
+
+  app.post("/api/security-events", async (req, res) => {
+    try {
+      const validatedData = insertSecurityEventSchema.parse(req.body);
+      const event = await storage.createSecurityEvent(validatedData);
+      res.status(201).json(event);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid security event data" });
+    }
+  });
+
+  app.patch("/api/security-events/:id", async (req, res) => {
+    try {
+      const event = await storage.updateSecurityEvent(req.params.id, req.body);
+      if (!event) {
+        return res.status(404).json({ error: "Security event not found" });
+      }
+      res.json(event);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update security event" });
     }
   });
 

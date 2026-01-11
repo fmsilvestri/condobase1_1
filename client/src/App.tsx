@@ -26,6 +26,7 @@ import Announcements from "@/pages/announcements";
 import Admin from "@/pages/admin";
 import FeatureAccess from "@/pages/feature-access";
 import Reports from "@/pages/reports";
+import Security from "@/pages/security";
 import Login from "@/pages/login";
 
 function Router() {
@@ -45,6 +46,7 @@ function Router() {
       <Route path="/admin" component={Admin} />
       <Route path="/controle-acesso" component={FeatureAccess} />
       <Route path="/relatorios" component={Reports} />
+      <Route path="/seguranca" component={Security} />
       <Route component={NotFound} />
     </Switch>
   );

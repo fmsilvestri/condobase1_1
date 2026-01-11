@@ -29,6 +29,10 @@ import {
   type InsertModulePermission,
   type WasteConfig,
   type InsertWasteConfig,
+  type SecurityDevice,
+  type InsertSecurityDevice,
+  type SecurityEvent,
+  type InsertSecurityEvent,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -105,6 +109,17 @@ export interface IStorage {
 
   getWasteConfig(): Promise<WasteConfig | undefined>;
   updateWasteConfig(config: Partial<InsertWasteConfig>): Promise<WasteConfig | undefined>;
+
+  getSecurityDevices(): Promise<SecurityDevice[]>;
+  getSecurityDeviceById(id: string): Promise<SecurityDevice | undefined>;
+  createSecurityDevice(device: InsertSecurityDevice): Promise<SecurityDevice>;
+  updateSecurityDevice(id: string, device: Partial<InsertSecurityDevice>): Promise<SecurityDevice | undefined>;
+  deleteSecurityDevice(id: string): Promise<boolean>;
+
+  getSecurityEvents(): Promise<SecurityEvent[]>;
+  getSecurityEventsByDeviceId(deviceId: string): Promise<SecurityEvent[]>;
+  createSecurityEvent(event: InsertSecurityEvent): Promise<SecurityEvent>;
+  updateSecurityEvent(id: string, event: Partial<InsertSecurityEvent>): Promise<SecurityEvent | undefined>;
 }
 
 export class MemStorage implements IStorage {
