@@ -6,6 +6,7 @@ import {
   notifications as notificationsTable,
   modulePermissions as modulePermissionsTable,
   reservoirs as reservoirsTable,
+  waterReadings as waterReadingsTable,
   wasteConfig as wasteConfigTable,
   type User,
   type InsertUser,
@@ -272,22 +273,12 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getWaterReadings(): Promise<WaterReading[]> {
-    const { data, error } = await this.sb
-      .from("water_readings")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) throw new Error(error.message);
-    return (data || []).map(d => toCamelCase(d) as WaterReading);
+    return await db.select().from(waterReadingsTable).orderBy(desc(waterReadingsTable.createdAt));
   }
 
   async createWaterReading(reading: InsertWaterReading): Promise<WaterReading> {
-    const { data, error } = await this.sb
-      .from("water_readings")
-      .insert(toSnakeCase(reading))
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-    return toCamelCase(data) as WaterReading;
+    const [created] = await db.insert(waterReadingsTable).values(reading).returning();
+    return created;
   }
 
   async getGasReadings(): Promise<GasReading[]> {
