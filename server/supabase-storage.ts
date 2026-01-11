@@ -7,6 +7,7 @@ import {
   modulePermissions as modulePermissionsTable,
   reservoirs as reservoirsTable,
   waterReadings as waterReadingsTable,
+  poolReadings as poolReadingsTable,
   wasteConfig as wasteConfigTable,
   type User,
   type InsertUser,

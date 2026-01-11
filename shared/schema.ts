@@ -121,6 +121,12 @@ export const poolReadings = pgTable("pool_readings", {
 export const insertPoolReadingSchema = createInsertSchema(poolReadings).omit({
   id: true,
   createdAt: true,
+}).extend({
+  ph: z.coerce.number().min(0).max(14),
+  chlorine: z.coerce.number().min(0).max(10),
+  alkalinity: z.coerce.number().min(0).max(500),
+  calciumHardness: z.coerce.number().min(0).max(1000),
+  temperature: z.coerce.number().min(0).max(50),
 });
 
 export type InsertPoolReading = z.infer<typeof insertPoolReadingSchema>;

@@ -140,7 +140,7 @@ export default function Announcements() {
 
   const addEmoji = (emoji: string, isEdit = false) => {
     const currentForm = isEdit ? editForm : form;
-    const currentContent = currentForm.getValues("content");
+    const currentContent = currentForm.getValues("content") || "";
     currentForm.setValue("content", currentContent + emoji);
   };
 

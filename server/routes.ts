@@ -388,11 +388,16 @@ export async function registerRoutes(
 
   app.post("/api/pool", async (req, res) => {
     try {
+      console.log("Pool reading request body:", req.body);
       const validatedData = insertPoolReadingSchema.parse(req.body);
       const reading = await storage.createPoolReading(validatedData);
       res.status(201).json(reading);
     } catch (error) {
-      res.status(400).json({ error: "Invalid pool reading data" });
+      console.error("Error creating pool reading:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid pool reading data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create pool reading" });
     }
   });
 
