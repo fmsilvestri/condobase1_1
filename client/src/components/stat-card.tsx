@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Link } from "wouter";
 
 interface StatCardProps {
   title: string;
@@ -14,6 +15,7 @@ interface StatCardProps {
   };
   color?: string;
   testId?: string;
+  href?: string;
 }
 
 export function StatCard({
@@ -24,6 +26,7 @@ export function StatCard({
   trend,
   color = "primary",
   testId,
+  href,
 }: StatCardProps) {
   const colorClasses: Record<string, { bg: string; text: string; glow: string }> = {
     primary: { 
@@ -65,12 +68,13 @@ export function StatCard({
 
   const colorStyle = colorClasses[color] || colorClasses.primary;
 
-  return (
+  const cardContent = (
     <Card 
       data-testid={testId}
       className={cn(
         "group relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg",
-        colorStyle.glow
+        colorStyle.glow,
+        href && "cursor-pointer"
       )}
     >
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 opacity-80" />
@@ -108,4 +112,10 @@ export function StatCard({
       </CardContent>
     </Card>
   );
+
+  if (href) {
+    return <Link href={href}>{cardContent}</Link>;
+  }
+
+  return cardContent;
 }

@@ -143,6 +143,7 @@ export default function Dashboard() {
             icon={Wrench}
             color="amber"
             testId="stat-chamados"
+            href="/manutencoes"
           />
         )}
         {canAccessModule("piscina") && (
@@ -152,6 +153,7 @@ export default function Dashboard() {
             icon={Waves}
             color="cyan"
             testId="stat-piscina"
+            href="/piscina"
           />
         )}
         {canAccessModule("agua") && (
@@ -161,6 +163,7 @@ export default function Dashboard() {
             icon={Droplets}
             color="blue"
             testId="stat-agua"
+            href="/agua"
           />
         )}
         {canAccessModule("energia") && (
@@ -170,6 +173,7 @@ export default function Dashboard() {
             icon={Zap}
             color="yellow"
             testId="stat-energia"
+            href="/energia"
           />
         )}
       </div>
