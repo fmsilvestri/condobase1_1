@@ -69,7 +69,7 @@ export default function Water() {
   const readingForm = useForm<z.infer<typeof waterFormSchema>>({
     resolver: zodResolver(waterFormSchema),
     defaultValues: {
-      reservoirId: "",
+      reservoirId: "all",
       tankLevel: 0,
       quality: "boa",
       casanStatus: "normal",
@@ -135,7 +135,7 @@ export default function Water() {
 
   const createReadingMutation = useMutation({
     mutationFn: async (data: z.infer<typeof waterFormSchema>) => {
-      const reservoirId = data.reservoirId === "all" ? null : data.reservoirId;
+      const reservoirId = (!data.reservoirId || data.reservoirId === "all" || data.reservoirId === "") ? null : data.reservoirId;
       const reservoir = reservoirs.find(r => r.id === reservoirId);
       const capacity = reservoir?.capacityLiters || 50000;
       const volumeAvailable = (data.tankLevel / 100) * capacity;
@@ -143,7 +143,7 @@ export default function Water() {
       const estimatedAutonomy = volumeAvailable / estimatedDailyConsumption;
       
       return apiRequest("POST", "/api/water", {
-        reservoirId: reservoirId || null,
+        reservoirId: reservoirId,
         tankLevel: data.tankLevel,
         quality: data.quality,
         volumeAvailable: volumeAvailable,
