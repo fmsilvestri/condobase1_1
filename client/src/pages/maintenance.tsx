@@ -65,6 +65,7 @@ const equipmentFormSchema = z.object({
   location: z.string().min(1, "Localização é obrigatória"),
   description: z.string().optional(),
   status: z.string().default("operacional"),
+  photos: z.array(z.string()).optional(),
 });
 
 const requestFormSchema = z.object({
@@ -84,6 +85,7 @@ export default function Maintenance() {
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [viewingRequest, setViewingRequest] = useState<MaintenanceRequest | null>(null);
+  const [equipmentPhoto, setEquipmentPhoto] = useState<string | null>(null);
   const { toast } = useToast();
   const { canEdit, userId, dbUserId, isSindico, isAdmin } = useAuth();
   
@@ -106,8 +108,25 @@ export default function Maintenance() {
       location: "",
       description: "",
       status: "operacional",
+      photos: [],
     },
   });
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ title: "Arquivo muito grande", description: "Máximo 5MB", variant: "destructive" });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setEquipmentPhoto(base64);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const requestForm = useForm<z.infer<typeof requestFormSchema>>({
     resolver: zodResolver(requestFormSchema),
@@ -121,13 +140,19 @@ export default function Maintenance() {
   });
 
   const createEquipmentMutation = useMutation({
-    mutationFn: (data: z.infer<typeof equipmentFormSchema>) =>
-      apiRequest("POST", "/api/equipment", data),
+    mutationFn: (data: z.infer<typeof equipmentFormSchema>) => {
+      const dataWithPhoto = {
+        ...data,
+        photos: equipmentPhoto ? [equipmentPhoto] : [],
+      };
+      return apiRequest("POST", "/api/equipment", dataWithPhoto);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       toast({ title: "Equipamento cadastrado com sucesso!" });
       setIsNewEquipmentOpen(false);
+      setEquipmentPhoto(null);
       equipmentForm.reset();
     },
     onError: () => {
@@ -371,8 +396,39 @@ export default function Maintenance() {
                         </FormItem>
                       )}
                     />
+                    <div className="space-y-2">
+                      <Label>Foto do Equipamento</Label>
+                      <div className="flex items-center gap-4">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoChange}
+                          className="flex-1"
+                          data-testid="input-equipment-photo"
+                        />
+                        {equipmentPhoto && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEquipmentPhoto(null)}
+                          >
+                            Remover
+                          </Button>
+                        )}
+                      </div>
+                      {equipmentPhoto && (
+                        <div className="mt-2 rounded-lg border overflow-hidden">
+                          <img
+                            src={equipmentPhoto}
+                            alt="Preview"
+                            className="w-full h-32 object-cover"
+                          />
+                        </div>
+                      )}
+                    </div>
                     <DialogFooter>
-                      <Button type="button" variant="outline" onClick={() => setIsNewEquipmentOpen(false)}>
+                      <Button type="button" variant="outline" onClick={() => { setIsNewEquipmentOpen(false); setEquipmentPhoto(null); }}>
                         Cancelar
                       </Button>
                       <Button type="submit" disabled={createEquipmentMutation.isPending} data-testid="button-save-equipment">
