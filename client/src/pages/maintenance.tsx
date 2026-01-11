@@ -83,6 +83,7 @@ export default function Maintenance() {
   const [editingRequest, setEditingRequest] = useState<MaintenanceRequest | null>(null);
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>("");
+  const [viewingRequest, setViewingRequest] = useState<MaintenanceRequest | null>(null);
   const { toast } = useToast();
   const { canEdit, userId, dbUserId, isSindico, isAdmin } = useAuth();
   
@@ -746,7 +747,12 @@ export default function Maintenance() {
                         </div>
                       </div>
                       <div className="flex gap-2 sm:flex-col">
-                        <Button variant="outline" size="sm" data-testid={`button-view-${req.id}`}>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => setViewingRequest(req)}
+                          data-testid={`button-view-${req.id}`}
+                        >
                           Ver Detalhes
                         </Button>
                         {canUpdateStatus && (
@@ -836,6 +842,103 @@ export default function Maintenance() {
               {updateStatusMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Salvar
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!viewingRequest} onOpenChange={(open) => !open && setViewingRequest(null)}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wrench className="h-5 w-5" />
+              Detalhes do Chamado
+            </DialogTitle>
+          </DialogHeader>
+          {viewingRequest && (
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-lg">{viewingRequest.title}</h3>
+                  <StatusBadge status={viewingRequest.status as any} />
+                </div>
+                {viewingRequest.priority === "alta" && (
+                  <Badge variant="destructive" className="text-xs">
+                    Prioridade Alta
+                  </Badge>
+                )}
+              </div>
+
+              <div className="space-y-3 rounded-lg border p-4 bg-muted/30">
+                <div className="flex items-start gap-3">
+                  <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Equipamento</p>
+                    <p className="font-medium">{getEquipmentName(viewingRequest.equipmentId)}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Calendar className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Data de Abertura</p>
+                    <p className="font-medium">
+                      {viewingRequest.createdAt 
+                        ? new Date(viewingRequest.createdAt).toLocaleString("pt-BR", {
+                            dateStyle: "long",
+                            timeStyle: "short"
+                          }) 
+                        : "-"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Descrição do Problema</p>
+                <p className="text-sm bg-muted/30 rounded-lg p-3 border">
+                  {viewingRequest.description}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Histórico</p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm bg-muted/30 rounded-lg p-3 border">
+                    <CircleDot className="h-4 w-4 text-blue-500" />
+                    <span>Chamado aberto em {viewingRequest.createdAt 
+                      ? new Date(viewingRequest.createdAt).toLocaleDateString("pt-BR") 
+                      : "-"}</span>
+                  </div>
+                  {viewingRequest.status === "em andamento" && (
+                    <div className="flex items-center gap-2 text-sm bg-muted/30 rounded-lg p-3 border">
+                      <Clock className="h-4 w-4 text-yellow-500" />
+                      <span>Em atendimento</span>
+                    </div>
+                  )}
+                  {viewingRequest.status === "concluído" && (
+                    <div className="flex items-center gap-2 text-sm bg-emerald-500/10 rounded-lg p-3 border border-emerald-500/20">
+                      <CheckCircle className="h-4 w-4 text-emerald-500" />
+                      <span>Chamado concluído</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewingRequest(null)}>
+              Fechar
+            </Button>
+            {canUpdateStatus && viewingRequest && (
+              <Button 
+                onClick={() => {
+                  setViewingRequest(null);
+                  handleEditStatus(viewingRequest);
+                }}
+              >
+                <Edit className="mr-1 h-4 w-4" />
+                Alterar Status
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
