@@ -145,31 +145,31 @@ export default function Dashboard() {
             testId="stat-chamados"
           />
         )}
-        {canAccessModule("ocupacao") && (
+        {canAccessModule("piscina") && (
           <StatCard
-            title="Unidades Ocupadas"
-            value={`${data.occupancy?.occupiedUnits || 0}/${data.occupancy?.totalUnits || 0}`}
-            icon={Users}
-            color="green"
-            testId="stat-ocupacao"
+            title="pH da Piscina"
+            value={data.latestPoolReading?.ph || 0}
+            icon={Waves}
+            color="cyan"
+            testId="stat-piscina"
           />
         )}
-        {canAccessModule("gas") && (
+        {canAccessModule("agua") && (
           <StatCard
-            title="Nível de Gás"
-            value={`${data.latestGasReading?.level || 0}%`}
-            icon={Flame}
+            title="Nível dos Reservatórios"
+            value={`${data.latestWaterReading?.tankLevel || 0}%`}
+            icon={Droplets}
             color="blue"
-            testId="stat-gas"
+            testId="stat-agua"
           />
         )}
-        {canAccessModule("documentos") && (
+        {canAccessModule("energia") && (
           <StatCard
-            title="Documentos a Vencer"
-            value={data.expiringDocuments}
-            icon={FileText}
-            color="red"
-            testId="stat-documentos"
+            title="Status Energia"
+            value={data.currentEnergyStatus === "ok" ? "OK" : "Alerta"}
+            icon={Zap}
+            color="yellow"
+            testId="stat-energia"
           />
         )}
       </div>
