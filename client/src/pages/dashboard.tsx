@@ -221,6 +221,18 @@ export default function Dashboard() {
                   testId="card-agua"
                 />
               )}
+              {canAccessModule("energia") && (
+                <ModuleCard
+                  title="Energia"
+                  description="Status e ocorrências"
+                  icon={Zap}
+                  status={data.currentEnergyStatus === "ok" ? "ok" : "alerta"}
+                  value={data.currentEnergyStatus === "ok" ? "OK" : "Alerta"}
+                  href="/energia"
+                  color="yellow"
+                  testId="card-energia"
+                />
+              )}
               {canAccessModule("gas") && (
                 <ModuleCard
                   title="Gás"
@@ -232,18 +244,6 @@ export default function Dashboard() {
                   href="/gas"
                   color="orange"
                   testId="card-gas"
-                />
-              )}
-              {canAccessModule("energia") && (
-                <ModuleCard
-                  title="Energia"
-                  description="Status e ocorrências"
-                  icon={Zap}
-                  status={data.currentEnergyStatus === "ok" ? "ok" : "alerta"}
-                  value={data.currentEnergyStatus === "ok" ? "OK" : "Alerta"}
-                  href="/energia"
-                  color="yellow"
-                  testId="card-energia"
                 />
               )}
               {canAccessModule("residuos") && (
