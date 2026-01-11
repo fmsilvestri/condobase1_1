@@ -402,6 +402,7 @@ export default function Maintenance() {
                         <Input
                           type="file"
                           accept="image/*"
+                          capture="environment"
                           onChange={handlePhotoChange}
                           className="flex-1"
                           data-testid="input-equipment-photo"
