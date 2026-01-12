@@ -5,6 +5,8 @@ import {
   type InsertEquipment,
   type MaintenanceRequest,
   type InsertMaintenanceRequest,
+  type MaintenanceCompletion,
+  type InsertMaintenanceCompletion,
   type PoolReading,
   type InsertPoolReading,
   type Reservoir,
@@ -56,6 +58,11 @@ export interface IStorage {
   createMaintenanceRequest(request: InsertMaintenanceRequest): Promise<MaintenanceRequest>;
   updateMaintenanceRequest(id: string, request: Partial<InsertMaintenanceRequest>): Promise<MaintenanceRequest | undefined>;
   deleteMaintenanceRequest(id: string): Promise<boolean>;
+
+  getMaintenanceCompletions(): Promise<MaintenanceCompletion[]>;
+  getMaintenanceCompletionsByEquipmentId(equipmentId: string): Promise<MaintenanceCompletion[]>;
+  createMaintenanceCompletion(completion: InsertMaintenanceCompletion): Promise<MaintenanceCompletion>;
+  deleteMaintenanceCompletion(id: string): Promise<boolean>;
 
   getPoolReadings(): Promise<PoolReading[]>;
   createPoolReading(reading: InsertPoolReading): Promise<PoolReading>;
@@ -126,6 +133,7 @@ export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private equipment: Map<string, Equipment>;
   private maintenanceRequests: Map<string, MaintenanceRequest>;
+  private maintenanceCompletions: Map<string, MaintenanceCompletion>;
   private poolReadings: Map<string, PoolReading>;
   private reservoirs: Map<string, Reservoir>;
   private waterReadings: Map<string, WaterReading>;
@@ -140,6 +148,7 @@ export class MemStorage implements IStorage {
     this.users = new Map();
     this.equipment = new Map();
     this.maintenanceRequests = new Map();
+    this.maintenanceCompletions = new Map();
     this.poolReadings = new Map();
     this.reservoirs = new Map();
     this.waterReadings = new Map();
@@ -355,6 +364,29 @@ export class MemStorage implements IStorage {
 
   async deleteMaintenanceRequest(id: string): Promise<boolean> {
     return this.maintenanceRequests.delete(id);
+  }
+
+  async getMaintenanceCompletions(): Promise<MaintenanceCompletion[]> {
+    return Array.from(this.maintenanceCompletions.values()).sort((a, b) =>
+      (b.completedAt?.getTime() || 0) - (a.completedAt?.getTime() || 0)
+    );
+  }
+
+  async getMaintenanceCompletionsByEquipmentId(equipmentId: string): Promise<MaintenanceCompletion[]> {
+    return Array.from(this.maintenanceCompletions.values())
+      .filter(c => c.equipmentId === equipmentId)
+      .sort((a, b) => (b.completedAt?.getTime() || 0) - (a.completedAt?.getTime() || 0));
+  }
+
+  async createMaintenanceCompletion(insertCompletion: InsertMaintenanceCompletion): Promise<MaintenanceCompletion> {
+    const id = randomUUID();
+    const completion: MaintenanceCompletion = { ...insertCompletion, id, createdAt: new Date() };
+    this.maintenanceCompletions.set(id, completion);
+    return completion;
+  }
+
+  async deleteMaintenanceCompletion(id: string): Promise<boolean> {
+    return this.maintenanceCompletions.delete(id);
   }
 
   async getPoolReadings(): Promise<PoolReading[]> {

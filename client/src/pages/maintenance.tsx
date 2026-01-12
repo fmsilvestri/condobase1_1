@@ -18,6 +18,8 @@ import {
   CheckCircle,
   Clock,
   CircleDot,
+  Camera,
+  X,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
@@ -57,7 +59,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { equipmentCategories, type Equipment, type MaintenanceRequest } from "@shared/schema";
+import { equipmentCategories, type Equipment, type MaintenanceRequest, type MaintenanceCompletion } from "@shared/schema";
 
 const equipmentFormSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
@@ -76,6 +78,13 @@ const requestFormSchema = z.object({
   status: z.string().optional().default("aberto"),
 });
 
+const completionFormSchema = z.object({
+  equipmentId: z.string().min(1, "Equipamento é obrigatório"),
+  description: z.string().min(1, "Descrição é obrigatória"),
+  location: z.string().min(1, "Local é obrigatório"),
+  completedAt: z.string().min(1, "Data é obrigatória"),
+});
+
 export default function Maintenance() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -86,6 +95,8 @@ export default function Maintenance() {
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [viewingRequest, setViewingRequest] = useState<MaintenanceRequest | null>(null);
   const [equipmentPhoto, setEquipmentPhoto] = useState<string | null>(null);
+  const [isNewCompletionOpen, setIsNewCompletionOpen] = useState(false);
+  const [completionPhotos, setCompletionPhotos] = useState<string[]>([]);
   const { toast } = useToast();
   const { canEdit, userId, dbUserId, isSindico, isAdmin } = useAuth();
   
@@ -98,6 +109,10 @@ export default function Maintenance() {
 
   const { data: requests = [], isLoading: loadingRequests } = useQuery<MaintenanceRequest[]>({
     queryKey: ["/api/maintenance"],
+  });
+
+  const { data: completions = [], isLoading: loadingCompletions } = useQuery<MaintenanceCompletion[]>({
+    queryKey: ["/api/maintenance-completions"],
   });
 
   const equipmentForm = useForm<z.infer<typeof equipmentFormSchema>>({
@@ -136,6 +151,64 @@ export default function Maintenance() {
       description: "",
       priority: "normal",
       status: "aberto",
+    },
+  });
+
+  const completionForm = useForm<z.infer<typeof completionFormSchema>>({
+    resolver: zodResolver(completionFormSchema),
+    defaultValues: {
+      equipmentId: "",
+      description: "",
+      location: "",
+      completedAt: new Date().toISOString().split("T")[0],
+    },
+  });
+
+  const handleCompletionPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ title: "Arquivo muito grande", description: "Máximo 5MB", variant: "destructive" });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setCompletionPhotos(prev => [...prev, base64]);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeCompletionPhoto = (index: number) => {
+    setCompletionPhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const createCompletionMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof completionFormSchema>) => {
+      const selectedEquipment = equipment.find(e => e.id === data.equipmentId);
+      return apiRequest("POST", "/api/maintenance-completions", {
+        ...data,
+        photos: completionPhotos,
+        performedBy: dbUserId || null,
+        performedByName: selectedEquipment ? `Manutenção em ${selectedEquipment.name}` : null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/maintenance-completions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      toast({ title: "Manutenção registrada com sucesso!" });
+      setIsNewCompletionOpen(false);
+      setCompletionPhotos([]);
+      completionForm.reset({
+        equipmentId: "",
+        description: "",
+        location: "",
+        completedAt: new Date().toISOString().split("T")[0],
+      });
+    },
+    onError: () => {
+      toast({ title: "Erro ao registrar manutenção", variant: "destructive" });
     },
   });
 
@@ -680,6 +753,9 @@ export default function Maintenance() {
               </Badge>
             )}
           </TabsTrigger>
+          <TabsTrigger value="completions" data-testid="tab-completions">
+            Manutenção Realizada ({completions.length})
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="equipment" className="space-y-4">
@@ -834,6 +910,190 @@ export default function Maintenance() {
                         </Button>
                       </div>
                     </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="completions" className="space-y-4">
+          <div className="flex justify-end">
+            {canEdit && (
+              <Dialog open={isNewCompletionOpen} onOpenChange={setIsNewCompletionOpen}>
+                <DialogTrigger asChild>
+                  <Button data-testid="button-new-completion">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Registrar Manutenção
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>Registrar Manutenção Realizada</DialogTitle>
+                    <DialogDescription>
+                      Registre uma manutenção concluída com fotos e detalhes.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <Form {...completionForm}>
+                    <form onSubmit={completionForm.handleSubmit((data) => createCompletionMutation.mutate(data))} className="space-y-4">
+                      <FormField
+                        control={completionForm.control}
+                        name="equipmentId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Equipamento</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-completion-equipment">
+                                  <SelectValue placeholder="Selecione o equipamento" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {equipment.map((eq) => (
+                                  <SelectItem key={eq.id} value={eq.id}>
+                                    {eq.name} - {eq.location}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={completionForm.control}
+                        name="location"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Local da Manutenção</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ex: Sala de máquinas, Cobertura..." {...field} data-testid="input-completion-location" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={completionForm.control}
+                        name="completedAt"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Data da Manutenção</FormLabel>
+                            <FormControl>
+                              <Input type="date" {...field} data-testid="input-completion-date" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={completionForm.control}
+                        name="description"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Descrição do Serviço</FormLabel>
+                            <FormControl>
+                              <Textarea placeholder="Descreva o serviço realizado..." {...field} data-testid="input-completion-description" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="space-y-2">
+                        <Label>Fotos do Serviço</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {completionPhotos.map((photo, index) => (
+                            <div key={index} className="relative">
+                              <img src={photo} alt={`Foto ${index + 1}`} className="h-20 w-20 object-cover rounded-md border" />
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="icon"
+                                className="absolute -top-2 -right-2 h-6 w-6"
+                                onClick={() => removeCompletionPhoto(index)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                          <label className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 transition-colors">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleCompletionPhotoChange}
+                            />
+                            <Camera className="h-6 w-6 text-muted-foreground" />
+                          </label>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => {
+                          setIsNewCompletionOpen(false);
+                          setCompletionPhotos([]);
+                          completionForm.reset();
+                        }}>
+                          Cancelar
+                        </Button>
+                        <Button type="submit" disabled={createCompletionMutation.isPending} data-testid="button-save-completion">
+                          {createCompletionMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Registrar
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
+
+          {completions.length === 0 ? (
+            <EmptyState
+              icon={CheckCircle}
+              title="Nenhuma manutenção registrada"
+              description="Registre manutenções realizadas para manter o histórico."
+              action={canEdit ? {
+                label: "Registrar Manutenção",
+                onClick: () => setIsNewCompletionOpen(true),
+              } : undefined}
+            />
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {completions.map((completion) => (
+                <Card key={completion.id} className="hover-elevate" data-testid={`completion-card-${completion.id}`}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      {equipment.find(e => e.id === completion.equipmentId)?.name || "Equipamento"}
+                    </CardTitle>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin className="h-3.5 w-3.5" />
+                      {completion.location}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm line-clamp-2">{completion.description}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Calendar className="h-3.5 w-3.5" />
+                      {completion.completedAt ? new Date(completion.completedAt).toLocaleDateString("pt-BR") : "-"}
+                    </div>
+                    {completion.photos && completion.photos.length > 0 && (
+                      <div className="flex gap-1 overflow-x-auto">
+                        {completion.photos.slice(0, 3).map((photo, index) => (
+                          <img
+                            key={index}
+                            src={photo}
+                            alt={`Foto ${index + 1}`}
+                            className="h-12 w-12 object-cover rounded-md border flex-shrink-0"
+                          />
+                        ))}
+                        {completion.photos.length > 3 && (
+                          <div className="h-12 w-12 flex items-center justify-center rounded-md border bg-muted text-xs text-muted-foreground">
+                            +{completion.photos.length - 3}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}

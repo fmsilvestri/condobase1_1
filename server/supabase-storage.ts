@@ -11,12 +11,15 @@ import {
   wasteConfig as wasteConfigTable,
   securityDevices as securityDevicesTable,
   securityEvents as securityEventsTable,
+  maintenanceCompletions as maintenanceCompletionsTable,
   type User,
   type InsertUser,
   type Equipment,
   type InsertEquipment,
   type MaintenanceRequest,
   type InsertMaintenanceRequest,
+  type MaintenanceCompletion,
+  type InsertMaintenanceCompletion,
   type PoolReading,
   type InsertPoolReading,
   type Reservoir,
@@ -234,6 +237,26 @@ export class SupabaseStorage implements IStorage {
       .delete()
       .eq("id", id);
     return !error;
+  }
+
+  async getMaintenanceCompletions(): Promise<MaintenanceCompletion[]> {
+    return await db.select().from(maintenanceCompletionsTable).orderBy(desc(maintenanceCompletionsTable.completedAt));
+  }
+
+  async getMaintenanceCompletionsByEquipmentId(equipmentId: string): Promise<MaintenanceCompletion[]> {
+    return await db.select().from(maintenanceCompletionsTable)
+      .where(eq(maintenanceCompletionsTable.equipmentId, equipmentId))
+      .orderBy(desc(maintenanceCompletionsTable.completedAt));
+  }
+
+  async createMaintenanceCompletion(completion: InsertMaintenanceCompletion): Promise<MaintenanceCompletion> {
+    const [created] = await db.insert(maintenanceCompletionsTable).values(completion).returning();
+    return created;
+  }
+
+  async deleteMaintenanceCompletion(id: string): Promise<boolean> {
+    await db.delete(maintenanceCompletionsTable).where(eq(maintenanceCompletionsTable.id, id));
+    return true;
   }
 
   async getPoolReadings(): Promise<PoolReading[]> {

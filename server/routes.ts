@@ -4,6 +4,7 @@ import { createStorage } from "./supabase-storage";
 import {
   insertEquipmentSchema,
   insertMaintenanceRequestSchema,
+  insertMaintenanceCompletionSchema,
   insertPoolReadingSchema,
   insertReservoirSchema,
   insertWaterReadingSchema,
@@ -377,6 +378,53 @@ export async function registerRoutes(
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete maintenance request" });
+    }
+  });
+
+  app.get("/api/maintenance-completions", async (req, res) => {
+    try {
+      const completions = await storage.getMaintenanceCompletions();
+      res.json(completions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch maintenance completions" });
+    }
+  });
+
+  app.get("/api/maintenance-completions/equipment/:equipmentId", async (req, res) => {
+    try {
+      const completions = await storage.getMaintenanceCompletionsByEquipmentId(req.params.equipmentId);
+      res.json(completions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch maintenance completions" });
+    }
+  });
+
+  app.post("/api/maintenance-completions", async (req, res) => {
+    try {
+      const validatedData = insertMaintenanceCompletionSchema.parse(req.body);
+      const dataWithDate = {
+        ...validatedData,
+        completedAt: validatedData.completedAt instanceof Date 
+          ? validatedData.completedAt 
+          : new Date(validatedData.completedAt as any),
+      };
+      const completion = await storage.createMaintenanceCompletion(dataWithDate);
+      res.status(201).json(completion);
+    } catch (error) {
+      console.error("Error creating maintenance completion:", error);
+      res.status(400).json({ error: "Invalid maintenance completion data" });
+    }
+  });
+
+  app.delete("/api/maintenance-completions/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteMaintenanceCompletion(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Maintenance completion not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete maintenance completion" });
     }
   });
 

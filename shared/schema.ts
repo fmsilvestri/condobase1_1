@@ -105,6 +105,29 @@ export const insertMaintenanceRequestSchema = createInsertSchema(maintenanceRequ
 export type InsertMaintenanceRequest = z.infer<typeof insertMaintenanceRequestSchema>;
 export type MaintenanceRequest = typeof maintenanceRequests.$inferSelect;
 
+export const maintenanceCompletions = pgTable("maintenance_completions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  equipmentId: varchar("equipment_id").notNull(),
+  maintenanceRequestId: varchar("maintenance_request_id"),
+  description: text("description").notNull(),
+  location: text("location").notNull(),
+  photos: text("photos").array(),
+  performedBy: varchar("performed_by"),
+  performedByName: text("performed_by_name"),
+  completedAt: timestamp("completed_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMaintenanceCompletionSchema = createInsertSchema(maintenanceCompletions).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  completedAt: z.coerce.date(),
+});
+
+export type InsertMaintenanceCompletion = z.infer<typeof insertMaintenanceCompletionSchema>;
+export type MaintenanceCompletion = typeof maintenanceCompletions.$inferSelect;
+
 export const poolReadings = pgTable("pool_readings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   ph: real("ph").notNull(),
