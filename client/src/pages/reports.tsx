@@ -29,7 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import type { MaintenanceRequest, PoolReading, WaterReading, GasReading, EnergyEvent, OccupancyData, Document, Supplier, Announcement, Equipment, SecurityDevice } from "@shared/schema";
+import type { MaintenanceRequest, MaintenanceCompletion, PoolReading, WaterReading, GasReading, EnergyEvent, OccupancyData, Document, Supplier, Announcement, Equipment, SecurityDevice } from "@shared/schema";
 
 interface ReportModule {
   id: string;
@@ -41,6 +41,7 @@ interface ReportModule {
 const availableModules: ReportModule[] = [
   { id: "ativos", label: "Ativos", icon: Package, description: "Equipamentos e status de cada um" },
   { id: "manutencoes", label: "Manutenções", icon: Wrench, description: "Chamados abertos e em andamento" },
+  { id: "manutencoes-realizadas", label: "Manutenções Realizadas", icon: CheckSquare, description: "Histórico de manutenções concluídas" },
   { id: "piscina", label: "Piscina", icon: Waves, description: "Última leitura de qualidade" },
   { id: "agua", label: "Água", icon: Droplets, description: "Nível dos reservatórios" },
   { id: "gas", label: "Gás", icon: Flame, description: "Nível do gás" },
@@ -106,6 +107,11 @@ export default function Reports() {
   const { data: securityDevices = [] } = useQuery<SecurityDevice[]>({
     queryKey: ["/api/security-devices"],
     enabled: selectedModules.includes("seguranca"),
+  });
+
+  const { data: maintenanceCompletions = [] } = useQuery<MaintenanceCompletion[]>({
+    queryKey: ["/api/maintenance-completions"],
+    enabled: selectedModules.includes("manutencoes-realizadas"),
   });
 
   const toggleModule = (moduleId: string) => {
@@ -249,6 +255,39 @@ export default function Reports() {
         });
 
         yPos = (doc as any).lastAutoTable.finalY + 10;
+      }
+
+      if (selectedModules.includes("manutencoes-realizadas") && maintenanceCompletions.length > 0) {
+        if (yPos > 220) { doc.addPage(); yPos = 20; }
+
+        doc.setFontSize(14);
+        doc.setTextColor(0, 0, 0);
+        doc.text("Manutenções Realizadas", 20, yPos);
+        yPos += 8;
+
+        const tableData = maintenanceCompletions.slice(0, 15).map(c => [
+          c.description.substring(0, 35),
+          c.location?.substring(0, 20) || "-",
+          formatDate(c.completedAt),
+          c.performedBy?.substring(0, 15) || "-",
+        ]);
+
+        autoTable(doc, {
+          startY: yPos,
+          head: [["Descrição", "Local", "Data", "Responsável"]],
+          body: tableData,
+          theme: "striped",
+          headStyles: { fillColor: [0, 150, 180] },
+          margin: { left: 20, right: 20 },
+          bodyStyles: { fontSize: 9 },
+        });
+
+        yPos = (doc as any).lastAutoTable.finalY + 10;
+
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Total: ${maintenanceCompletions.length} manutenções realizadas`, 20, yPos);
+        yPos += 10;
       }
 
       if (selectedModules.includes("piscina") && poolReadings.length > 0) {
@@ -546,7 +585,11 @@ export default function Reports() {
 
     if (selectedModules.includes("manutencoes")) {
       const openCount = maintenance.filter(m => m.status !== "concluído").length;
-      message += `🔧 *Manutenções:* ${openCount} chamados abertos\n`;
+      message += `*Manutencoes:* ${openCount} chamados abertos\n`;
+    }
+
+    if (selectedModules.includes("manutencoes-realizadas") && maintenanceCompletions.length > 0) {
+      message += `*Manutencoes Realizadas:* ${maintenanceCompletions.length} registros\n`;
     }
 
     if (selectedModules.includes("piscina") && poolReadings.length > 0) {
