@@ -64,7 +64,8 @@ const supplierFormSchema = z.object({
 });
 
 export default function Suppliers() {
-  const [isNewSupplierOpen, setIsNewSupplierOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const { toast } = useToast();
@@ -93,13 +94,67 @@ export default function Suppliers() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
       toast({ title: "Fornecedor cadastrado com sucesso!" });
-      setIsNewSupplierOpen(false);
-      form.reset();
+      handleCloseDialog();
     },
     onError: () => {
       toast({ title: "Erro ao cadastrar fornecedor", variant: "destructive" });
     },
   });
+
+  const updateSupplierMutation = useMutation({
+    mutationFn: (data: z.infer<typeof supplierFormSchema> & { id: string }) =>
+      apiRequest("PATCH", `/api/suppliers/${data.id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+      toast({ title: "Fornecedor atualizado com sucesso!" });
+      handleCloseDialog();
+    },
+    onError: () => {
+      toast({ title: "Erro ao atualizar fornecedor", variant: "destructive" });
+    },
+  });
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setEditingSupplier(null);
+    form.reset();
+  };
+
+  const handleEditSupplier = (supplier: Supplier) => {
+    setEditingSupplier(supplier);
+    form.reset({
+      name: supplier.name,
+      category: supplier.category,
+      phone: supplier.phone || "",
+      whatsapp: supplier.whatsapp || "",
+      email: supplier.email || "",
+      address: supplier.address || "",
+      notes: supplier.notes || "",
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleNewSupplier = () => {
+    setEditingSupplier(null);
+    form.reset({
+      name: "",
+      category: "",
+      phone: "",
+      whatsapp: "",
+      email: "",
+      address: "",
+      notes: "",
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = (data: z.infer<typeof supplierFormSchema>) => {
+    if (editingSupplier) {
+      updateSupplierMutation.mutate({ ...data, id: editingSupplier.id });
+    } else {
+      createSupplierMutation.mutate(data);
+    }
+  };
 
   const deleteSupplierMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/suppliers/${id}`),
@@ -149,22 +204,21 @@ export default function Suppliers() {
         backHref="/"
         actions={
           canEdit && (
-            <Dialog open={isNewSupplierOpen} onOpenChange={setIsNewSupplierOpen}>
-              <DialogTrigger asChild>
-                <Button data-testid="button-new-supplier">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Novo Fornecedor
-                </Button>
-              </DialogTrigger>
+            <>
+              <Button onClick={handleNewSupplier} data-testid="button-new-supplier">
+                <Plus className="mr-2 h-4 w-4" />
+                Novo Fornecedor
+              </Button>
+              <Dialog open={isDialogOpen} onOpenChange={(open) => !open && handleCloseDialog()}>
               <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                  <DialogTitle>Cadastrar Fornecedor</DialogTitle>
+                  <DialogTitle>{editingSupplier ? "Editar Fornecedor" : "Cadastrar Fornecedor"}</DialogTitle>
                   <DialogDescription>
-                    Adicione um novo fornecedor ou prestador de serviço.
+                    {editingSupplier ? "Atualize os dados do fornecedor." : "Adicione um novo fornecedor ou prestador de serviço."}
                   </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
-                  <form onSubmit={form.handleSubmit((data) => createSupplierMutation.mutate(data))} className="space-y-4">
+                  <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                     <FormField
                       control={form.control}
                       name="name"
@@ -270,18 +324,19 @@ export default function Suppliers() {
                       )}
                     />
                     <DialogFooter>
-                      <Button type="button" variant="outline" onClick={() => setIsNewSupplierOpen(false)}>
+                      <Button type="button" variant="outline" onClick={handleCloseDialog}>
                         Cancelar
                       </Button>
-                      <Button type="submit" disabled={createSupplierMutation.isPending} data-testid="button-save-supplier">
-                        {createSupplierMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Salvar
+                      <Button type="submit" disabled={createSupplierMutation.isPending || updateSupplierMutation.isPending} data-testid="button-save-supplier">
+                        {(createSupplierMutation.isPending || updateSupplierMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {editingSupplier ? "Atualizar" : "Salvar"}
                       </Button>
                     </DialogFooter>
                   </form>
                 </Form>
               </DialogContent>
             </Dialog>
+            </>
           )
         }
       />
@@ -320,7 +375,7 @@ export default function Suppliers() {
           description="Cadastre fornecedores para facilitar a gestão de manutenções."
           action={{
             label: "Cadastrar Fornecedor",
-            onClick: () => setIsNewSupplierOpen(true),
+            onClick: handleNewSupplier,
           }}
         />
       ) : (
@@ -336,7 +391,7 @@ export default function Suppliers() {
                 </div>
                 {canEdit && (
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-edit-${supplier.id}`}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditSupplier(supplier)} data-testid={`button-edit-${supplier.id}`}>
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button 
