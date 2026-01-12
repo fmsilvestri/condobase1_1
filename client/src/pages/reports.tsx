@@ -17,6 +17,7 @@ import {
   CheckSquare,
   Square,
   Package,
+  Shield,
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import { PageHeader } from "@/components/page-header";
@@ -28,7 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import type { MaintenanceRequest, PoolReading, WaterReading, GasReading, EnergyEvent, OccupancyData, Document, Supplier, Announcement, Equipment } from "@shared/schema";
+import type { MaintenanceRequest, PoolReading, WaterReading, GasReading, EnergyEvent, OccupancyData, Document, Supplier, Announcement, Equipment, SecurityDevice } from "@shared/schema";
 
 interface ReportModule {
   id: string;
@@ -44,6 +45,7 @@ const availableModules: ReportModule[] = [
   { id: "agua", label: "Água", icon: Droplets, description: "Nível dos reservatórios" },
   { id: "gas", label: "Gás", icon: Flame, description: "Nível do gás" },
   { id: "energia", label: "Energia", icon: Zap, description: "Status atual da energia" },
+  { id: "seguranca", label: "Segurança", icon: Shield, description: "Dispositivos de segurança e acessos" },
   { id: "residuos", label: "Resíduos", icon: Trash2, description: "Cronograma de coleta" },
   { id: "ocupacao", label: "Ocupação", icon: Users, description: "Dados de ocupação" },
   { id: "fornecedores", label: "Fornecedores", icon: Truck, description: "Lista de fornecedores" },
@@ -99,6 +101,11 @@ export default function Reports() {
   const { data: announcements = [] } = useQuery<Announcement[]>({
     queryKey: ["/api/announcements"],
     enabled: selectedModules.includes("comunicados"),
+  });
+
+  const { data: securityDevices = [] } = useQuery<SecurityDevice[]>({
+    queryKey: ["/api/security-devices"],
+    enabled: selectedModules.includes("seguranca"),
   });
 
   const toggleModule = (moduleId: string) => {
@@ -358,6 +365,74 @@ export default function Reports() {
         yPos = (doc as any).lastAutoTable.finalY + 10;
       }
 
+      if (selectedModules.includes("seguranca") && securityDevices.length > 0) {
+        if (yPos > 220) { doc.addPage(); yPos = 20; }
+
+        doc.setFontSize(14);
+        doc.setTextColor(0, 0, 0);
+        doc.text("Segurança & Acessos", 20, yPos);
+        yPos += 8;
+
+        const securityStatusLabels: Record<string, string> = {
+          "operacional": "Operacional",
+          "atenção": "Atenção",
+          "falha": "Falha",
+          "inativo": "Inativo",
+        };
+
+        const securityTypeLabels: Record<string, string> = {
+          "portão": "Portão",
+          "porta": "Porta",
+          "câmera": "Câmera",
+          "facial": "Reconhecimento Facial",
+        };
+
+        const tableData = securityDevices.map(d => [
+          d.name.substring(0, 25),
+          securityTypeLabels[d.type] || d.type,
+          d.location.substring(0, 20),
+          securityStatusLabels[d.status] || d.status,
+        ]);
+
+        autoTable(doc, {
+          startY: yPos,
+          head: [["Dispositivo", "Tipo", "Localização", "Status"]],
+          body: tableData,
+          theme: "striped",
+          headStyles: { fillColor: [0, 150, 180] },
+          margin: { left: 20, right: 20 },
+          bodyStyles: { fontSize: 9 },
+          didParseCell: (data: any) => {
+            if (data.column.index === 3 && data.section === "body") {
+              const status = data.cell.raw?.toLowerCase();
+              if (status === "operacional") {
+                data.cell.styles.textColor = [34, 197, 94];
+              } else if (status === "atenção") {
+                data.cell.styles.textColor = [234, 179, 8];
+              } else if (status === "falha") {
+                data.cell.styles.textColor = [239, 68, 68];
+              } else if (status === "inativo") {
+                data.cell.styles.textColor = [107, 114, 128];
+              }
+            }
+          },
+        });
+
+        yPos = (doc as any).lastAutoTable.finalY + 10;
+
+        const securityStatusCounts = {
+          operacional: securityDevices.filter(d => d.status === "operacional").length,
+          atencao: securityDevices.filter(d => d.status === "atenção").length,
+          falha: securityDevices.filter(d => d.status === "falha").length,
+          inativo: securityDevices.filter(d => d.status === "inativo").length,
+        };
+
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Resumo: ${securityStatusCounts.operacional} operacionais | ${securityStatusCounts.atencao} em atenção | ${securityStatusCounts.falha} em falha | ${securityStatusCounts.inativo} inativos`, 20, yPos);
+        yPos += 10;
+      }
+
       if (selectedModules.includes("ocupacao") && occupancy) {
         if (yPos > 250) { doc.addPage(); yPos = 20; }
 
@@ -492,7 +567,14 @@ export default function Reports() {
     if (selectedModules.includes("energia") && energyEvents.length > 0) {
       const latest = energyEvents[0];
       const status = latest.status === "ok" ? "Normal" : latest.status;
-      message += `⚡ *Energia:* ${status}\n`;
+      message += `*Energia:* ${status}\n`;
+    }
+
+    if (selectedModules.includes("seguranca") && securityDevices.length > 0) {
+      const operacional = securityDevices.filter(d => d.status === "operacional").length;
+      const atencao = securityDevices.filter(d => d.status === "atenção").length;
+      const falha = securityDevices.filter(d => d.status === "falha").length;
+      message += `*Seguranca:* ${securityDevices.length} dispositivos (${operacional} ok, ${atencao} atencao, ${falha} falha)\n`;
     }
 
     if (selectedModules.includes("ocupacao") && occupancy) {
