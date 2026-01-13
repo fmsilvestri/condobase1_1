@@ -3,6 +3,8 @@ import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
 import type { IStorage } from "./storage";
 import {
+  condominiums as condominiumsTable,
+  userCondominiums as userCondominiumsTable,
   notifications as notificationsTable,
   modulePermissions as modulePermissionsTable,
   reservoirs as reservoirsTable,
@@ -12,6 +14,10 @@ import {
   securityDevices as securityDevicesTable,
   securityEvents as securityEventsTable,
   maintenanceCompletions as maintenanceCompletionsTable,
+  type Condominium,
+  type InsertCondominium,
+  type UserCondominium,
+  type InsertUserCondominium,
   type User,
   type InsertUser,
   type Equipment,
@@ -70,6 +76,85 @@ function toCamelCase(obj: Record<string, any>): Record<string, any> {
 
 export class SupabaseStorage implements IStorage {
   private sb = supabase!;
+
+  // Condominium methods
+  async getCondominiums(): Promise<Condominium[]> {
+    const data = await db.select().from(condominiumsTable).orderBy(desc(condominiumsTable.createdAt));
+    return data;
+  }
+
+  async getCondominiumById(id: string): Promise<Condominium | undefined> {
+    const [data] = await db.select().from(condominiumsTable).where(eq(condominiumsTable.id, id));
+    return data;
+  }
+
+  async createCondominium(condominium: InsertCondominium): Promise<Condominium> {
+    const [created] = await db.insert(condominiumsTable).values(condominium).returning();
+    return created;
+  }
+
+  async updateCondominium(id: string, condominium: Partial<InsertCondominium>): Promise<Condominium | undefined> {
+    const [updated] = await db.update(condominiumsTable)
+      .set({ ...condominium, updatedAt: new Date() })
+      .where(eq(condominiumsTable.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCondominium(id: string): Promise<boolean> {
+    const result = await db.delete(condominiumsTable)
+      .where(eq(condominiumsTable.id, id))
+      .returning({ id: condominiumsTable.id });
+    return result.length > 0;
+  }
+
+  // User-Condominium relationship methods
+  async getUserCondominiums(userId: string): Promise<(UserCondominium & { condominium?: Condominium })[]> {
+    const userCondos = await db.select().from(userCondominiumsTable)
+      .where(eq(userCondominiumsTable.userId, userId))
+      .orderBy(desc(userCondominiumsTable.createdAt));
+    
+    const result = await Promise.all(userCondos.map(async (uc) => {
+      const condominium = await this.getCondominiumById(uc.condominiumId);
+      return { ...uc, condominium };
+    }));
+    return result;
+  }
+
+  async getCondominiumUsers(condominiumId: string): Promise<(UserCondominium & { user?: User })[]> {
+    const condoUsers = await db.select().from(userCondominiumsTable)
+      .where(eq(userCondominiumsTable.condominiumId, condominiumId))
+      .orderBy(desc(userCondominiumsTable.createdAt));
+    
+    const result = await Promise.all(condoUsers.map(async (uc) => {
+      const user = await this.getUser(uc.userId);
+      return { ...uc, user };
+    }));
+    return result;
+  }
+
+  async addUserToCondominium(userCondominium: InsertUserCondominium): Promise<UserCondominium> {
+    const [created] = await db.insert(userCondominiumsTable).values(userCondominium).returning();
+    return created;
+  }
+
+  async updateUserCondominium(id: string, data: Partial<InsertUserCondominium>): Promise<UserCondominium | undefined> {
+    const [updated] = await db.update(userCondominiumsTable)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(userCondominiumsTable.id, id))
+      .returning();
+    return updated;
+  }
+
+  async removeUserFromCondominium(userId: string, condominiumId: string): Promise<boolean> {
+    const result = await db.delete(userCondominiumsTable)
+      .where(and(
+        eq(userCondominiumsTable.userId, userId),
+        eq(userCondominiumsTable.condominiumId, condominiumId)
+      ))
+      .returning({ id: userCondominiumsTable.id });
+    return result.length > 0;
+  }
 
   async getUser(id: string): Promise<User | undefined> {
     const { data, error } = await this.sb

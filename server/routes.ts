@@ -2,6 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { createStorage } from "./supabase-storage";
 import {
+  insertCondominiumSchema,
+  insertUserCondominiumSchema,
   insertEquipmentSchema,
   insertMaintenanceRequestSchema,
   insertMaintenanceCompletionSchema,
@@ -67,6 +69,128 @@ export async function registerRoutes(
         connected: false, 
         error: err.message 
       });
+    }
+  });
+
+  // Condominium routes
+  app.get("/api/condominiums", async (req, res) => {
+    try {
+      const condominiums = await storage.getCondominiums();
+      res.json(condominiums);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/condominiums/:id", async (req, res) => {
+    try {
+      const condominium = await storage.getCondominiumById(req.params.id);
+      if (!condominium) {
+        return res.status(404).json({ error: "Condomínio não encontrado" });
+      }
+      res.json(condominium);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/condominiums", async (req, res) => {
+    try {
+      const validatedData = insertCondominiumSchema.parse(req.body);
+      const condominium = await storage.createCondominium(validatedData);
+      res.status(201).json(condominium);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/condominiums/:id", async (req, res) => {
+    try {
+      const partialCondominiumSchema = insertCondominiumSchema.partial();
+      const validatedData = partialCondominiumSchema.parse(req.body);
+      const condominium = await storage.updateCondominium(req.params.id, validatedData);
+      if (!condominium) {
+        return res.status(404).json({ error: "Condomínio não encontrado" });
+      }
+      res.json(condominium);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/condominiums/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteCondominium(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Condomínio não encontrado" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // User-Condominium relationship routes
+  app.get("/api/users/:userId/condominiums", async (req, res) => {
+    try {
+      const userCondominiums = await storage.getUserCondominiums(req.params.userId);
+      res.json(userCondominiums);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/condominiums/:condominiumId/users", async (req, res) => {
+    try {
+      const condominiumUsers = await storage.getCondominiumUsers(req.params.condominiumId);
+      res.json(condominiumUsers);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/user-condominiums", async (req, res) => {
+    try {
+      const validatedData = insertUserCondominiumSchema.parse(req.body);
+      const userCondominium = await storage.addUserToCondominium(validatedData);
+      res.status(201).json(userCondominium);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/user-condominiums/:id", async (req, res) => {
+    try {
+      const partialUserCondominiumSchema = insertUserCondominiumSchema.partial();
+      const validatedData = partialUserCondominiumSchema.parse(req.body);
+      const userCondominium = await storage.updateUserCondominium(req.params.id, validatedData);
+      if (!userCondominium) {
+        return res.status(404).json({ error: "Vínculo não encontrado" });
+      }
+      res.json(userCondominium);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/user-condominiums/:userId/:condominiumId", async (req, res) => {
+    try {
+      const removed = await storage.removeUserFromCondominium(
+        req.params.userId,
+        req.params.condominiumId
+      );
+      if (!removed) {
+        return res.status(404).json({ error: "Vínculo não encontrado" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   });
   

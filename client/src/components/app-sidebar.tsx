@@ -16,6 +16,8 @@ import {
   ToggleRight,
   ClipboardList,
   Shield,
+  Building2,
+  ChevronDown,
 } from "lucide-react";
 import {
   Sidebar,
@@ -29,9 +31,16 @@ import {
   SidebarMenuItem,
   SidebarFooter,
 } from "@/components/ui/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useModulePermissions, moduleKeyMap } from "@/hooks/use-module-permissions";
+import { useCondominium } from "@/hooks/use-condominium";
 import logoImage from "@assets/image_1767976092597.png";
 
 const mainModules = [
@@ -109,6 +118,7 @@ interface AppSidebarProps {
 export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
   const [location] = useLocation();
   const { canAccessModule } = useModulePermissions();
+  const { condominiums, selectedCondominium, selectCondominium } = useCondominium();
 
   const displayRole = userRole === "admin" ? "Administrador" : userRole === "síndico" ? "Síndico" : "Condômino";
   const displayName = userName || "Usuário";
@@ -128,7 +138,7 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
 
   return (
     <Sidebar className="border-r border-border/40">
-      <SidebarHeader className="p-4 pb-2">
+      <SidebarHeader className="p-4 pb-2 space-y-3">
         <Link href="/" className="flex items-center justify-center" data-testid="link-logo">
           <img 
             src={logoImage} 
@@ -136,6 +146,36 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
             className="h-14 w-auto object-contain"
           />
         </Link>
+        {condominiums.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="w-full justify-between h-9 text-sm"
+                data-testid="dropdown-condominium-selector"
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <Building2 className="h-4 w-4 shrink-0 text-primary" />
+                  <span className="truncate">{selectedCondominium?.name || "Selecionar..."}</span>
+                </div>
+                <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]" align="start">
+              {condominiums.map((condo) => (
+                <DropdownMenuItem
+                  key={condo.id}
+                  onClick={() => selectCondominium(condo)}
+                  className={selectedCondominium?.id === condo.id ? "bg-accent" : ""}
+                  data-testid={`dropdown-item-condominium-${condo.id}`}
+                >
+                  <Building2 className="h-4 w-4 mr-2" />
+                  {condo.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </SidebarHeader>
       <SidebarContent className="px-3 py-2">
         <SidebarGroup>
@@ -232,6 +272,21 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                {userRole === "admin" && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location === "/condominios"}
+                      data-testid="nav-condominios"
+                      className="rounded-lg h-9 transition-all duration-200 data-[active=true]:bg-cyan-500/15 data-[active=true]:text-cyan-600 dark:data-[active=true]:text-cyan-400 data-[active=true]:font-medium"
+                    >
+                      <Link href="/condominios">
+                        <Building2 className="h-4 w-4" />
+                        <span className="text-sm">Condomínios</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

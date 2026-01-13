@@ -3,6 +3,32 @@ import { pgTable, text, varchar, integer, boolean, timestamp, real } from "drizz
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Condominiums table - multi-tenancy support
+export const condominiums = pgTable("condominiums", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  zipCode: text("zip_code"),
+  phone: text("phone"),
+  email: text("email"),
+  totalUnits: integer("total_units"),
+  logo: text("logo"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCondominiumSchema = createInsertSchema(condominiums).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertCondominium = z.infer<typeof insertCondominiumSchema>;
+export type Condominium = typeof condominiums.$inferSelect;
+
 export const userRoles = ["condômino", "síndico", "admin"] as const;
 export type UserRole = (typeof userRoles)[number];
 
@@ -32,6 +58,27 @@ export const updateUserSchema = createInsertSchema(users).partial().omit({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
+// User-Condominium relationship (many-to-many with role per condominium)
+export const userCondominiums = pgTable("user_condominiums", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  condominiumId: varchar("condominium_id").notNull(),
+  role: text("role").notNull().default("condômino"),
+  unit: text("unit"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertUserCondominiumSchema = createInsertSchema(userCondominiums).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertUserCondominium = z.infer<typeof insertUserCondominiumSchema>;
+export type UserCondominium = typeof userCondominiums.$inferSelect;
+
 export const equipmentCategories = [
   "elétrico",
   "hidráulico",
@@ -60,6 +107,7 @@ export type EquipmentStatus = (typeof equipmentStatuses)[number];
 
 export const equipment = pgTable("equipment", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id"),
   name: text("name").notNull(),
   category: text("category").notNull(),
   location: text("location").notNull(),
@@ -82,6 +130,7 @@ export type MaintenanceStatus = (typeof maintenanceStatuses)[number];
 
 export const maintenanceRequests = pgTable("maintenance_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id"),
   equipmentId: varchar("equipment_id").notNull(),
   title: text("title").notNull(),
   description: text("description").notNull(),
@@ -107,6 +156,7 @@ export type MaintenanceRequest = typeof maintenanceRequests.$inferSelect;
 
 export const maintenanceCompletions = pgTable("maintenance_completions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id"),
   equipmentId: varchar("equipment_id").notNull(),
   maintenanceRequestId: varchar("maintenance_request_id"),
   description: text("description").notNull(),
@@ -130,6 +180,7 @@ export type MaintenanceCompletion = typeof maintenanceCompletions.$inferSelect;
 
 export const poolReadings = pgTable("pool_readings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id"),
   ph: real("ph").notNull(),
   chlorine: real("chlorine").notNull(),
   alkalinity: real("alkalinity").notNull(),
@@ -157,6 +208,7 @@ export type PoolReading = typeof poolReadings.$inferSelect;
 
 export const reservoirs = pgTable("reservoirs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id"),
   name: text("name").notNull(),
   location: text("location").notNull(),
   capacityLiters: real("capacity_liters").notNull(),
@@ -173,6 +225,7 @@ export type Reservoir = typeof reservoirs.$inferSelect;
 
 export const waterReadings = pgTable("water_readings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id"),
   reservoirId: varchar("reservoir_id"),
   tankLevel: real("tank_level").notNull(),
   quality: text("quality").notNull().default("boa"),
@@ -198,6 +251,7 @@ export type WaterReading = typeof waterReadings.$inferSelect;
 
 export const gasReadings = pgTable("gas_readings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id"),
   level: real("level").notNull(),
   percentAvailable: real("percent_available").notNull(),
   photo: text("photo"),
@@ -219,6 +273,7 @@ export type EnergyStatus = (typeof energyStatuses)[number];
 
 export const energyEvents = pgTable("energy_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id"),
   status: text("status").notNull().default("ok"),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -237,6 +292,7 @@ export type EnergyEvent = typeof energyEvents.$inferSelect;
 
 export const occupancyData = pgTable("occupancy_data", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id"),
   totalUnits: integer("total_units").notNull(),
   occupiedUnits: integer("occupied_units").notNull(),
   vacantUnits: integer("vacant_units").notNull(),
@@ -272,6 +328,7 @@ export type DocumentType = (typeof documentTypes)[number];
 
 export const documents = pgTable("documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id"),
   name: text("name").notNull(),
   type: text("type").notNull(),
   fileUrl: text("file_url"),
@@ -291,6 +348,7 @@ export type Document = typeof documents.$inferSelect;
 
 export const suppliers = pgTable("suppliers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id"),
   name: text("name").notNull(),
   category: text("category").notNull(),
   phone: text("phone"),
@@ -311,6 +369,7 @@ export type Supplier = typeof suppliers.$inferSelect;
 
 export const announcements = pgTable("announcements", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id"),
   title: text("title").notNull(),
   content: text("content").notNull(),
   priority: text("priority").notNull().default("normal"),
@@ -349,7 +408,8 @@ export type Notification = typeof notifications.$inferSelect;
 
 export const modulePermissions = pgTable("module_permissions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  moduleKey: text("module_key").notNull().unique(),
+  condominiumId: varchar("condominium_id"),
+  moduleKey: text("module_key").notNull(),
   moduleLabel: text("module_label").notNull(),
   moduleIcon: text("module_icon"),
   isEnabled: boolean("is_enabled").notNull().default(true),
@@ -382,6 +442,7 @@ export type ModuleKey = typeof MODULE_KEYS[number];
 
 export const wasteConfig = pgTable("waste_config", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id"),
   schedule: text("schedule").notNull(),
   organicItems: text("organic_items").notNull(),
   recyclableCategories: text("recyclable_categories").notNull(),
@@ -407,6 +468,7 @@ export type SecurityDeviceStatus = (typeof securityDeviceStatuses)[number];
 
 export const securityDevices = pgTable("security_devices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id"),
   name: text("name").notNull(),
   type: text("type").notNull(),
   location: text("location").notNull(),
@@ -432,6 +494,7 @@ export type SecurityDevice = typeof securityDevices.$inferSelect;
 
 export const securityEvents = pgTable("security_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id"),
   deviceId: varchar("device_id").notNull(),
   eventType: text("event_type").notNull(),
   description: text("description"),

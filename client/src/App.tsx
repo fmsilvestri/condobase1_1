@@ -9,6 +9,7 @@ import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/s
 import { AppSidebar } from "@/components/app-sidebar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { ModulePermissionsProvider } from "@/hooks/use-module-permissions";
+import { CondominiumProvider } from "@/hooks/use-condominium";
 import { NotificationBell } from "@/components/notification-bell";
 import { Loader2 } from "lucide-react";
 import NotFound from "@/pages/not-found";
@@ -27,6 +28,7 @@ import Admin from "@/pages/admin";
 import FeatureAccess from "@/pages/feature-access";
 import Reports from "@/pages/reports";
 import Security from "@/pages/security";
+import Condominiums from "@/pages/condominiums";
 import Login from "@/pages/login";
 
 function Router() {
@@ -47,6 +49,7 @@ function Router() {
       <Route path="/controle-acesso" component={FeatureAccess} />
       <Route path="/relatorios" component={Reports} />
       <Route path="/seguranca" component={Security} />
+      <Route path="/condominios" component={Condominiums} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -74,23 +77,25 @@ function AuthenticatedApp() {
 
   return (
     <ModulePermissionsProvider>
-      <SidebarProvider style={style as React.CSSProperties}>
-        <div className="flex min-h-screen w-full">
-          <AppSidebar userName={userName} userRole={userRole} onSignOut={signOut} />
-          <SidebarInset className="flex flex-1 flex-col">
-            <header className="flex h-14 items-center justify-between gap-4 border-b px-4 lg:px-6">
-              <SidebarTrigger data-testid="button-sidebar-toggle" />
-              <div className="flex items-center gap-2">
-                <NotificationBell />
-                <ThemeToggle />
-              </div>
-            </header>
-            <main className="flex-1 overflow-auto p-4 lg:p-6">
-              <Router />
-            </main>
-          </SidebarInset>
-        </div>
-      </SidebarProvider>
+      <CondominiumProvider>
+        <SidebarProvider style={style as React.CSSProperties}>
+          <div className="flex min-h-screen w-full">
+            <AppSidebar userName={userName} userRole={userRole} onSignOut={signOut} />
+            <SidebarInset className="flex flex-1 flex-col">
+              <header className="flex h-14 items-center justify-between gap-4 border-b px-4 lg:px-6">
+                <SidebarTrigger data-testid="button-sidebar-toggle" />
+                <div className="flex items-center gap-2">
+                  <NotificationBell />
+                  <ThemeToggle />
+                </div>
+              </header>
+              <main className="flex-1 overflow-auto p-4 lg:p-6">
+                <Router />
+              </main>
+            </SidebarInset>
+          </div>
+        </SidebarProvider>
+      </CondominiumProvider>
     </ModulePermissionsProvider>
   );
 }

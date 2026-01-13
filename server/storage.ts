@@ -1,4 +1,8 @@
 import {
+  type Condominium,
+  type InsertCondominium,
+  type UserCondominium,
+  type InsertUserCondominium,
   type User,
   type InsertUser,
   type Equipment,
@@ -39,6 +43,20 @@ import {
 import { randomUUID } from "crypto";
 
 export interface IStorage {
+  // Condominium methods
+  getCondominiums(): Promise<Condominium[]>;
+  getCondominiumById(id: string): Promise<Condominium | undefined>;
+  createCondominium(condominium: InsertCondominium): Promise<Condominium>;
+  updateCondominium(id: string, condominium: Partial<InsertCondominium>): Promise<Condominium | undefined>;
+  deleteCondominium(id: string): Promise<boolean>;
+
+  // User-Condominium relationship methods
+  getUserCondominiums(userId: string): Promise<(UserCondominium & { condominium?: Condominium })[]>;
+  getCondominiumUsers(condominiumId: string): Promise<(UserCondominium & { user?: User })[]>;
+  addUserToCondominium(userCondominium: InsertUserCondominium): Promise<UserCondominium>;
+  updateUserCondominium(id: string, data: Partial<InsertUserCondominium>): Promise<UserCondominium | undefined>;
+  removeUserFromCondominium(userId: string, condominiumId: string): Promise<boolean>;
+
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUsers(): Promise<User[]>;
@@ -130,6 +148,8 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
+  private condominiums: Map<string, Condominium>;
+  private userCondominiums: Map<string, UserCondominium>;
   private users: Map<string, User>;
   private equipment: Map<string, Equipment>;
   private maintenanceRequests: Map<string, MaintenanceRequest>;
@@ -145,6 +165,8 @@ export class MemStorage implements IStorage {
   private announcements: Map<string, Announcement>;
 
   constructor() {
+    this.condominiums = new Map();
+    this.userCondominiums = new Map();
     this.users = new Map();
     this.equipment = new Map();
     this.maintenanceRequests = new Map();
@@ -159,6 +181,70 @@ export class MemStorage implements IStorage {
     this.announcements = new Map();
 
     this.seedData();
+  }
+
+  async getCondominiums(): Promise<Condominium[]> {
+    return Array.from(this.condominiums.values());
+  }
+
+  async getCondominiumById(id: string): Promise<Condominium | undefined> {
+    return this.condominiums.get(id);
+  }
+
+  async createCondominium(condominium: InsertCondominium): Promise<Condominium> {
+    const id = randomUUID();
+    const newCondominium: Condominium = { ...condominium, id, createdAt: new Date(), updatedAt: new Date() };
+    this.condominiums.set(id, newCondominium);
+    return newCondominium;
+  }
+
+  async updateCondominium(id: string, condominium: Partial<InsertCondominium>): Promise<Condominium | undefined> {
+    const existing = this.condominiums.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...condominium, updatedAt: new Date() };
+    this.condominiums.set(id, updated);
+    return updated;
+  }
+
+  async deleteCondominium(id: string): Promise<boolean> {
+    return this.condominiums.delete(id);
+  }
+
+  async getUserCondominiums(userId: string): Promise<(UserCondominium & { condominium?: Condominium })[]> {
+    return Array.from(this.userCondominiums.values())
+      .filter(uc => uc.userId === userId)
+      .map(uc => ({ ...uc, condominium: this.condominiums.get(uc.condominiumId) }));
+  }
+
+  async getCondominiumUsers(condominiumId: string): Promise<(UserCondominium & { user?: User })[]> {
+    return Array.from(this.userCondominiums.values())
+      .filter(uc => uc.condominiumId === condominiumId)
+      .map(uc => ({ ...uc, user: this.users.get(uc.userId) }));
+  }
+
+  async addUserToCondominium(userCondominium: InsertUserCondominium): Promise<UserCondominium> {
+    const id = randomUUID();
+    const newUserCondominium: UserCondominium = { ...userCondominium, id, createdAt: new Date(), updatedAt: new Date() };
+    this.userCondominiums.set(id, newUserCondominium);
+    return newUserCondominium;
+  }
+
+  async updateUserCondominium(id: string, data: Partial<InsertUserCondominium>): Promise<UserCondominium | undefined> {
+    const existing = this.userCondominiums.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...data, updatedAt: new Date() };
+    this.userCondominiums.set(id, updated);
+    return updated;
+  }
+
+  async removeUserFromCondominium(userId: string, condominiumId: string): Promise<boolean> {
+    const entry = Array.from(this.userCondominiums.entries())
+      .find(([_, uc]) => uc.userId === userId && uc.condominiumId === condominiumId);
+    if (entry) {
+      this.userCondominiums.delete(entry[0]);
+      return true;
+    }
+    return false;
   }
 
   private seedData() {
