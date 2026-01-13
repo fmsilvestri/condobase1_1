@@ -92,12 +92,27 @@ export function DashboardTile({
       >
         <div
           className={cn(
-            "flex items-center justify-center w-16 h-16 rounded-2xl",
-            "shadow-sm transition-transform duration-300 group-hover:scale-110",
+            "relative flex items-center justify-center w-16 h-16 rounded-2xl",
+            "transition-all duration-300 group-hover:scale-110",
+            "before:absolute before:inset-0 before:rounded-2xl before:bg-gradient-to-b before:from-white/40 before:to-transparent before:opacity-60",
+            "after:absolute after:inset-0 after:rounded-2xl after:shadow-[inset_0_-4px_8px_rgba(0,0,0,0.1)]",
+            "shadow-[0_8px_16px_-4px_rgba(0,0,0,0.15),0_4px_6px_-2px_rgba(0,0,0,0.1)]",
+            "dark:shadow-[0_8px_16px_-4px_rgba(0,0,0,0.4),0_4px_6px_-2px_rgba(0,0,0,0.3)]",
             colorStyle.iconBg
           )}
+          style={{
+            transform: "perspective(500px) rotateX(5deg)",
+            transformStyle: "preserve-3d",
+          }}
         >
-          <Icon className={cn("w-8 h-8 drop-shadow-sm", colorStyle.iconText)} />
+          <Icon 
+            className={cn(
+              "w-8 h-8 relative z-10",
+              "drop-shadow-[0_2px_3px_rgba(0,0,0,0.2)]",
+              colorStyle.iconText
+            )} 
+            style={{ transform: "translateZ(8px)" }}
+          />
         </div>
         <span className="text-sm font-medium text-center text-foreground leading-tight">
           {title}
