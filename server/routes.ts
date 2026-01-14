@@ -10,6 +10,7 @@ import {
   insertPoolReadingSchema,
   insertReservoirSchema,
   insertWaterReadingSchema,
+  insertHydrometerReadingSchema,
   insertGasReadingSchema,
   insertEnergyEventSchema,
   insertOccupancyDataSchema,
@@ -650,6 +651,51 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Water reading validation error:", error?.message || error);
       res.status(400).json({ error: "Invalid water reading data", details: error?.message });
+    }
+  });
+
+  // Hydrometer readings routes
+  app.get("/api/hydrometer", async (req, res) => {
+    try {
+      const readings = await storage.getHydrometerReadings();
+      res.json(readings);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch hydrometer readings" });
+    }
+  });
+
+  app.post("/api/hydrometer", async (req, res) => {
+    try {
+      const validatedData = insertHydrometerReadingSchema.parse(req.body);
+      const reading = await storage.createHydrometerReading(validatedData);
+      res.status(201).json(reading);
+    } catch (error: any) {
+      console.error("Hydrometer reading validation error:", error?.message || error);
+      res.status(400).json({ error: "Invalid hydrometer reading data", details: error?.message });
+    }
+  });
+
+  app.patch("/api/hydrometer/:id", async (req, res) => {
+    try {
+      const reading = await storage.updateHydrometerReading(req.params.id, req.body);
+      if (!reading) {
+        return res.status(404).json({ error: "Hydrometer reading not found" });
+      }
+      res.json(reading);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update hydrometer reading" });
+    }
+  });
+
+  app.delete("/api/hydrometer/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteHydrometerReading(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Hydrometer reading not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete hydrometer reading" });
     }
   });
 

@@ -17,6 +17,8 @@ import {
   type InsertReservoir,
   type WaterReading,
   type InsertWaterReading,
+  type HydrometerReading,
+  type InsertHydrometerReading,
   type GasReading,
   type InsertGasReading,
   type EnergyEvent,
@@ -94,6 +96,11 @@ export interface IStorage {
   getWaterReadings(): Promise<WaterReading[]>;
   createWaterReading(reading: InsertWaterReading): Promise<WaterReading>;
 
+  getHydrometerReadings(): Promise<HydrometerReading[]>;
+  createHydrometerReading(reading: InsertHydrometerReading): Promise<HydrometerReading>;
+  updateHydrometerReading(id: string, reading: Partial<InsertHydrometerReading>): Promise<HydrometerReading | undefined>;
+  deleteHydrometerReading(id: string): Promise<boolean>;
+
   getGasReadings(): Promise<GasReading[]>;
   createGasReading(reading: InsertGasReading): Promise<GasReading>;
 
@@ -157,6 +164,7 @@ export class MemStorage implements IStorage {
   private poolReadings: Map<string, PoolReading>;
   private reservoirs: Map<string, Reservoir>;
   private waterReadings: Map<string, WaterReading>;
+  private hydrometerReadings: Map<string, HydrometerReading>;
   private gasReadings: Map<string, GasReading>;
   private energyEvents: Map<string, EnergyEvent>;
   private occupancyData: OccupancyData | undefined;
@@ -174,6 +182,7 @@ export class MemStorage implements IStorage {
     this.poolReadings = new Map();
     this.reservoirs = new Map();
     this.waterReadings = new Map();
+    this.hydrometerReadings = new Map();
     this.gasReadings = new Map();
     this.energyEvents = new Map();
     this.documents = new Map();
@@ -528,6 +537,31 @@ export class MemStorage implements IStorage {
     const reading: WaterReading = { ...insertReading, id, createdAt: new Date() };
     this.waterReadings.set(id, reading);
     return reading;
+  }
+
+  async getHydrometerReadings(): Promise<HydrometerReading[]> {
+    return Array.from(this.hydrometerReadings.values()).sort((a, b) =>
+      (b.readingDate?.getTime() || 0) - (a.readingDate?.getTime() || 0)
+    );
+  }
+
+  async createHydrometerReading(insertReading: InsertHydrometerReading): Promise<HydrometerReading> {
+    const id = randomUUID();
+    const reading: HydrometerReading = { ...insertReading, id, createdAt: new Date() };
+    this.hydrometerReadings.set(id, reading);
+    return reading;
+  }
+
+  async updateHydrometerReading(id: string, data: Partial<InsertHydrometerReading>): Promise<HydrometerReading | undefined> {
+    const existing = this.hydrometerReadings.get(id);
+    if (!existing) return undefined;
+    const updated: HydrometerReading = { ...existing, ...data };
+    this.hydrometerReadings.set(id, updated);
+    return updated;
+  }
+
+  async deleteHydrometerReading(id: string): Promise<boolean> {
+    return this.hydrometerReadings.delete(id);
   }
 
   async getGasReadings(): Promise<GasReading[]> {

@@ -32,6 +32,9 @@ import {
   type InsertReservoir,
   type WaterReading,
   type InsertWaterReading,
+  type HydrometerReading,
+  type InsertHydrometerReading,
+  hydrometerReadings as hydrometerReadingsTable,
   type GasReading,
   type InsertGasReading,
   type EnergyEvent,
@@ -399,6 +402,25 @@ export class SupabaseStorage implements IStorage {
   async createWaterReading(reading: InsertWaterReading): Promise<WaterReading> {
     const [created] = await db.insert(waterReadingsTable).values(reading).returning();
     return created;
+  }
+
+  async getHydrometerReadings(): Promise<HydrometerReading[]> {
+    return await db.select().from(hydrometerReadingsTable).orderBy(desc(hydrometerReadingsTable.readingDate));
+  }
+
+  async createHydrometerReading(reading: InsertHydrometerReading): Promise<HydrometerReading> {
+    const [created] = await db.insert(hydrometerReadingsTable).values(reading).returning();
+    return created;
+  }
+
+  async updateHydrometerReading(id: string, reading: Partial<InsertHydrometerReading>): Promise<HydrometerReading | undefined> {
+    const [updated] = await db.update(hydrometerReadingsTable).set(reading).where(eq(hydrometerReadingsTable.id, id)).returning();
+    return updated;
+  }
+
+  async deleteHydrometerReading(id: string): Promise<boolean> {
+    await db.delete(hydrometerReadingsTable).where(eq(hydrometerReadingsTable.id, id));
+    return true;
   }
 
   async getGasReadings(): Promise<GasReading[]> {

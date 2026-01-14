@@ -250,6 +250,27 @@ export const insertWaterReadingSchema = createInsertSchema(waterReadings).omit({
 export type InsertWaterReading = z.infer<typeof insertWaterReadingSchema>;
 export type WaterReading = typeof waterReadings.$inferSelect;
 
+export const hydrometerReadings = pgTable("hydrometer_readings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id"),
+  readingValue: real("reading_value").notNull(),
+  readingDate: timestamp("reading_date").notNull(),
+  photo: text("photo"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  recordedBy: varchar("recorded_by"),
+});
+
+export const insertHydrometerReadingSchema = createInsertSchema(hydrometerReadings).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  readingValue: z.coerce.number().min(0),
+});
+
+export type InsertHydrometerReading = z.infer<typeof insertHydrometerReadingSchema>;
+export type HydrometerReading = typeof hydrometerReadings.$inferSelect;
+
 export const gasReadings = pgTable("gas_readings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   condominiumId: varchar("condominium_id"),
