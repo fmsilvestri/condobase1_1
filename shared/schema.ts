@@ -115,12 +115,22 @@ export const equipment = pgTable("equipment", {
   icon: text("icon"),
   photos: text("photos").array(),
   status: text("status").notNull().default("operacional"),
+  manufacturer: text("manufacturer"),
+  installationDate: timestamp("installation_date"),
+  estimatedLifespan: integer("estimated_lifespan"),
+  supplierId: varchar("supplier_id"),
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const insertEquipmentSchema = createInsertSchema(equipment).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
+}).extend({
+  installationDate: z.coerce.date().optional().nullable(),
+  estimatedLifespan: z.coerce.number().optional().nullable(),
 });
 
 export type InsertEquipment = z.infer<typeof insertEquipmentSchema>;
@@ -595,7 +605,7 @@ export type MaintenancePeriodicity = (typeof maintenancePeriodicities)[number];
 export const maintenancePlans = pgTable("maintenance_plans", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   condominiumId: varchar("condominium_id"),
-  assetId: varchar("asset_id").notNull(),
+  equipmentId: varchar("equipment_id").notNull(),
   name: text("name").notNull(),
   maintenanceType: text("maintenance_type").notNull(),
   periodicity: text("periodicity").notNull(),
@@ -655,7 +665,7 @@ export const maintenanceExecutions = pgTable("maintenance_executions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   condominiumId: varchar("condominium_id"),
   planId: varchar("plan_id"),
-  assetId: varchar("asset_id").notNull(),
+  equipmentId: varchar("equipment_id").notNull(),
   maintenanceType: text("maintenance_type").notNull(),
   scheduledDate: timestamp("scheduled_date").notNull(),
   executedDate: timestamp("executed_date"),

@@ -46,12 +46,12 @@ import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  type PreventiveAsset,
+  type Equipment,
   type MaintenancePlan,
   type MaintenanceExecution,
   type Supplier,
-  preventiveAssetCategories,
-  preventiveAssetStatuses,
+  equipmentCategories,
+  equipmentStatuses,
   maintenanceTypes,
   maintenancePeriodicities,
 } from "@shared/schema";
@@ -79,14 +79,24 @@ function Icon3D({ icon: IconComponent, color }: { icon: any; color: string }) {
 }
 
 const categoryIcons: Record<string, { icon: any; color: string }> = {
-  elevador: { icon: Building, color: "blue" },
-  bomba: { icon: Wrench, color: "cyan" },
-  elétrica: { icon: Settings, color: "yellow" },
-  segurança: { icon: Bell, color: "red" },
-  incêndio: { icon: AlertTriangle, color: "orange" },
-  hidráulica: { icon: Wrench, color: "blue" },
-  estrutura: { icon: Building, color: "purple" },
-  lazer: { icon: CalendarCheck, color: "green" },
+  "elétrico": { icon: Settings, color: "yellow" },
+  "hidráulico": { icon: Wrench, color: "blue" },
+  "piscina": { icon: Wrench, color: "cyan" },
+  "elevadores": { icon: Building, color: "blue" },
+  "cisternas": { icon: Wrench, color: "blue" },
+  "bombas": { icon: Wrench, color: "cyan" },
+  "academia": { icon: CalendarCheck, color: "green" },
+  "brinquedoteca": { icon: CalendarCheck, color: "purple" },
+  "pet place": { icon: CalendarCheck, color: "orange" },
+  "campo": { icon: CalendarCheck, color: "green" },
+  "portas": { icon: Building, color: "indigo" },
+  "portões": { icon: Building, color: "indigo" },
+  "acessos": { icon: Bell, color: "red" },
+  "pintura": { icon: Wrench, color: "purple" },
+  "reboco": { icon: Building, color: "orange" },
+  "limpeza": { icon: Wrench, color: "cyan" },
+  "pisos": { icon: Building, color: "purple" },
+  "jardim": { icon: CalendarCheck, color: "green" },
 };
 
 export default function PreventiveMaintenance() {
@@ -95,13 +105,13 @@ export default function PreventiveMaintenance() {
   const [assetDialogOpen, setAssetDialogOpen] = useState(false);
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
   const [executionDialogOpen, setExecutionDialogOpen] = useState(false);
-  const [selectedAsset, setSelectedAsset] = useState<PreventiveAsset | null>(null);
+  const [selectedAsset, setSelectedAsset] = useState<Equipment | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<MaintenancePlan | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
-  const { data: assets = [], isLoading: assetsLoading } = useQuery<PreventiveAsset[]>({
-    queryKey: ["/api/preventive-assets"],
+  const { data: assets = [], isLoading: assetsLoading } = useQuery<Equipment[]>({
+    queryKey: ["/api/equipment"],
   });
 
   const { data: plans = [], isLoading: plansLoading } = useQuery<MaintenancePlan[]>({
@@ -118,10 +128,10 @@ export default function PreventiveMaintenance() {
 
   const createAssetMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("POST", "/api/preventive-assets", data);
+      return apiRequest("POST", "/api/equipment", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/preventive-assets"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
       setAssetDialogOpen(false);
       toast({ title: "Ativo cadastrado com sucesso!" });
     },
@@ -132,10 +142,10 @@ export default function PreventiveMaintenance() {
 
   const updateAssetMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      return apiRequest("PATCH", `/api/preventive-assets/${id}`, data);
+      return apiRequest("PATCH", `/api/equipment/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/preventive-assets"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
       setAssetDialogOpen(false);
       setSelectedAsset(null);
       toast({ title: "Ativo atualizado com sucesso!" });
@@ -144,10 +154,10 @@ export default function PreventiveMaintenance() {
 
   const deleteAssetMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest("DELETE", `/api/preventive-assets/${id}`);
+      return apiRequest("DELETE", `/api/equipment/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/preventive-assets"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
       toast({ title: "Ativo excluído com sucesso!" });
     },
   });
@@ -207,7 +217,7 @@ export default function PreventiveMaintenance() {
   });
 
   const criticalAssets = assets.filter((asset) => {
-    const assetPlans = plans.filter((p) => p.assetId === asset.id && p.isActive);
+    const assetPlans = plans.filter((p) => p.equipmentId === asset.id && p.isActive);
     return assetPlans.some((p) => {
       if (!p.nextMaintenanceDate) return false;
       const daysUntil = differenceInDays(new Date(p.nextMaintenanceDate), new Date());
@@ -255,7 +265,7 @@ export default function PreventiveMaintenance() {
     const nextDate = new Date(formData.get("nextMaintenanceDate") as string);
 
     const data = {
-      assetId: formData.get("assetId") as string,
+      equipmentId: formData.get("equipmentId") as string,
       name: formData.get("name") as string,
       maintenanceType: formData.get("maintenanceType") as string,
       periodicity,
@@ -276,7 +286,7 @@ export default function PreventiveMaintenance() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const data = {
-      assetId: formData.get("assetId") as string,
+      equipmentId: formData.get("equipmentId") as string,
       planId: formData.get("planId") as string || null,
       maintenanceType: formData.get("maintenanceType") as string,
       scheduledDate: new Date(formData.get("scheduledDate") as string).toISOString(),
@@ -290,8 +300,8 @@ export default function PreventiveMaintenance() {
     createExecutionMutation.mutate(data);
   };
 
-  const getAssetName = (assetId: string) => {
-    const asset = assets.find((a) => a.id === assetId);
+  const getAssetName = (equipmentId: string) => {
+    const asset = assets.find((a) => a.id === equipmentId);
     return asset?.name || "Ativo desconhecido";
   };
 
@@ -418,7 +428,7 @@ export default function PreventiveMaintenance() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
-                  {preventiveAssetCategories.map((cat) => (
+                  {equipmentCategories.map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {cat.charAt(0).toUpperCase() + cat.slice(1)}
                     </SelectItem>
@@ -460,7 +470,7 @@ export default function PreventiveMaintenance() {
                           <SelectValue placeholder="Selecione" />
                         </SelectTrigger>
                         <SelectContent>
-                          {preventiveAssetCategories.map((cat) => (
+                          {equipmentCategories.map((cat) => (
                             <SelectItem key={cat} value={cat}>
                               {cat.charAt(0).toUpperCase() + cat.slice(1)}
                             </SelectItem>
@@ -523,7 +533,7 @@ export default function PreventiveMaintenance() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {preventiveAssetStatuses.map((status) => (
+                          {equipmentStatuses.map((status) => (
                             <SelectItem key={status} value={status}>
                               {status.charAt(0).toUpperCase() + status.slice(1)}
                             </SelectItem>
@@ -586,7 +596,7 @@ export default function PreventiveMaintenance() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredAssets.map((asset) => {
-                const assetPlans = plans.filter((p) => p.assetId === asset.id && p.isActive);
+                const assetPlans = plans.filter((p) => p.equipmentId === asset.id && p.isActive);
                 const nextMaintenance = assetPlans.reduce((earliest, plan) => {
                   if (!plan.nextMaintenanceDate) return earliest;
                   if (!earliest) return plan;
@@ -681,7 +691,7 @@ export default function PreventiveMaintenance() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="assetId">Ativo *</Label>
-                      <Select name="assetId" required>
+                      <Select name="equipmentId" required>
                         <SelectTrigger data-testid="select-plan-asset">
                           <SelectValue placeholder="Selecione o ativo" />
                         </SelectTrigger>
@@ -840,7 +850,7 @@ export default function PreventiveMaintenance() {
                           <div>
                             <h4 className="font-semibold">{plan.name}</h4>
                             <p className="text-sm text-muted-foreground">
-                              Ativo: {getAssetName(plan.assetId)} | Periodicidade: {plan.periodicity}
+                              Ativo: {getAssetName(plan.equipmentId)} | Periodicidade: {plan.periodicity}
                             </p>
                           </div>
                         </div>
@@ -890,7 +900,7 @@ export default function PreventiveMaintenance() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="execAssetId">Ativo *</Label>
-                      <Select name="assetId" required>
+                      <Select name="equipmentId" required>
                         <SelectTrigger data-testid="select-execution-asset">
                           <SelectValue placeholder="Selecione o ativo" />
                         </SelectTrigger>
@@ -1025,7 +1035,7 @@ export default function PreventiveMaintenance() {
                         <div className="flex items-center gap-4">
                           <Icon3D icon={Wrench} color={exec.status === "concluído" ? "green" : exec.status === "pendente" ? "yellow" : "blue"} />
                           <div>
-                            <h4 className="font-semibold">{getAssetName(exec.assetId)}</h4>
+                            <h4 className="font-semibold">{getAssetName(exec.equipmentId)}</h4>
                             <p className="text-sm text-muted-foreground">
                               {exec.maintenanceType} | {exec.responsibleName || "Sem responsável"}
                             </p>
@@ -1074,7 +1084,7 @@ export default function PreventiveMaintenance() {
                     <div key={plan.id} className="flex items-center justify-between p-2 bg-destructive/10 rounded">
                       <div>
                         <p className="font-medium">{plan.name}</p>
-                        <p className="text-sm text-muted-foreground">{getAssetName(plan.assetId)}</p>
+                        <p className="text-sm text-muted-foreground">{getAssetName(plan.equipmentId)}</p>
                       </div>
                       <Badge variant="destructive">
                         Vencida há {Math.abs(getDaysUntilMaintenance(plan.nextMaintenanceDate) || 0)} dias
@@ -1102,7 +1112,7 @@ export default function PreventiveMaintenance() {
                       <div key={plan.id} className="flex items-center justify-between p-2 bg-orange-500/10 rounded">
                         <div>
                           <p className="font-medium">{plan.name}</p>
-                          <p className="text-sm text-muted-foreground">{getAssetName(plan.assetId)}</p>
+                          <p className="text-sm text-muted-foreground">{getAssetName(plan.equipmentId)}</p>
                         </div>
                         {getMaintenanceStatusBadge(daysUntil)}
                       </div>
@@ -1137,7 +1147,7 @@ export default function PreventiveMaintenance() {
           ) : (
             <div className="space-y-4">
               {assets.map((asset) => {
-                const assetExecutions = executions.filter((e) => e.assetId === asset.id);
+                const assetExecutions = executions.filter((e) => e.equipmentId === asset.id);
                 if (assetExecutions.length === 0) return null;
                 
                 return (
@@ -1240,7 +1250,7 @@ export default function PreventiveMaintenance() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {preventiveAssetCategories.map((cat) => {
+                  {equipmentCategories.map((cat) => {
                     const count = assets.filter((a) => a.category === cat).length;
                     if (count === 0) return null;
                     return (
