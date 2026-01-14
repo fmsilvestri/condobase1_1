@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { createStorage } from "./supabase-storage";
+import { sendNotificationToUser, broadcastNotification } from "./websocket";
 import {
   insertCondominiumSchema,
   insertUserCondominiumSchema,
@@ -483,7 +484,7 @@ export async function registerRoutes(
         };
         const statusLabel = statusLabels[updateData.status] || updateData.status;
         
-        await storage.createNotification({
+        const notification = await storage.createNotification({
           userId: request.requestedBy,
           type: "maintenance_update",
           title: `Chamado Atualizado: ${statusLabel}`,
@@ -491,6 +492,11 @@ export async function registerRoutes(
           relatedId: request.id,
           isRead: false,
         });
+        
+        // Send via WebSocket
+        if (notification) {
+          sendNotificationToUser(request.requestedBy, notification);
+        }
       }
       
       res.json(request);
@@ -914,13 +920,18 @@ export async function registerRoutes(
       
       // Create notifications for all users about the new announcement
       try {
-        await storage.createNotificationsForAllUsers({
+        const notifications = await storage.createNotificationsForAllUsers({
           type: "announcement_new",
           title: "Novo Comunicado",
           message: announcement.title,
           relatedId: announcement.id,
           isRead: false,
         }, validatedData.createdBy || undefined);
+        
+        // Broadcast via WebSocket
+        notifications.forEach((notif) => {
+          sendNotificationToUser(notif.userId, notif);
+        });
       } catch (notifError) {
         console.error("Error creating notifications:", notifError);
       }
@@ -940,12 +951,17 @@ export async function registerRoutes(
       
       // Create notifications for all users about the updated announcement
       try {
-        await storage.createNotificationsForAllUsers({
+        const notifications = await storage.createNotificationsForAllUsers({
           type: "announcement_updated",
           title: "Comunicado Atualizado",
           message: announcement.title,
           relatedId: announcement.id,
           isRead: false,
+        });
+        
+        // Broadcast via WebSocket
+        notifications.forEach((notif) => {
+          sendNotificationToUser(notif.userId, notif);
         });
       } catch (notifError) {
         console.error("Error creating notifications:", notifError);

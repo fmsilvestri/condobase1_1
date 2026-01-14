@@ -711,7 +711,7 @@ export class SupabaseStorage implements IStorage {
     return true;
   }
 
-  async createNotificationsForAllUsers(notification: Omit<InsertNotification, 'userId'>, excludeUserId?: string): Promise<void> {
+  async createNotificationsForAllUsers(notification: Omit<InsertNotification, 'userId'>, excludeUserId?: string): Promise<Notification[]> {
     const users = await this.getUsers();
     const notificationsToInsert = users
       .filter(user => !excludeUserId || user.id !== excludeUserId)
@@ -719,11 +719,16 @@ export class SupabaseStorage implements IStorage {
     
     if (notificationsToInsert.length > 0) {
       try {
-        await db.insert(notificationsTable).values(notificationsToInsert);
+        const createdNotifications = await db.insert(notificationsTable)
+          .values(notificationsToInsert)
+          .returning();
+        return createdNotifications;
       } catch (error) {
         console.error("Error creating notifications:", error);
+        return [];
       }
     }
+    return [];
   }
 
   async getModulePermissions(): Promise<ModulePermission[]> {

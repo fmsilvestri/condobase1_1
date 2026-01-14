@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Bell, Check, Megaphone, X } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Bell, Check, Megaphone, Wrench, X } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,8 +14,10 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Notification } from "@shared/schema";
 import { Link } from "wouter";
 
-function NotificationBellContent({ userId }: { userId: string }) {
+function NotificationBellContent({ userId, accessToken }: { userId: string; accessToken: string | null }) {
   const [isOpen, setIsOpen] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<number | null>(null);
 
   const { data: notifications = [] } = useQuery<Notification[]>({
     queryKey: ["/api/notifications", userId, "unread"],
@@ -26,6 +28,67 @@ function NotificationBellContent({ userId }: { userId: string }) {
     },
     refetchInterval: 30000,
   });
+
+  const connectWebSocket = useCallback(() => {
+    if (!userId || !accessToken) return;
+
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+    try {
+      const ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log("[WebSocket] Connected, sending auth...");
+        ws.send(JSON.stringify({
+          type: "auth",
+          token: accessToken,
+          userId: userId,
+        }));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "authenticated") {
+            console.log("[WebSocket] Authenticated successfully");
+          } else if (data.type === "notification") {
+            queryClient.invalidateQueries({ queryKey: ["/api/notifications", userId, "unread"] });
+          }
+        } catch (error) {
+          console.error("[WebSocket] Error parsing message:", error);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log("[WebSocket] Disconnected, reconnecting in 5s...");
+        reconnectTimeoutRef.current = window.setTimeout(() => {
+          connectWebSocket();
+        }, 5000);
+      };
+
+      ws.onerror = (error) => {
+        console.error("[WebSocket] Error:", error);
+      };
+
+      wsRef.current = ws;
+    } catch (error) {
+      console.error("[WebSocket] Connection error:", error);
+    }
+  }, [userId, accessToken]);
+
+  useEffect(() => {
+    connectWebSocket();
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
+  }, [connectWebSocket]);
 
   const markAsReadMutation = useMutation({
     mutationFn: async (notificationId: string) => {
@@ -52,6 +115,8 @@ function NotificationBellContent({ userId }: { userId: string }) {
       case "announcement_new":
       case "announcement_updated":
         return <Megaphone className="h-4 w-4 text-cyan-500" />;
+      case "maintenance_update":
+        return <Wrench className="h-4 w-4 text-orange-500" />;
       default:
         return <Bell className="h-4 w-4" />;
     }
@@ -168,7 +233,7 @@ function NotificationBellContent({ userId }: { userId: string }) {
 }
 
 export function NotificationBell() {
-  const { userId } = useAuth();
+  const { userId, accessToken } = useAuth();
   
   if (!userId) {
     return (
@@ -178,5 +243,5 @@ export function NotificationBell() {
     );
   }
 
-  return <NotificationBellContent userId={userId} />;
+  return <NotificationBellContent userId={userId} accessToken={accessToken} />;
 }

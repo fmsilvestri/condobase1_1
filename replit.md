@@ -89,6 +89,14 @@ The application consists of these main feature modules:
 - **RLS**: Temporarily disabled for development - re-enable with proper policies for production
 - **Security Note**: Backend API trusts client-provided userId for authorization. For production, implement JWT token verification middleware using Supabase auth server-side.
 
+### Real-Time Notifications
+- **WebSocket Server**: `server/websocket.ts` - handles WebSocket connections with JWT authentication
+- **Authentication Flow**: Client connects to `/ws`, sends auth message with token/userId, server verifies via Supabase auth
+- **Notification Types**: `announcement_new`, `announcement_updated`, `maintenance_update`
+- **Triggers**: Notifications created when announcements are posted/updated, or maintenance request status changes
+- **Frontend Component**: `client/src/components/notification-bell.tsx` - bell icon with unread count badge, dropdown with notification list
+- **Security**: Token transmitted via message body (not URL) to avoid logging, verified server-side with Supabase getUser()
+
 ## External Dependencies
 
 ### Database

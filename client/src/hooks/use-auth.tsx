@@ -16,6 +16,7 @@ interface AuthContextType {
   isSindico: boolean;
   isCondomino: boolean;
   canEdit: boolean;
+  accessToken: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -122,9 +123,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isSindico = userRole === "síndico";
   const isCondomino = userRole === "condômino";
   const canEdit = isAdmin || isSindico;
+  const accessToken = session?.access_token || null;
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut, userRole, userName, userEmail, userId, dbUserId, isAdmin, isSindico, isCondomino, canEdit }}>
+    <AuthContext.Provider value={{ user, session, loading, signOut, userRole, userName, userEmail, userId, dbUserId, isAdmin, isSindico, isCondomino, canEdit, accessToken }}>
       {children}
     </AuthContext.Provider>
   );

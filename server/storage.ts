@@ -146,7 +146,7 @@ export interface IStorage {
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationAsRead(id: string): Promise<boolean>;
   markAllNotificationsAsRead(userId: string): Promise<boolean>;
-  createNotificationsForAllUsers(notification: Omit<InsertNotification, 'userId'>, excludeUserId?: string): Promise<void>;
+  createNotificationsForAllUsers(notification: Omit<InsertNotification, 'userId'>, excludeUserId?: string): Promise<Notification[]>;
 
   getModulePermissions(): Promise<ModulePermission[]>;
   updateModulePermission(moduleKey: string, isEnabled: boolean, updatedBy?: string): Promise<ModulePermission | undefined>;
@@ -789,12 +789,15 @@ export class MemStorage implements IStorage {
     return true;
   }
 
-  async createNotificationsForAllUsers(notification: Omit<InsertNotification, 'userId'>, excludeUserId?: string): Promise<void> {
+  async createNotificationsForAllUsers(notification: Omit<InsertNotification, 'userId'>, excludeUserId?: string): Promise<Notification[]> {
     const users = await this.getUsers();
+    const notifications: Notification[] = [];
     for (const user of users) {
       if (excludeUserId && user.id === excludeUserId) continue;
-      await this.createNotification({ ...notification, userId: user.id });
+      const created = await this.createNotification({ ...notification, userId: user.id });
+      notifications.push(created);
     }
+    return notifications;
   }
 
   private modulePermissions: Map<string, ModulePermission> = new Map([
