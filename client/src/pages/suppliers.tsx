@@ -15,6 +15,27 @@ import {
   Edit,
   Trash2,
   Loader2,
+  Zap,
+  Droplets,
+  Waves,
+  ArrowUpDown,
+  Gauge,
+  Flame,
+  Thermometer,
+  Camera,
+  Lock,
+  Paintbrush,
+  Blocks,
+  Sparkles,
+  Grid3X3,
+  Trees,
+  Wrench,
+  Shield,
+  Lightbulb,
+  PipetteIcon,
+  Fan,
+  Building2,
+  type LucideIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -53,9 +74,40 @@ import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { equipmentCategories, type Supplier } from "@shared/schema";
 
+const supplierIconOptions: { value: string; label: string; icon: LucideIcon }[] = [
+  { value: "electric", label: "Elétrico", icon: Zap },
+  { value: "hydraulic", label: "Hidráulico", icon: Droplets },
+  { value: "pool", label: "Piscina", icon: Waves },
+  { value: "elevator", label: "Elevador", icon: ArrowUpDown },
+  { value: "pump", label: "Bomba", icon: Gauge },
+  { value: "gas", label: "Gás", icon: Flame },
+  { value: "hvac", label: "Climatização", icon: Thermometer },
+  { value: "security", label: "Segurança", icon: Camera },
+  { value: "access", label: "Controle Acesso", icon: Lock },
+  { value: "painting", label: "Pintura", icon: Paintbrush },
+  { value: "masonry", label: "Alvenaria", icon: Blocks },
+  { value: "cleaning", label: "Limpeza", icon: Sparkles },
+  { value: "flooring", label: "Pisos", icon: Grid3X3 },
+  { value: "garden", label: "Jardinagem", icon: Trees },
+  { value: "maintenance", label: "Manutenção Geral", icon: Wrench },
+  { value: "fire", label: "Incêndio", icon: Shield },
+  { value: "lighting", label: "Iluminação", icon: Lightbulb },
+  { value: "plumbing", label: "Encanamento", icon: PipetteIcon },
+  { value: "ventilation", label: "Ventilação", icon: Fan },
+  { value: "building", label: "Construção", icon: Building2 },
+  { value: "truck", label: "Transporte", icon: Truck },
+];
+
+function getSupplierIcon(iconValue: string | null | undefined): LucideIcon {
+  if (!iconValue) return Truck;
+  const found = supplierIconOptions.find((opt) => opt.value === iconValue);
+  return found ? found.icon : Truck;
+}
+
 const supplierFormSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
   category: z.string().min(1, "Categoria é obrigatória"),
+  icon: z.string().optional(),
   phone: z.string().optional(),
   whatsapp: z.string().optional(),
   email: z.string().email("E-mail inválido").optional().or(z.literal("")),
@@ -80,6 +132,7 @@ export default function Suppliers() {
     defaultValues: {
       name: "",
       category: "",
+      icon: "",
       phone: "",
       whatsapp: "",
       email: "",
@@ -125,6 +178,7 @@ export default function Suppliers() {
     form.reset({
       name: supplier.name,
       category: supplier.category,
+      icon: supplier.icon || "",
       phone: supplier.phone || "",
       whatsapp: supplier.whatsapp || "",
       email: supplier.email || "",
@@ -139,6 +193,7 @@ export default function Suppliers() {
     form.reset({
       name: "",
       category: "",
+      icon: "",
       phone: "",
       whatsapp: "",
       email: "",
@@ -252,6 +307,56 @@ export default function Suppliers() {
                               ))}
                             </SelectContent>
                           </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="icon"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Ícone</FormLabel>
+                          <FormControl>
+                            <div className="grid grid-cols-7 gap-2 p-2 border rounded-md max-h-48 overflow-y-auto">
+                              {supplierIconOptions.map((option) => {
+                                const IconComponent = option.icon;
+                                const isSelected = field.value === option.value;
+                                return (
+                                  <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() => field.onChange(option.value)}
+                                    className={`
+                                      relative p-2 rounded-lg transition-all duration-200 group
+                                      ${isSelected 
+                                        ? "bg-primary text-primary-foreground shadow-lg scale-105" 
+                                        : "hover-elevate bg-muted/50 hover:bg-muted"
+                                      }
+                                    `}
+                                    title={option.label}
+                                    data-testid={`icon-option-${option.value}`}
+                                  >
+                                    <div
+                                      className={`
+                                        relative flex items-center justify-center
+                                        ${isSelected ? "drop-shadow-lg" : ""}
+                                      `}
+                                      style={{
+                                        transform: isSelected ? "perspective(100px) rotateX(5deg)" : "none",
+                                        transformStyle: "preserve-3d",
+                                      }}
+                                    >
+                                      <IconComponent className="h-5 w-5" />
+                                    </div>
+                                    {isSelected && (
+                                      <div className="absolute inset-0 rounded-lg bg-primary/20 blur-sm -z-10" />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -383,11 +488,32 @@ export default function Suppliers() {
           {filteredSuppliers.map((supplier) => (
             <Card key={supplier.id} className="hover-elevate" data-testid={`supplier-card-${supplier.id}`}>
               <CardHeader className="flex flex-row items-start justify-between gap-4 pb-2">
-                <div className="min-w-0 flex-1">
-                  <CardTitle className="text-base" data-testid={`text-supplier-name-${supplier.id}`}>{supplier.name}</CardTitle>
-                  <Badge variant="secondary" className="mt-1 text-xs">
-                    {supplier.category.charAt(0).toUpperCase() + supplier.category.slice(1)}
-                  </Badge>
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  {(() => {
+                    const SupplierIcon = getSupplierIcon(supplier.icon);
+                    return (
+                      <div
+                        className="relative flex-shrink-0 p-2 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20"
+                        style={{
+                          transform: "perspective(100px) rotateX(5deg) rotateY(-5deg)",
+                          transformStyle: "preserve-3d",
+                          boxShadow: "0 4px 12px -2px rgba(0,0,0,0.15), 0 2px 4px -1px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.1)",
+                        }}
+                      >
+                        <SupplierIcon className="h-6 w-6 text-primary drop-shadow-sm" />
+                        <div 
+                          className="absolute inset-0 rounded-lg bg-gradient-to-t from-transparent to-white/10 pointer-events-none"
+                          style={{ transform: "translateZ(2px)" }}
+                        />
+                      </div>
+                    );
+                  })()}
+                  <div className="min-w-0 flex-1">
+                    <CardTitle className="text-base" data-testid={`text-supplier-name-${supplier.id}`}>{supplier.name}</CardTitle>
+                    <Badge variant="secondary" className="mt-1 text-xs">
+                      {supplier.category.charAt(0).toUpperCase() + supplier.category.slice(1)}
+                    </Badge>
+                  </div>
                 </div>
                 {canEdit && (
                   <div className="flex gap-1">

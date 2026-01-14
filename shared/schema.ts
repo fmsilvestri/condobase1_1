@@ -352,6 +352,7 @@ export const suppliers = pgTable("suppliers", {
   condominiumId: varchar("condominium_id"),
   name: text("name").notNull(),
   category: text("category").notNull(),
+  icon: text("icon"),
   phone: text("phone"),
   whatsapp: text("whatsapp"),
   email: text("email"),
