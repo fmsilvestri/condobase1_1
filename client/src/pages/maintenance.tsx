@@ -915,8 +915,19 @@ export default function Maintenance() {
                 <Card key={eq.id} className="hover-elevate" data-testid={`equipment-card-${eq.id}`}>
                   <CardHeader className="flex flex-row items-start justify-between gap-4 pb-2">
                     <div className="flex items-start gap-3 min-w-0 flex-1">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                        <EquipmentIcon className="h-5 w-5 text-primary" />
+                      <div
+                        className="relative flex-shrink-0 p-2.5 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20"
+                        style={{
+                          transform: "perspective(100px) rotateX(5deg) rotateY(-5deg)",
+                          transformStyle: "preserve-3d",
+                          boxShadow: "0 4px 12px -2px rgba(0,0,0,0.15), 0 2px 4px -1px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.1)",
+                        }}
+                      >
+                        <EquipmentIcon className="h-5 w-5 text-primary drop-shadow-sm" />
+                        <div 
+                          className="absolute inset-0 rounded-lg bg-gradient-to-t from-transparent to-white/10 pointer-events-none"
+                          style={{ transform: "translateZ(2px)" }}
+                        />
                       </div>
                       <div className="min-w-0 flex-1">
                         <CardTitle className="text-base" data-testid={`text-equipment-name-${eq.id}`}>{eq.name}</CardTitle>
