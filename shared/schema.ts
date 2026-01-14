@@ -266,6 +266,7 @@ export const insertHydrometerReadingSchema = createInsertSchema(hydrometerReadin
   createdAt: true,
 }).extend({
   readingValue: z.coerce.number().min(0),
+  readingDate: z.coerce.date(),
 });
 
 export type InsertHydrometerReading = z.infer<typeof insertHydrometerReadingSchema>;

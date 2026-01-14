@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Droplets, Plus, TrendingUp, Clock, AlertTriangle, Check, MapPin, Edit, Trash2, Loader2 } from "lucide-react";
+import { Droplets, Plus, TrendingUp, Clock, AlertTriangle, Check, MapPin, Edit, Trash2, Loader2, Gauge, Camera, Calendar } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { GaugeChart } from "@/components/gauge-chart";
 import { StatCard } from "@/components/stat-card";
@@ -34,7 +34,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import type { WaterReading, Reservoir } from "@shared/schema";
+import type { WaterReading, Reservoir, HydrometerReading } from "@shared/schema";
 import {
   AreaChart,
   Area,
@@ -59,10 +59,19 @@ const waterFormSchema = z.object({
   notes: z.string().optional(),
 });
 
+const hydrometerFormSchema = z.object({
+  readingValue: z.coerce.number().min(0, "Valor deve ser maior que 0"),
+  readingDate: z.string().min(1, "Data é obrigatória"),
+  photo: z.string().optional(),
+  notes: z.string().optional(),
+});
+
 export default function Water() {
   const [isNewReadingOpen, setIsNewReadingOpen] = useState(false);
   const [isNewReservoirOpen, setIsNewReservoirOpen] = useState(false);
+  const [isNewHydrometerOpen, setIsNewHydrometerOpen] = useState(false);
   const [editingReservoir, setEditingReservoir] = useState<Reservoir | null>(null);
+  const [editingHydrometer, setEditingHydrometer] = useState<HydrometerReading | null>(null);
   const { canEdit, dbUserId } = useAuth();
   const { toast } = useToast();
 
@@ -86,12 +95,26 @@ export default function Water() {
     },
   });
 
+  const hydrometerForm = useForm<z.infer<typeof hydrometerFormSchema>>({
+    resolver: zodResolver(hydrometerFormSchema),
+    defaultValues: {
+      readingValue: 0,
+      readingDate: new Date().toISOString().split("T")[0],
+      photo: "",
+      notes: "",
+    },
+  });
+
   const { data: readings = [], isLoading: loadingReadings } = useQuery<WaterReading[]>({
     queryKey: ["/api/water"],
   });
 
   const { data: reservoirs = [], isLoading: loadingReservoirs } = useQuery<Reservoir[]>({
     queryKey: ["/api/reservoirs"],
+  });
+
+  const { data: hydrometerReadings = [], isLoading: loadingHydrometer } = useQuery<HydrometerReading[]>({
+    queryKey: ["/api/hydrometer"],
   });
 
   const createReservoirMutation = useMutation({
@@ -164,6 +187,73 @@ export default function Water() {
       toast({ title: "Erro ao registrar leitura", description: error.message, variant: "destructive" });
     },
   });
+
+  const createHydrometerMutation = useMutation({
+    mutationFn: (data: z.infer<typeof hydrometerFormSchema>) =>
+      apiRequest("POST", "/api/hydrometer", {
+        ...data,
+        readingDate: new Date(data.readingDate),
+        photo: data.photo || null,
+        notes: data.notes || null,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/hydrometer"] });
+      toast({ title: "Leitura do hidrômetro registrada!" });
+      setIsNewHydrometerOpen(false);
+      hydrometerForm.reset();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao registrar leitura", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateHydrometerMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: z.infer<typeof hydrometerFormSchema> }) =>
+      apiRequest("PATCH", `/api/hydrometer/${id}`, {
+        ...data,
+        readingDate: new Date(data.readingDate),
+        photo: data.photo || null,
+        notes: data.notes || null,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/hydrometer"] });
+      toast({ title: "Leitura atualizada com sucesso!" });
+      setEditingHydrometer(null);
+      hydrometerForm.reset();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao atualizar leitura", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteHydrometerMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/hydrometer/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/hydrometer"] });
+      toast({ title: "Leitura removida com sucesso!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao remover leitura", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleEditHydrometer = (reading: HydrometerReading) => {
+    setEditingHydrometer(reading);
+    hydrometerForm.reset({
+      readingValue: reading.readingValue,
+      readingDate: reading.readingDate ? new Date(reading.readingDate).toISOString().split("T")[0] : "",
+      photo: reading.photo || "",
+      notes: reading.notes || "",
+    });
+  };
+
+  const handleSaveHydrometer = (data: z.infer<typeof hydrometerFormSchema>) => {
+    if (editingHydrometer) {
+      updateHydrometerMutation.mutate({ id: editingHydrometer.id, data });
+    } else {
+      createHydrometerMutation.mutate(data);
+    }
+  };
 
   const handleEditReservoir = (reservoir: Reservoir) => {
     setEditingReservoir(reservoir);
@@ -527,12 +617,15 @@ export default function Water() {
       </div>
 
       <Tabs defaultValue="reservoirs" className="space-y-4">
-        <TabsList>
+        <TabsList className="flex-wrap gap-1">
           <TabsTrigger value="reservoirs" data-testid="tab-reservoirs">
             Reservatórios ({reservoirs.length})
           </TabsTrigger>
           <TabsTrigger value="readings" data-testid="tab-readings">
             Leituras ({readings.length})
+          </TabsTrigger>
+          <TabsTrigger value="hydrometer" data-testid="tab-hydrometer">
+            Hidrômetro ({hydrometerReadings.length})
           </TabsTrigger>
           <TabsTrigger value="chart" data-testid="tab-chart">
             Histórico
@@ -656,6 +749,289 @@ export default function Water() {
             </div>
           )}
         </TabsContent>
+
+        <TabsContent value="hydrometer" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div
+                className="h-12 w-12 rounded-lg flex items-center justify-center"
+                style={{
+                  background: "linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)/0.7) 100%)",
+                  boxShadow: "0 4px 12px hsl(var(--primary)/0.3)",
+                  transform: "perspective(500px) rotateY(-5deg)",
+                }}
+              >
+                <Gauge className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">Leituras do Hidrômetro</h3>
+                <p className="text-sm text-muted-foreground">Controle mensal de consumo de água</p>
+              </div>
+            </div>
+            {canEdit && (
+              <Dialog open={isNewHydrometerOpen} onOpenChange={setIsNewHydrometerOpen}>
+                <DialogTrigger asChild>
+                  <Button data-testid="button-new-hydrometer">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nova Leitura
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Registrar Leitura do Hidrômetro</DialogTitle>
+                    <DialogDescription>
+                      Registre o valor atual do hidrômetro para controle de consumo.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <Form {...hydrometerForm}>
+                    <form onSubmit={hydrometerForm.handleSubmit(handleSaveHydrometer)} className="space-y-4">
+                      <FormField
+                        control={hydrometerForm.control}
+                        name="readingValue"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Valor da Leitura (m³)</FormLabel>
+                            <FormControl>
+                              <Input type="number" step="0.01" placeholder="12345.67" {...field} data-testid="input-hydrometer-value" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={hydrometerForm.control}
+                        name="readingDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Data da Leitura</FormLabel>
+                            <FormControl>
+                              <Input type="date" {...field} data-testid="input-hydrometer-date" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={hydrometerForm.control}
+                        name="photo"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>URL da Foto (opcional)</FormLabel>
+                            <FormControl>
+                              <Input placeholder="https://..." {...field} data-testid="input-hydrometer-photo" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={hydrometerForm.control}
+                        name="notes"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Observações</FormLabel>
+                            <FormControl>
+                              <Textarea placeholder="Observações sobre a leitura..." {...field} data-testid="input-hydrometer-notes" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsNewHydrometerOpen(false)}>
+                          Cancelar
+                        </Button>
+                        <Button type="submit" disabled={createHydrometerMutation.isPending} data-testid="button-save-hydrometer">
+                          {createHydrometerMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Salvar
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
+
+          {hydrometerReadings.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Gauge className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Nenhuma leitura registrada</h3>
+                <p className="text-muted-foreground text-center mb-4">
+                  Registre as leituras mensais do hidrômetro para acompanhar o consumo.
+                </p>
+                {canEdit && (
+                  <Button onClick={() => setIsNewHydrometerOpen(true)} data-testid="button-empty-new-hydrometer">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Registrar Leitura
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {hydrometerReadings.map((reading, index) => {
+                const prevReading = hydrometerReadings[index + 1];
+                const consumption = prevReading ? reading.readingValue - prevReading.readingValue : null;
+                
+                return (
+                  <Card key={reading.id} className="hover-elevate" data-testid={`hydrometer-card-${reading.id}`}>
+                    <CardContent className="p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0"
+                            style={{
+                              background: "linear-gradient(135deg, hsl(210 80% 50%) 0%, hsl(210 80% 65%) 100%)",
+                              boxShadow: "0 3px 8px hsl(210 80% 50% / 0.3)",
+                              transform: "perspective(400px) rotateY(-3deg)",
+                            }}
+                          >
+                            <Gauge className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-lg">{reading.readingValue.toLocaleString("pt-BR")} m³</span>
+                              {consumption !== null && consumption > 0 && (
+                                <Badge className="bg-blue-500/10 text-blue-600">
+                                  +{consumption.toLocaleString("pt-BR")} m³
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Calendar className="h-3.5 w-3.5" />
+                              {reading.readingDate ? new Date(reading.readingDate).toLocaleDateString("pt-BR", {
+                                day: "2-digit",
+                                month: "long",
+                                year: "numeric",
+                              }) : "-"}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {reading.photo && (
+                            <a href={reading.photo} target="_blank" rel="noopener noreferrer">
+                              <Button variant="outline" size="icon" data-testid={`button-view-photo-${reading.id}`}>
+                                <Camera className="h-4 w-4" />
+                              </Button>
+                            </a>
+                          )}
+                          {canEdit && (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditHydrometer(reading)}
+                                data-testid={`button-edit-hydrometer-${reading.id}`}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => deleteHydrometerMutation.mutate(reading.id)}
+                                className="text-destructive"
+                                data-testid={`button-delete-hydrometer-${reading.id}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {reading.notes && (
+                        <p className="text-sm text-muted-foreground mt-2 pl-13">{reading.notes}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Edit Hydrometer Dialog */}
+        <Dialog open={!!editingHydrometer} onOpenChange={(open) => {
+          if (!open) {
+            setEditingHydrometer(null);
+            hydrometerForm.reset();
+          }
+        }}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Editar Leitura do Hidrômetro</DialogTitle>
+              <DialogDescription>
+                Atualize as informações da leitura.
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...hydrometerForm}>
+              <form onSubmit={hydrometerForm.handleSubmit(handleSaveHydrometer)} className="space-y-4">
+                <FormField
+                  control={hydrometerForm.control}
+                  name="readingValue"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Valor da Leitura (m³)</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" {...field} data-testid="input-edit-hydrometer-value" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={hydrometerForm.control}
+                  name="readingDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Data da Leitura</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} data-testid="input-edit-hydrometer-date" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={hydrometerForm.control}
+                  name="photo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>URL da Foto (opcional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="https://..." {...field} data-testid="input-edit-hydrometer-photo" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={hydrometerForm.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Observações</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Observações sobre a leitura..." {...field} data-testid="input-edit-hydrometer-notes" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setEditingHydrometer(null)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={updateHydrometerMutation.isPending} data-testid="button-update-hydrometer">
+                    {updateHydrometerMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Atualizar
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
 
         <TabsContent value="chart" className="space-y-4">
           <Card>
