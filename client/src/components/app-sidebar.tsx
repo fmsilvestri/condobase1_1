@@ -18,6 +18,7 @@ import {
   Shield,
   Building2,
   ChevronDown,
+  CalendarCheck,
 } from "lucide-react";
 import {
   Sidebar,
@@ -53,6 +54,11 @@ const mainModules = [
     title: "Ativos & Manutenções",
     url: "/manutencoes",
     icon: Wrench,
+  },
+  {
+    title: "Manutenção Preventiva",
+    url: "/manutencao-preventiva",
+    icon: CalendarCheck,
   },
   {
     title: "Piscina & Qualidade",

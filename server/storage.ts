@@ -41,6 +41,18 @@ import {
   type InsertSecurityDevice,
   type SecurityEvent,
   type InsertSecurityEvent,
+  type PreventiveAsset,
+  type InsertPreventiveAsset,
+  type MaintenancePlan,
+  type InsertMaintenancePlan,
+  type PlanChecklistItem,
+  type InsertPlanChecklistItem,
+  type MaintenanceExecution,
+  type InsertMaintenanceExecution,
+  type ExecutionChecklistItem,
+  type InsertExecutionChecklistItem,
+  type MaintenanceDocument,
+  type InsertMaintenanceDocument,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -152,6 +164,46 @@ export interface IStorage {
   getSecurityEventsByDeviceId(deviceId: string): Promise<SecurityEvent[]>;
   createSecurityEvent(event: InsertSecurityEvent): Promise<SecurityEvent>;
   updateSecurityEvent(id: string, event: Partial<InsertSecurityEvent>): Promise<SecurityEvent | undefined>;
+
+  // Preventive Maintenance - Assets
+  getPreventiveAssets(): Promise<PreventiveAsset[]>;
+  getPreventiveAssetById(id: string): Promise<PreventiveAsset | undefined>;
+  createPreventiveAsset(asset: InsertPreventiveAsset): Promise<PreventiveAsset>;
+  updatePreventiveAsset(id: string, asset: Partial<InsertPreventiveAsset>): Promise<PreventiveAsset | undefined>;
+  deletePreventiveAsset(id: string): Promise<boolean>;
+
+  // Preventive Maintenance - Plans
+  getMaintenancePlans(): Promise<MaintenancePlan[]>;
+  getMaintenancePlanById(id: string): Promise<MaintenancePlan | undefined>;
+  getMaintenancePlansByAssetId(assetId: string): Promise<MaintenancePlan[]>;
+  createMaintenancePlan(plan: InsertMaintenancePlan): Promise<MaintenancePlan>;
+  updateMaintenancePlan(id: string, plan: Partial<InsertMaintenancePlan>): Promise<MaintenancePlan | undefined>;
+  deleteMaintenancePlan(id: string): Promise<boolean>;
+
+  // Preventive Maintenance - Plan Checklist Items
+  getPlanChecklistItems(planId: string): Promise<PlanChecklistItem[]>;
+  createPlanChecklistItem(item: InsertPlanChecklistItem): Promise<PlanChecklistItem>;
+  updatePlanChecklistItem(id: string, item: Partial<InsertPlanChecklistItem>): Promise<PlanChecklistItem | undefined>;
+  deletePlanChecklistItem(id: string): Promise<boolean>;
+
+  // Preventive Maintenance - Executions
+  getMaintenanceExecutions(): Promise<MaintenanceExecution[]>;
+  getMaintenanceExecutionById(id: string): Promise<MaintenanceExecution | undefined>;
+  getMaintenanceExecutionsByAssetId(assetId: string): Promise<MaintenanceExecution[]>;
+  createMaintenanceExecution(execution: InsertMaintenanceExecution): Promise<MaintenanceExecution>;
+  updateMaintenanceExecution(id: string, execution: Partial<InsertMaintenanceExecution>): Promise<MaintenanceExecution | undefined>;
+  deleteMaintenanceExecution(id: string): Promise<boolean>;
+
+  // Preventive Maintenance - Execution Checklist Items
+  getExecutionChecklistItems(executionId: string): Promise<ExecutionChecklistItem[]>;
+  createExecutionChecklistItem(item: InsertExecutionChecklistItem): Promise<ExecutionChecklistItem>;
+  updateExecutionChecklistItem(id: string, item: Partial<InsertExecutionChecklistItem>): Promise<ExecutionChecklistItem | undefined>;
+  deleteExecutionChecklistItem(id: string): Promise<boolean>;
+
+  // Preventive Maintenance - Documents
+  getMaintenanceDocuments(executionId: string): Promise<MaintenanceDocument[]>;
+  createMaintenanceDocument(doc: InsertMaintenanceDocument): Promise<MaintenanceDocument>;
+  deleteMaintenanceDocument(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {

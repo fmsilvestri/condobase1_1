@@ -14,6 +14,13 @@ import {
   securityDevices as securityDevicesTable,
   securityEvents as securityEventsTable,
   maintenanceCompletions as maintenanceCompletionsTable,
+  hydrometerReadings as hydrometerReadingsTable,
+  preventiveAssets as preventiveAssetsTable,
+  maintenancePlans as maintenancePlansTable,
+  planChecklistItems as planChecklistItemsTable,
+  maintenanceExecutions as maintenanceExecutionsTable,
+  executionChecklistItems as executionChecklistItemsTable,
+  maintenanceDocuments as maintenanceDocumentsTable,
   type Condominium,
   type InsertCondominium,
   type UserCondominium,
@@ -34,7 +41,6 @@ import {
   type InsertWaterReading,
   type HydrometerReading,
   type InsertHydrometerReading,
-  hydrometerReadings as hydrometerReadingsTable,
   type GasReading,
   type InsertGasReading,
   type EnergyEvent,
@@ -57,6 +63,18 @@ import {
   type InsertSecurityDevice,
   type SecurityEvent,
   type InsertSecurityEvent,
+  type PreventiveAsset,
+  type InsertPreventiveAsset,
+  type MaintenancePlan,
+  type InsertMaintenancePlan,
+  type PlanChecklistItem,
+  type InsertPlanChecklistItem,
+  type MaintenanceExecution,
+  type InsertMaintenanceExecution,
+  type ExecutionChecklistItem,
+  type InsertExecutionChecklistItem,
+  type MaintenanceDocument,
+  type InsertMaintenanceDocument,
 } from "@shared/schema";
 
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
@@ -829,6 +847,223 @@ export class SupabaseStorage implements IStorage {
       .where(eq(securityEventsTable.id, id))
       .returning();
     return data;
+  }
+
+  // ===========================
+  // PREVENTIVE MAINTENANCE - ASSETS
+  // ===========================
+  async getPreventiveAssets(): Promise<PreventiveAsset[]> {
+    const data = await db.select()
+      .from(preventiveAssetsTable)
+      .orderBy(desc(preventiveAssetsTable.createdAt));
+    return data;
+  }
+
+  async getPreventiveAssetById(id: string): Promise<PreventiveAsset | undefined> {
+    const [data] = await db.select()
+      .from(preventiveAssetsTable)
+      .where(eq(preventiveAssetsTable.id, id));
+    return data;
+  }
+
+  async createPreventiveAsset(asset: InsertPreventiveAsset): Promise<PreventiveAsset> {
+    const [data] = await db.insert(preventiveAssetsTable)
+      .values(asset)
+      .returning();
+    return data;
+  }
+
+  async updatePreventiveAsset(id: string, asset: Partial<InsertPreventiveAsset>): Promise<PreventiveAsset | undefined> {
+    const [data] = await db.update(preventiveAssetsTable)
+      .set({ ...asset, updatedAt: new Date() })
+      .where(eq(preventiveAssetsTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deletePreventiveAsset(id: string): Promise<boolean> {
+    await db.delete(preventiveAssetsTable)
+      .where(eq(preventiveAssetsTable.id, id));
+    return true;
+  }
+
+  // ===========================
+  // PREVENTIVE MAINTENANCE - PLANS
+  // ===========================
+  async getMaintenancePlans(): Promise<MaintenancePlan[]> {
+    const data = await db.select()
+      .from(maintenancePlansTable)
+      .orderBy(desc(maintenancePlansTable.createdAt));
+    return data;
+  }
+
+  async getMaintenancePlanById(id: string): Promise<MaintenancePlan | undefined> {
+    const [data] = await db.select()
+      .from(maintenancePlansTable)
+      .where(eq(maintenancePlansTable.id, id));
+    return data;
+  }
+
+  async getMaintenancePlansByAssetId(assetId: string): Promise<MaintenancePlan[]> {
+    const data = await db.select()
+      .from(maintenancePlansTable)
+      .where(eq(maintenancePlansTable.assetId, assetId))
+      .orderBy(desc(maintenancePlansTable.createdAt));
+    return data;
+  }
+
+  async createMaintenancePlan(plan: InsertMaintenancePlan): Promise<MaintenancePlan> {
+    const [data] = await db.insert(maintenancePlansTable)
+      .values(plan)
+      .returning();
+    return data;
+  }
+
+  async updateMaintenancePlan(id: string, plan: Partial<InsertMaintenancePlan>): Promise<MaintenancePlan | undefined> {
+    const [data] = await db.update(maintenancePlansTable)
+      .set({ ...plan, updatedAt: new Date() })
+      .where(eq(maintenancePlansTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteMaintenancePlan(id: string): Promise<boolean> {
+    await db.delete(maintenancePlansTable)
+      .where(eq(maintenancePlansTable.id, id));
+    return true;
+  }
+
+  // ===========================
+  // PREVENTIVE MAINTENANCE - PLAN CHECKLIST ITEMS
+  // ===========================
+  async getPlanChecklistItems(planId: string): Promise<PlanChecklistItem[]> {
+    const data = await db.select()
+      .from(planChecklistItemsTable)
+      .where(eq(planChecklistItemsTable.planId, planId))
+      .orderBy(planChecklistItemsTable.itemOrder);
+    return data;
+  }
+
+  async createPlanChecklistItem(item: InsertPlanChecklistItem): Promise<PlanChecklistItem> {
+    const [data] = await db.insert(planChecklistItemsTable)
+      .values(item)
+      .returning();
+    return data;
+  }
+
+  async updatePlanChecklistItem(id: string, item: Partial<InsertPlanChecklistItem>): Promise<PlanChecklistItem | undefined> {
+    const [data] = await db.update(planChecklistItemsTable)
+      .set(item)
+      .where(eq(planChecklistItemsTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deletePlanChecklistItem(id: string): Promise<boolean> {
+    await db.delete(planChecklistItemsTable)
+      .where(eq(planChecklistItemsTable.id, id));
+    return true;
+  }
+
+  // ===========================
+  // PREVENTIVE MAINTENANCE - EXECUTIONS
+  // ===========================
+  async getMaintenanceExecutions(): Promise<MaintenanceExecution[]> {
+    const data = await db.select()
+      .from(maintenanceExecutionsTable)
+      .orderBy(desc(maintenanceExecutionsTable.createdAt));
+    return data;
+  }
+
+  async getMaintenanceExecutionById(id: string): Promise<MaintenanceExecution | undefined> {
+    const [data] = await db.select()
+      .from(maintenanceExecutionsTable)
+      .where(eq(maintenanceExecutionsTable.id, id));
+    return data;
+  }
+
+  async getMaintenanceExecutionsByAssetId(assetId: string): Promise<MaintenanceExecution[]> {
+    const data = await db.select()
+      .from(maintenanceExecutionsTable)
+      .where(eq(maintenanceExecutionsTable.assetId, assetId))
+      .orderBy(desc(maintenanceExecutionsTable.createdAt));
+    return data;
+  }
+
+  async createMaintenanceExecution(execution: InsertMaintenanceExecution): Promise<MaintenanceExecution> {
+    const [data] = await db.insert(maintenanceExecutionsTable)
+      .values(execution)
+      .returning();
+    return data;
+  }
+
+  async updateMaintenanceExecution(id: string, execution: Partial<InsertMaintenanceExecution>): Promise<MaintenanceExecution | undefined> {
+    const [data] = await db.update(maintenanceExecutionsTable)
+      .set({ ...execution, updatedAt: new Date() })
+      .where(eq(maintenanceExecutionsTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteMaintenanceExecution(id: string): Promise<boolean> {
+    await db.delete(maintenanceExecutionsTable)
+      .where(eq(maintenanceExecutionsTable.id, id));
+    return true;
+  }
+
+  // ===========================
+  // PREVENTIVE MAINTENANCE - EXECUTION CHECKLIST ITEMS
+  // ===========================
+  async getExecutionChecklistItems(executionId: string): Promise<ExecutionChecklistItem[]> {
+    const data = await db.select()
+      .from(executionChecklistItemsTable)
+      .where(eq(executionChecklistItemsTable.executionId, executionId));
+    return data;
+  }
+
+  async createExecutionChecklistItem(item: InsertExecutionChecklistItem): Promise<ExecutionChecklistItem> {
+    const [data] = await db.insert(executionChecklistItemsTable)
+      .values(item)
+      .returning();
+    return data;
+  }
+
+  async updateExecutionChecklistItem(id: string, item: Partial<InsertExecutionChecklistItem>): Promise<ExecutionChecklistItem | undefined> {
+    const [data] = await db.update(executionChecklistItemsTable)
+      .set(item)
+      .where(eq(executionChecklistItemsTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteExecutionChecklistItem(id: string): Promise<boolean> {
+    await db.delete(executionChecklistItemsTable)
+      .where(eq(executionChecklistItemsTable.id, id));
+    return true;
+  }
+
+  // ===========================
+  // PREVENTIVE MAINTENANCE - DOCUMENTS
+  // ===========================
+  async getMaintenanceDocuments(executionId: string): Promise<MaintenanceDocument[]> {
+    const data = await db.select()
+      .from(maintenanceDocumentsTable)
+      .where(eq(maintenanceDocumentsTable.executionId, executionId))
+      .orderBy(desc(maintenanceDocumentsTable.createdAt));
+    return data;
+  }
+
+  async createMaintenanceDocument(doc: InsertMaintenanceDocument): Promise<MaintenanceDocument> {
+    const [data] = await db.insert(maintenanceDocumentsTable)
+      .values(doc)
+      .returning();
+    return data;
+  }
+
+  async deleteMaintenanceDocument(id: string): Promise<boolean> {
+    await db.delete(maintenanceDocumentsTable)
+      .where(eq(maintenanceDocumentsTable.id, id));
+    return true;
   }
 }
 

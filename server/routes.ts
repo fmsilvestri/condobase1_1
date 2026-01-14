@@ -21,6 +21,12 @@ import {
   updateUserSchema,
   insertSecurityDeviceSchema,
   insertSecurityEventSchema,
+  insertPreventiveAssetSchema,
+  insertMaintenancePlanSchema,
+  insertPlanChecklistItemSchema,
+  insertMaintenanceExecutionSchema,
+  insertExecutionChecklistItemSchema,
+  insertMaintenanceDocumentSchema,
 } from "@shared/schema";
 
 import { z } from "zod";
@@ -1235,6 +1241,306 @@ export async function registerRoutes(
       res.json(event);
     } catch (error) {
       res.status(400).json({ error: "Failed to update security event" });
+    }
+  });
+
+  // ===========================
+  // PREVENTIVE MAINTENANCE - ASSETS
+  // ===========================
+  app.get("/api/preventive-assets", async (req, res) => {
+    try {
+      const assets = await storage.getPreventiveAssets();
+      res.json(assets);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/preventive-assets/:id", async (req, res) => {
+    try {
+      const asset = await storage.getPreventiveAssetById(req.params.id);
+      if (!asset) {
+        return res.status(404).json({ error: "Ativo não encontrado" });
+      }
+      res.json(asset);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/preventive-assets", async (req, res) => {
+    try {
+      const validatedData = insertPreventiveAssetSchema.parse(req.body);
+      const asset = await storage.createPreventiveAsset(validatedData);
+      res.status(201).json(asset);
+    } catch (error: any) {
+      res.status(400).json({ error: "Dados inválidos", details: error.message });
+    }
+  });
+
+  app.patch("/api/preventive-assets/:id", async (req, res) => {
+    try {
+      const asset = await storage.updatePreventiveAsset(req.params.id, req.body);
+      if (!asset) {
+        return res.status(404).json({ error: "Ativo não encontrado" });
+      }
+      res.json(asset);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/preventive-assets/:id", async (req, res) => {
+    try {
+      await storage.deletePreventiveAsset(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===========================
+  // PREVENTIVE MAINTENANCE - PLANS
+  // ===========================
+  app.get("/api/maintenance-plans", async (req, res) => {
+    try {
+      const plans = await storage.getMaintenancePlans();
+      res.json(plans);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/maintenance-plans/:id", async (req, res) => {
+    try {
+      const plan = await storage.getMaintenancePlanById(req.params.id);
+      if (!plan) {
+        return res.status(404).json({ error: "Plano não encontrado" });
+      }
+      res.json(plan);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/maintenance-plans/asset/:assetId", async (req, res) => {
+    try {
+      const plans = await storage.getMaintenancePlansByAssetId(req.params.assetId);
+      res.json(plans);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/maintenance-plans", async (req, res) => {
+    try {
+      const validatedData = insertMaintenancePlanSchema.parse(req.body);
+      const plan = await storage.createMaintenancePlan(validatedData);
+      res.status(201).json(plan);
+    } catch (error: any) {
+      res.status(400).json({ error: "Dados inválidos", details: error.message });
+    }
+  });
+
+  app.patch("/api/maintenance-plans/:id", async (req, res) => {
+    try {
+      const plan = await storage.updateMaintenancePlan(req.params.id, req.body);
+      if (!plan) {
+        return res.status(404).json({ error: "Plano não encontrado" });
+      }
+      res.json(plan);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/maintenance-plans/:id", async (req, res) => {
+    try {
+      await storage.deleteMaintenancePlan(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===========================
+  // PREVENTIVE MAINTENANCE - PLAN CHECKLIST ITEMS
+  // ===========================
+  app.get("/api/plan-checklist/:planId", async (req, res) => {
+    try {
+      const items = await storage.getPlanChecklistItems(req.params.planId);
+      res.json(items);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/plan-checklist", async (req, res) => {
+    try {
+      const validatedData = insertPlanChecklistItemSchema.parse(req.body);
+      const item = await storage.createPlanChecklistItem(validatedData);
+      res.status(201).json(item);
+    } catch (error: any) {
+      res.status(400).json({ error: "Dados inválidos", details: error.message });
+    }
+  });
+
+  app.patch("/api/plan-checklist/:id", async (req, res) => {
+    try {
+      const item = await storage.updatePlanChecklistItem(req.params.id, req.body);
+      if (!item) {
+        return res.status(404).json({ error: "Item não encontrado" });
+      }
+      res.json(item);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/plan-checklist/:id", async (req, res) => {
+    try {
+      await storage.deletePlanChecklistItem(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===========================
+  // PREVENTIVE MAINTENANCE - EXECUTIONS
+  // ===========================
+  app.get("/api/maintenance-executions", async (req, res) => {
+    try {
+      const executions = await storage.getMaintenanceExecutions();
+      res.json(executions);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/maintenance-executions/:id", async (req, res) => {
+    try {
+      const execution = await storage.getMaintenanceExecutionById(req.params.id);
+      if (!execution) {
+        return res.status(404).json({ error: "Execução não encontrada" });
+      }
+      res.json(execution);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/maintenance-executions/asset/:assetId", async (req, res) => {
+    try {
+      const executions = await storage.getMaintenanceExecutionsByAssetId(req.params.assetId);
+      res.json(executions);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/maintenance-executions", async (req, res) => {
+    try {
+      const validatedData = insertMaintenanceExecutionSchema.parse(req.body);
+      const execution = await storage.createMaintenanceExecution(validatedData);
+      res.status(201).json(execution);
+    } catch (error: any) {
+      res.status(400).json({ error: "Dados inválidos", details: error.message });
+    }
+  });
+
+  app.patch("/api/maintenance-executions/:id", async (req, res) => {
+    try {
+      const execution = await storage.updateMaintenanceExecution(req.params.id, req.body);
+      if (!execution) {
+        return res.status(404).json({ error: "Execução não encontrada" });
+      }
+      res.json(execution);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/maintenance-executions/:id", async (req, res) => {
+    try {
+      await storage.deleteMaintenanceExecution(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===========================
+  // PREVENTIVE MAINTENANCE - EXECUTION CHECKLIST ITEMS
+  // ===========================
+  app.get("/api/execution-checklist/:executionId", async (req, res) => {
+    try {
+      const items = await storage.getExecutionChecklistItems(req.params.executionId);
+      res.json(items);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/execution-checklist", async (req, res) => {
+    try {
+      const validatedData = insertExecutionChecklistItemSchema.parse(req.body);
+      const item = await storage.createExecutionChecklistItem(validatedData);
+      res.status(201).json(item);
+    } catch (error: any) {
+      res.status(400).json({ error: "Dados inválidos", details: error.message });
+    }
+  });
+
+  app.patch("/api/execution-checklist/:id", async (req, res) => {
+    try {
+      const item = await storage.updateExecutionChecklistItem(req.params.id, req.body);
+      if (!item) {
+        return res.status(404).json({ error: "Item não encontrado" });
+      }
+      res.json(item);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/execution-checklist/:id", async (req, res) => {
+    try {
+      await storage.deleteExecutionChecklistItem(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===========================
+  // PREVENTIVE MAINTENANCE - DOCUMENTS
+  // ===========================
+  app.get("/api/maintenance-documents/:executionId", async (req, res) => {
+    try {
+      const docs = await storage.getMaintenanceDocuments(req.params.executionId);
+      res.json(docs);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/maintenance-documents", async (req, res) => {
+    try {
+      const validatedData = insertMaintenanceDocumentSchema.parse(req.body);
+      const doc = await storage.createMaintenanceDocument(validatedData);
+      res.status(201).json(doc);
+    } catch (error: any) {
+      res.status(400).json({ error: "Dados inválidos", details: error.message });
+    }
+  });
+
+  app.delete("/api/maintenance-documents/:id", async (req, res) => {
+    try {
+      await storage.deleteMaintenanceDocument(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   });
 

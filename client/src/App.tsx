@@ -30,12 +30,14 @@ import Reports from "@/pages/reports";
 import Security from "@/pages/security";
 import Condominiums from "@/pages/condominiums";
 import Login from "@/pages/login";
+import PreventiveMaintenance from "@/pages/preventive-maintenance";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/manutencoes" component={Maintenance} />
+      <Route path="/manutencao-preventiva" component={PreventiveMaintenance} />
       <Route path="/piscina" component={Pool} />
       <Route path="/agua" component={Water} />
       <Route path="/gas" component={Gas} />
