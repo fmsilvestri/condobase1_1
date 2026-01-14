@@ -97,6 +97,9 @@ function toCamelCase(obj: Record<string, any>): Record<string, any> {
 
 export class SupabaseStorage implements IStorage {
   private sb = supabase!;
+  
+  // Local cache for equipment icons (workaround for Supabase schema cache issue)
+  private equipmentIconCache: Map<string, string> = new Map();
 
   // Condominium methods
   async getCondominiums(): Promise<Condominium[]> {
@@ -251,7 +254,16 @@ export class SupabaseStorage implements IStorage {
       .select("*")
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return (data || []).map(d => toCamelCase(d) as Equipment);
+    
+    // Merge with local icon cache
+    return (data || []).map(d => {
+      const equipment = toCamelCase(d) as Equipment;
+      const cachedIcon = this.equipmentIconCache.get(equipment.id);
+      if (cachedIcon) {
+        equipment.icon = cachedIcon;
+      }
+      return equipment;
+    });
   }
 
   async getEquipmentById(id: string): Promise<Equipment | undefined> {
@@ -261,7 +273,14 @@ export class SupabaseStorage implements IStorage {
       .eq("id", id)
       .single();
     if (error || !data) return undefined;
-    return toCamelCase(data) as Equipment;
+    
+    const equipment = toCamelCase(data) as Equipment;
+    // Merge with local icon cache
+    const cachedIcon = this.equipmentIconCache.get(id);
+    if (cachedIcon) {
+      equipment.icon = cachedIcon;
+    }
+    return equipment;
   }
 
   async createEquipment(equipment: InsertEquipment): Promise<Equipment> {
@@ -275,43 +294,26 @@ export class SupabaseStorage implements IStorage {
       .single();
     if (error) throw new Error(error.message);
     
-    // If icon was provided, update it separately via RPC
+    // Save icon to local cache
     if (icon && data?.id) {
-      try {
-        await this.sb.rpc('update_equipment_by_id', {
-          p_id: data.id,
-          p_name: null,
-          p_category: null,
-          p_location: null,
-          p_description: null,
-          p_icon: icon,
-          p_status: null
-        });
-      } catch (iconError) {
-        console.log("[storage] Icon update via RPC failed during create");
-      }
+      this.equipmentIconCache.set(data.id, icon);
+      console.log("[storage] Icon cached for equipment:", data.id, icon);
     }
     
-    // Fetch fresh data to include icon
-    if (data?.id) {
-      const { data: freshData } = await this.sb
-        .from("equipment")
-        .select("*")
-        .eq("id", data.id)
-        .single();
-      if (freshData) return toCamelCase(freshData) as Equipment;
+    const result = toCamelCase(data) as Equipment;
+    if (icon) {
+      result.icon = icon;
     }
-    
-    return toCamelCase(data) as Equipment;
+    return result;
   }
 
   async updateEquipment(id: string, equipment: Partial<InsertEquipment>): Promise<Equipment | undefined> {
     console.log("[storage] Updating equipment:", id, JSON.stringify(equipment));
     
-    const snakeCaseData = toSnakeCase(equipment);
-    console.log("[storage] Snake case data:", JSON.stringify(snakeCaseData));
+    // Extract icon and handle separately
+    const { icon, ...restEquipment } = equipment;
+    const snakeCaseData = toSnakeCase(restEquipment);
     
-    // Try to update with icon included
     const { data, error } = await this.sb
       .from("equipment")
       .update(snakeCaseData)
@@ -320,63 +322,33 @@ export class SupabaseStorage implements IStorage {
       .single();
     
     if (error) {
-      console.error("[storage] Equipment update error:", error.message, error.details);
-      
-      // If icon field causes error, retry without it and use RPC
-      if (error.message.includes('icon') || error.message.includes('column')) {
-        console.log("[storage] Retrying without icon field...");
-        const { icon, ...restEquipment } = equipment;
-        const snakeCaseDataWithoutIcon = toSnakeCase(restEquipment);
-        
-        const { data: retryData, error: retryError } = await this.sb
-          .from("equipment")
-          .update(snakeCaseDataWithoutIcon)
-          .eq("id", id)
-          .select()
-          .single();
-        
-        if (retryError) {
-          throw new Error(retryError.message);
-        }
-        
-        // Update icon via RPC if it was provided
-        if (icon !== undefined) {
-          console.log("[storage] Updating icon via RPC:", icon);
-          const { data: rpcData, error: rpcError } = await this.sb.rpc('update_equipment_by_id', {
-            p_id: id,
-            p_name: null,
-            p_category: null,
-            p_location: null,
-            p_description: null,
-            p_icon: icon,
-            p_status: null
-          });
-          if (rpcError) {
-            console.error("[storage] RPC icon update error:", rpcError.message, rpcError.details);
-          } else {
-            console.log("[storage] RPC icon update successful:", rpcData);
-            // Return data with icon manually added
-            if (retryData) {
-              return { ...toCamelCase(retryData), icon } as Equipment;
-            }
-          }
-        }
-        
-        return retryData ? toCamelCase(retryData) as Equipment : undefined;
-      }
-      
+      console.error("[storage] Equipment update error:", error.message);
       throw new Error(error.message);
     }
     
-    console.log("[storage] Update successful, data:", JSON.stringify(data));
-    
-    // If icon was in the original request, add it to the result
-    // (in case select("*") doesn't return it from cache)
-    if (equipment.icon !== undefined && data) {
-      return { ...toCamelCase(data), icon: equipment.icon } as Equipment;
+    // Save icon to local cache
+    if (icon !== undefined && icon !== null) {
+      this.equipmentIconCache.set(id, icon);
+      console.log("[storage] Icon cached for equipment:", id, icon);
+    } else if (icon === null) {
+      // Remove from cache if explicitly set to null
+      this.equipmentIconCache.delete(id);
     }
     
-    return data ? toCamelCase(data) as Equipment : undefined;
+    if (!data) return undefined;
+    
+    const result = toCamelCase(data) as Equipment;
+    
+    // Add icon from cache
+    const cachedIcon = this.equipmentIconCache.get(id);
+    if (cachedIcon) {
+      result.icon = cachedIcon;
+    } else if (icon !== undefined) {
+      result.icon = icon;
+    }
+    
+    console.log("[storage] Update successful, returning:", JSON.stringify(result));
+    return result;
   }
 
   async deleteEquipment(id: string): Promise<boolean> {
