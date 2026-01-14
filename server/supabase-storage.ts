@@ -277,26 +277,50 @@ export class SupabaseStorage implements IStorage {
   async updateEquipment(id: string, equipment: Partial<InsertEquipment>): Promise<Equipment | undefined> {
     console.log("[storage] Updating equipment:", id, JSON.stringify(equipment));
     
-    // Use RPC function to bypass Supabase schema cache issues
-    const { data, error } = await this.sb.rpc('update_equipment_by_id', {
-      p_id: id,
-      p_name: equipment.name || null,
-      p_category: equipment.category || null,
-      p_location: equipment.location || null,
-      p_description: equipment.description ?? null,
-      p_icon: equipment.icon || null,
-      p_status: equipment.status || null
-    });
+    // Extract icon separately to handle schema cache issues
+    const { icon, ...restEquipment } = equipment;
+    const snakeCaseData = toSnakeCase(restEquipment);
+    
+    // First update without icon
+    const { data, error } = await this.sb
+      .from("equipment")
+      .update(snakeCaseData)
+      .eq("id", id)
+      .select()
+      .single();
     
     if (error) {
       console.error("[storage] Equipment update error:", error.message);
       throw new Error(error.message);
     }
     
-    // RPC returns array, get first item
-    const result = Array.isArray(data) ? data[0] : data;
-    if (!result) return undefined;
-    return toCamelCase(result) as Equipment;
+    // If icon was provided, update it separately via RPC
+    if (icon !== undefined) {
+      try {
+        await this.sb.rpc('update_equipment_by_id', {
+          p_id: id,
+          p_name: null,
+          p_category: null,
+          p_location: null,
+          p_description: null,
+          p_icon: icon,
+          p_status: null
+        });
+      } catch (iconError) {
+        console.log("[storage] Icon update via RPC failed, continuing without icon update");
+      }
+    }
+    
+    if (!data) return undefined;
+    
+    // Fetch fresh data to get the updated icon
+    const { data: freshData } = await this.sb
+      .from("equipment")
+      .select("*")
+      .eq("id", id)
+      .single();
+    
+    return toCamelCase(freshData || data) as Equipment;
   }
 
   async deleteEquipment(id: string): Promise<boolean> {
