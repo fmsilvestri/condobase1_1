@@ -276,20 +276,27 @@ export class SupabaseStorage implements IStorage {
 
   async updateEquipment(id: string, equipment: Partial<InsertEquipment>): Promise<Equipment | undefined> {
     console.log("[storage] Updating equipment:", id, JSON.stringify(equipment));
-    const snakeCaseData = toSnakeCase(equipment);
-    console.log("[storage] Snake case data:", JSON.stringify(snakeCaseData));
-    const { data, error } = await this.sb
-      .from("equipment")
-      .update(snakeCaseData)
-      .eq("id", id)
-      .select()
-      .single();
+    
+    // Use RPC function to bypass Supabase schema cache issues
+    const { data, error } = await this.sb.rpc('update_equipment_by_id', {
+      p_id: id,
+      p_name: equipment.name || null,
+      p_category: equipment.category || null,
+      p_location: equipment.location || null,
+      p_description: equipment.description ?? null,
+      p_icon: equipment.icon || null,
+      p_status: equipment.status || null
+    });
+    
     if (error) {
       console.error("[storage] Equipment update error:", error.message);
       throw new Error(error.message);
     }
-    if (!data) return undefined;
-    return toCamelCase(data) as Equipment;
+    
+    // RPC returns array, get first item
+    const result = Array.isArray(data) ? data[0] : data;
+    if (!result) return undefined;
+    return toCamelCase(result) as Equipment;
   }
 
   async deleteEquipment(id: string): Promise<boolean> {
