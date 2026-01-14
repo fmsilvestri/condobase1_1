@@ -308,11 +308,10 @@ export class SupabaseStorage implements IStorage {
   async updateEquipment(id: string, equipment: Partial<InsertEquipment>): Promise<Equipment | undefined> {
     console.log("[storage] Updating equipment:", id, JSON.stringify(equipment));
     
-    // Extract icon separately to handle schema cache issues
-    const { icon, ...restEquipment } = equipment;
-    const snakeCaseData = toSnakeCase(restEquipment);
+    const snakeCaseData = toSnakeCase(equipment);
+    console.log("[storage] Snake case data:", JSON.stringify(snakeCaseData));
     
-    // First update without icon
+    // Try to update with icon included
     const { data, error } = await this.sb
       .from("equipment")
       .update(snakeCaseData)
@@ -321,37 +320,63 @@ export class SupabaseStorage implements IStorage {
       .single();
     
     if (error) {
-      console.error("[storage] Equipment update error:", error.message);
+      console.error("[storage] Equipment update error:", error.message, error.details);
+      
+      // If icon field causes error, retry without it and use RPC
+      if (error.message.includes('icon') || error.message.includes('column')) {
+        console.log("[storage] Retrying without icon field...");
+        const { icon, ...restEquipment } = equipment;
+        const snakeCaseDataWithoutIcon = toSnakeCase(restEquipment);
+        
+        const { data: retryData, error: retryError } = await this.sb
+          .from("equipment")
+          .update(snakeCaseDataWithoutIcon)
+          .eq("id", id)
+          .select()
+          .single();
+        
+        if (retryError) {
+          throw new Error(retryError.message);
+        }
+        
+        // Update icon via RPC if it was provided
+        if (icon !== undefined) {
+          console.log("[storage] Updating icon via RPC:", icon);
+          const { data: rpcData, error: rpcError } = await this.sb.rpc('update_equipment_by_id', {
+            p_id: id,
+            p_name: null,
+            p_category: null,
+            p_location: null,
+            p_description: null,
+            p_icon: icon,
+            p_status: null
+          });
+          if (rpcError) {
+            console.error("[storage] RPC icon update error:", rpcError.message, rpcError.details);
+          } else {
+            console.log("[storage] RPC icon update successful:", rpcData);
+            // Return data with icon manually added
+            if (retryData) {
+              return { ...toCamelCase(retryData), icon } as Equipment;
+            }
+          }
+        }
+        
+        return retryData ? toCamelCase(retryData) as Equipment : undefined;
+      }
+      
       throw new Error(error.message);
     }
     
-    // If icon was provided, update it separately via RPC
-    if (icon !== undefined) {
-      try {
-        await this.sb.rpc('update_equipment_by_id', {
-          p_id: id,
-          p_name: null,
-          p_category: null,
-          p_location: null,
-          p_description: null,
-          p_icon: icon,
-          p_status: null
-        });
-      } catch (iconError) {
-        console.log("[storage] Icon update via RPC failed, continuing without icon update");
-      }
+    console.log("[storage] Update successful, data:", JSON.stringify(data));
+    
+    // If icon was in the original request, add it to the result
+    // (in case select("*") doesn't return it from cache)
+    if (equipment.icon !== undefined && data) {
+      return { ...toCamelCase(data), icon: equipment.icon } as Equipment;
     }
     
-    if (!data) return undefined;
-    
-    // Fetch fresh data to get the updated icon
-    const { data: freshData } = await this.sb
-      .from("equipment")
-      .select("*")
-      .eq("id", id)
-      .single();
-    
-    return toCamelCase(freshData || data) as Equipment;
+    return data ? toCamelCase(data) as Equipment : undefined;
   }
 
   async deleteEquipment(id: string): Promise<boolean> {
