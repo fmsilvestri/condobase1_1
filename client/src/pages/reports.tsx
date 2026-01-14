@@ -18,6 +18,7 @@ import {
   Square,
   Package,
   Shield,
+  Calendar,
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import { PageHeader } from "@/components/page-header";
@@ -29,7 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import type { MaintenanceRequest, MaintenanceCompletion, PoolReading, WaterReading, GasReading, EnergyEvent, OccupancyData, Document, Supplier, Announcement, Equipment, SecurityDevice } from "@shared/schema";
+import type { MaintenanceRequest, MaintenanceCompletion, PoolReading, WaterReading, GasReading, EnergyEvent, OccupancyData, Document, Supplier, Announcement, Equipment, SecurityDevice, MaintenancePlan, MaintenanceExecution } from "@shared/schema";
 
 interface ReportModule {
   id: string;
@@ -42,6 +43,7 @@ const availableModules: ReportModule[] = [
   { id: "ativos", label: "Ativos", icon: Package, description: "Equipamentos e status de cada um" },
   { id: "manutencoes", label: "Manutenções", icon: Wrench, description: "Chamados abertos e em andamento" },
   { id: "manutencoes-realizadas", label: "Manutenções Realizadas", icon: CheckSquare, description: "Histórico de manutenções concluídas" },
+  { id: "manutencao-preventiva", label: "Manutenção Preventiva", icon: Calendar, description: "Planos e execuções de manutenção preventiva" },
   { id: "piscina", label: "Piscina", icon: Waves, description: "Última leitura de qualidade" },
   { id: "agua", label: "Água", icon: Droplets, description: "Nível dos reservatórios" },
   { id: "gas", label: "Gás", icon: Flame, description: "Nível do gás" },
@@ -112,6 +114,16 @@ export default function Reports() {
   const { data: maintenanceCompletions = [] } = useQuery<MaintenanceCompletion[]>({
     queryKey: ["/api/maintenance-completions"],
     enabled: selectedModules.includes("manutencoes-realizadas"),
+  });
+
+  const { data: maintenancePlans = [] } = useQuery<MaintenancePlan[]>({
+    queryKey: ["/api/maintenance-plans"],
+    enabled: selectedModules.includes("manutencao-preventiva"),
+  });
+
+  const { data: maintenanceExecutions = [] } = useQuery<MaintenanceExecution[]>({
+    queryKey: ["/api/maintenance-executions"],
+    enabled: selectedModules.includes("manutencao-preventiva"),
   });
 
   const toggleModule = (moduleId: string) => {
@@ -287,6 +299,123 @@ export default function Reports() {
         doc.setFontSize(10);
         doc.setTextColor(100, 100, 100);
         doc.text(`Total: ${maintenanceCompletions.length} manutenções realizadas`, 20, yPos);
+        yPos += 10;
+      }
+
+      if (selectedModules.includes("manutencao-preventiva") && (maintenancePlans.length > 0 || maintenanceExecutions.length > 0)) {
+        if (yPos > 220) { doc.addPage(); yPos = 20; }
+
+        doc.setFontSize(14);
+        doc.setTextColor(0, 0, 0);
+        doc.text("Manutenção Preventiva", 20, yPos);
+        yPos += 8;
+
+        if (maintenancePlans.length > 0) {
+          doc.setFontSize(12);
+          doc.setTextColor(60, 60, 60);
+          doc.text("Planos de Manutenção", 20, yPos);
+          yPos += 6;
+
+          const periodicityLabels: Record<string, string> = {
+            "diario": "Diário",
+            "semanal": "Semanal",
+            "quinzenal": "Quinzenal",
+            "mensal": "Mensal",
+            "bimestral": "Bimestral",
+            "trimestral": "Trimestral",
+            "semestral": "Semestral",
+            "anual": "Anual",
+          };
+
+          const planTableData = maintenancePlans.slice(0, 10).map(p => [
+            p.name.substring(0, 25),
+            periodicityLabels[p.periodicity] || p.periodicity,
+            p.isActive ? "Ativo" : "Inativo",
+            p.nextMaintenanceDate ? formatDate(p.nextMaintenanceDate) : "-",
+          ]);
+
+          autoTable(doc, {
+            startY: yPos,
+            head: [["Plano", "Periodicidade", "Status", "Próxima Execução"]],
+            body: planTableData,
+            theme: "striped",
+            headStyles: { fillColor: [0, 150, 180] },
+            margin: { left: 20, right: 20 },
+            bodyStyles: { fontSize: 9 },
+            didParseCell: (data: any) => {
+              if (data.column.index === 2 && data.section === "body") {
+                const status = data.cell.raw?.toLowerCase();
+                if (status === "ativo") {
+                  data.cell.styles.textColor = [34, 197, 94];
+                } else if (status === "inativo") {
+                  data.cell.styles.textColor = [107, 114, 128];
+                }
+              }
+            },
+          });
+
+          yPos = (doc as any).lastAutoTable.finalY + 8;
+        }
+
+        if (maintenanceExecutions.length > 0) {
+          if (yPos > 240) { doc.addPage(); yPos = 20; }
+
+          doc.setFontSize(12);
+          doc.setTextColor(60, 60, 60);
+          doc.text("Execuções Recentes", 20, yPos);
+          yPos += 6;
+
+          const statusLabels: Record<string, string> = {
+            "pendente": "Pendente",
+            "em_andamento": "Em Andamento",
+            "concluido": "Concluído",
+            "atrasado": "Atrasado",
+          };
+
+          const executionTableData = maintenanceExecutions.slice(0, 10).map(e => {
+            const plan = maintenancePlans.find(p => p.id === e.planId);
+            return [
+              plan?.name?.substring(0, 20) || "-",
+              statusLabels[e.status] || e.status,
+              formatDate(e.scheduledDate),
+              e.executedDate ? formatDate(e.executedDate) : "-",
+            ];
+          });
+
+          autoTable(doc, {
+            startY: yPos,
+            head: [["Plano", "Status", "Agendado", "Concluído"]],
+            body: executionTableData,
+            theme: "striped",
+            headStyles: { fillColor: [0, 150, 180] },
+            margin: { left: 20, right: 20 },
+            bodyStyles: { fontSize: 9 },
+            didParseCell: (data: any) => {
+              if (data.column.index === 1 && data.section === "body") {
+                const status = data.cell.raw?.toLowerCase();
+                if (status === "concluído" || status === "concluido") {
+                  data.cell.styles.textColor = [34, 197, 94];
+                } else if (status === "atrasado") {
+                  data.cell.styles.textColor = [239, 68, 68];
+                } else if (status === "em andamento") {
+                  data.cell.styles.textColor = [59, 130, 246];
+                } else if (status === "pendente") {
+                  data.cell.styles.textColor = [234, 179, 8];
+                }
+              }
+            },
+          });
+
+          yPos = (doc as any).lastAutoTable.finalY + 8;
+        }
+
+        const activePlans = maintenancePlans.filter(p => p.isActive).length;
+        const completedExecutions = maintenanceExecutions.filter(e => e.status === "concluido").length;
+        const overdueExecutions = maintenanceExecutions.filter(e => e.status === "atrasado").length;
+
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Resumo: ${activePlans} planos ativos | ${completedExecutions} execuções concluídas | ${overdueExecutions} atrasadas`, 20, yPos);
         yPos += 10;
       }
 
@@ -590,6 +719,13 @@ export default function Reports() {
 
     if (selectedModules.includes("manutencoes-realizadas") && maintenanceCompletions.length > 0) {
       message += `*Manutencoes Realizadas:* ${maintenanceCompletions.length} registros\n`;
+    }
+
+    if (selectedModules.includes("manutencao-preventiva") && (maintenancePlans.length > 0 || maintenanceExecutions.length > 0)) {
+      const activePlans = maintenancePlans.filter(p => p.isActive).length;
+      const completedExecutions = maintenanceExecutions.filter(e => e.status === "concluido").length;
+      const overdueExecutions = maintenanceExecutions.filter(e => e.status === "atrasado").length;
+      message += `*Manutencao Preventiva:* ${activePlans} planos ativos | ${completedExecutions} concluidas | ${overdueExecutions} atrasadas\n`;
     }
 
     if (selectedModules.includes("piscina") && poolReadings.length > 0) {
