@@ -696,15 +696,15 @@ export default function PreventiveMaintenance() {
                 <form onSubmit={handlePlanSubmit} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="assetId">Ativo *</Label>
+                      <Label htmlFor="assetId">Equipamento *</Label>
                       <Select name="equipmentId" required>
                         <SelectTrigger data-testid="select-plan-asset">
-                          <SelectValue placeholder="Selecione o ativo" />
+                          <SelectValue placeholder="Selecione o equipamento" />
                         </SelectTrigger>
                         <SelectContent>
-                          {assets.filter((a) => a.status === "ativo").map((asset) => (
+                          {assets.filter((a) => a.status !== "inativo").map((asset) => (
                             <SelectItem key={asset.id} value={asset.id}>
-                              {asset.name}
+                              {asset.name} - {asset.location}
                             </SelectItem>
                           ))}
                         </SelectContent>
