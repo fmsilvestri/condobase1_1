@@ -248,7 +248,7 @@ export class SupabaseStorage implements IStorage {
   async getEquipment(): Promise<Equipment[]> {
     const { data, error } = await this.sb
       .from("equipment")
-      .select("id, condominium_id, name, category, location, description, icon, photos, status, manufacturer, installation_date, estimated_lifespan, supplier_id, notes, created_at, updated_at")
+      .select("*")
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return (data || []).map(d => toCamelCase(d) as Equipment);
@@ -257,7 +257,7 @@ export class SupabaseStorage implements IStorage {
   async getEquipmentById(id: string): Promise<Equipment | undefined> {
     const { data, error } = await this.sb
       .from("equipment")
-      .select("id, condominium_id, name, category, location, description, icon, photos, status, manufacturer, installation_date, estimated_lifespan, supplier_id, notes, created_at, updated_at")
+      .select("*")
       .eq("id", id)
       .single();
     if (error || !data) return undefined;
@@ -265,12 +265,43 @@ export class SupabaseStorage implements IStorage {
   }
 
   async createEquipment(equipment: InsertEquipment): Promise<Equipment> {
+    // Extract icon separately to handle schema cache issues
+    const { icon, ...restEquipment } = equipment;
+    
     const { data, error } = await this.sb
       .from("equipment")
-      .insert(toSnakeCase(equipment))
+      .insert(toSnakeCase(restEquipment))
       .select()
       .single();
     if (error) throw new Error(error.message);
+    
+    // If icon was provided, update it separately via RPC
+    if (icon && data?.id) {
+      try {
+        await this.sb.rpc('update_equipment_by_id', {
+          p_id: data.id,
+          p_name: null,
+          p_category: null,
+          p_location: null,
+          p_description: null,
+          p_icon: icon,
+          p_status: null
+        });
+      } catch (iconError) {
+        console.log("[storage] Icon update via RPC failed during create");
+      }
+    }
+    
+    // Fetch fresh data to include icon
+    if (data?.id) {
+      const { data: freshData } = await this.sb
+        .from("equipment")
+        .select("*")
+        .eq("id", data.id)
+        .single();
+      if (freshData) return toCamelCase(freshData) as Equipment;
+    }
+    
     return toCamelCase(data) as Equipment;
   }
 
