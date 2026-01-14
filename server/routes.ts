@@ -390,13 +390,15 @@ export async function registerRoutes(
 
   app.patch("/api/equipment/:id", async (req, res) => {
     try {
+      console.log("[equipment] Updating equipment:", req.params.id, JSON.stringify(req.body));
       const equipment = await storage.updateEquipment(req.params.id, req.body);
       if (!equipment) {
         return res.status(404).json({ error: "Equipment not found" });
       }
       res.json(equipment);
-    } catch (error) {
-      res.status(400).json({ error: "Failed to update equipment" });
+    } catch (error: any) {
+      console.error("[equipment] Failed to update:", error.message || error);
+      res.status(400).json({ error: error.message || "Failed to update equipment" });
     }
   });
 

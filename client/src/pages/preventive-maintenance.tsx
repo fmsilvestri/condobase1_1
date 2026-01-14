@@ -150,6 +150,9 @@ export default function PreventiveMaintenance() {
       setSelectedAsset(null);
       toast({ title: "Ativo atualizado com sucesso!" });
     },
+    onError: (error: any) => {
+      toast({ title: "Erro ao atualizar ativo", description: error.message, variant: "destructive" });
+    },
   });
 
   const deleteAssetMutation = useMutation({
@@ -436,14 +439,17 @@ export default function PreventiveMaintenance() {
                 </SelectContent>
               </Select>
             </div>
-            <Dialog open={assetDialogOpen} onOpenChange={setAssetDialogOpen}>
+            <Dialog open={assetDialogOpen} onOpenChange={(open) => {
+                setAssetDialogOpen(open);
+                if (!open) setSelectedAsset(null);
+              }}>
               <DialogTrigger asChild>
                 <Button onClick={() => setSelectedAsset(null)} data-testid="button-add-asset">
                   <Plus className="h-4 w-4 mr-2" />
                   Novo Ativo
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent key={selectedAsset?.id || "new"} className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>{selectedAsset ? "Editar Ativo" : "Cadastrar Novo Ativo"}</DialogTitle>
                   <DialogDescription>

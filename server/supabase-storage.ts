@@ -275,13 +275,20 @@ export class SupabaseStorage implements IStorage {
   }
 
   async updateEquipment(id: string, equipment: Partial<InsertEquipment>): Promise<Equipment | undefined> {
+    console.log("[storage] Updating equipment:", id, JSON.stringify(equipment));
+    const snakeCaseData = toSnakeCase(equipment);
+    console.log("[storage] Snake case data:", JSON.stringify(snakeCaseData));
     const { data, error } = await this.sb
       .from("equipment")
-      .update(toSnakeCase(equipment))
+      .update(snakeCaseData)
       .eq("id", id)
       .select()
       .single();
-    if (error || !data) return undefined;
+    if (error) {
+      console.error("[storage] Equipment update error:", error.message);
+      throw new Error(error.message);
+    }
+    if (!data) return undefined;
     return toCamelCase(data) as Equipment;
   }
 
@@ -912,7 +919,7 @@ export class SupabaseStorage implements IStorage {
   async getMaintenancePlansByAssetId(assetId: string): Promise<MaintenancePlan[]> {
     const data = await db.select()
       .from(maintenancePlansTable)
-      .where(eq(maintenancePlansTable.assetId, assetId))
+      .where(eq(maintenancePlansTable.equipmentId, assetId))
       .orderBy(desc(maintenancePlansTable.createdAt));
     return data;
   }
@@ -990,7 +997,7 @@ export class SupabaseStorage implements IStorage {
   async getMaintenanceExecutionsByAssetId(assetId: string): Promise<MaintenanceExecution[]> {
     const data = await db.select()
       .from(maintenanceExecutionsTable)
-      .where(eq(maintenanceExecutionsTable.assetId, assetId))
+      .where(eq(maintenanceExecutionsTable.equipmentId, assetId))
       .orderBy(desc(maintenanceExecutionsTable.createdAt));
     return data;
   }
