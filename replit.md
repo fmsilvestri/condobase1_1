@@ -56,6 +56,7 @@ Preferred communication style: Simple, everyday language.
 The application consists of these main feature modules:
 - **Dashboard**: Overview cards with status indicators for all modules
 - **Ativos & Manutenções**: Equipment management and maintenance requests
+- **Manutenção Preventiva**: Preventive maintenance module with asset registry, automated maintenance plans, digital checklists, alerts for overdue/upcoming maintenance, technical history timeline, and management reports
 - **Piscina & Qualidade**: Pool chemical readings (pH, chlorine, alkalinity)
 - **Água & Reservatórios**: Water tank levels and consumption tracking
 - **Gás**: Gas level monitoring with consumption estimates
