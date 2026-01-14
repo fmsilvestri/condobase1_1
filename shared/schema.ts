@@ -536,3 +536,189 @@ export const insertSecurityEventSchema = createInsertSchema(securityEvents).omit
 
 export type InsertSecurityEvent = z.infer<typeof insertSecurityEventSchema>;
 export type SecurityEvent = typeof securityEvents.$inferSelect;
+
+// ===========================
+// MANUTENÇÃO PREVENTIVA MODULE
+// ===========================
+
+export const preventiveAssetCategories = [
+  "elevador",
+  "bomba",
+  "elétrica",
+  "segurança",
+  "incêndio",
+  "hidráulica",
+  "estrutura",
+  "lazer",
+] as const;
+
+export type PreventiveAssetCategory = (typeof preventiveAssetCategories)[number];
+
+export const preventiveAssetStatuses = ["ativo", "inativo"] as const;
+export type PreventiveAssetStatus = (typeof preventiveAssetStatuses)[number];
+
+export const preventiveAssets = pgTable("preventive_assets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id"),
+  name: text("name").notNull(),
+  category: text("category").notNull(),
+  location: text("location").notNull(),
+  manufacturer: text("manufacturer"),
+  installationDate: timestamp("installation_date"),
+  estimatedLifespan: integer("estimated_lifespan"), // in months
+  status: text("status").notNull().default("ativo"),
+  supplierId: varchar("supplier_id"),
+  photo: text("photo"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPreventiveAssetSchema = createInsertSchema(preventiveAssets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  installationDate: z.coerce.date().optional().nullable(),
+  estimatedLifespan: z.coerce.number().optional().nullable(),
+});
+
+export type InsertPreventiveAsset = z.infer<typeof insertPreventiveAssetSchema>;
+export type PreventiveAsset = typeof preventiveAssets.$inferSelect;
+
+export const maintenanceTypes = ["preventiva", "corretiva", "inspeção"] as const;
+export type MaintenanceType = (typeof maintenanceTypes)[number];
+
+export const maintenancePeriodicities = ["mensal", "trimestral", "semestral", "anual"] as const;
+export type MaintenancePeriodicity = (typeof maintenancePeriodicities)[number];
+
+export const maintenancePlans = pgTable("maintenance_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id"),
+  assetId: varchar("asset_id").notNull(),
+  name: text("name").notNull(),
+  maintenanceType: text("maintenance_type").notNull(),
+  periodicity: text("periodicity").notNull(),
+  nextMaintenanceDate: timestamp("next_maintenance_date").notNull(),
+  lastMaintenanceDate: timestamp("last_maintenance_date"),
+  responsibleType: text("responsible_type").notNull().default("interno"), // interno or fornecedor
+  responsibleId: varchar("responsible_id"),
+  responsibleName: text("responsible_name"),
+  requiredDocuments: text("required_documents").array(), // ["laudo", "ART", "fotos"]
+  estimatedCost: real("estimated_cost"),
+  isActive: boolean("is_active").notNull().default(true),
+  alertDaysBefore: integer("alert_days_before").default(7),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMaintenancePlanSchema = createInsertSchema(maintenancePlans).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  nextMaintenanceDate: z.coerce.date(),
+  lastMaintenanceDate: z.coerce.date().optional().nullable(),
+  estimatedCost: z.coerce.number().optional().nullable(),
+  alertDaysBefore: z.coerce.number().optional().nullable(),
+});
+
+export type InsertMaintenancePlan = z.infer<typeof insertMaintenancePlanSchema>;
+export type MaintenancePlan = typeof maintenancePlans.$inferSelect;
+
+// Template checklists for maintenance plans
+export const planChecklistItems = pgTable("plan_checklist_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  planId: varchar("plan_id").notNull(),
+  itemOrder: integer("item_order").notNull(),
+  description: text("description").notNull(),
+  isMandatory: boolean("is_mandatory").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPlanChecklistItemSchema = createInsertSchema(planChecklistItems).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  itemOrder: z.coerce.number(),
+});
+
+export type InsertPlanChecklistItem = z.infer<typeof insertPlanChecklistItemSchema>;
+export type PlanChecklistItem = typeof planChecklistItems.$inferSelect;
+
+export const executionStatuses = ["pendente", "em_andamento", "concluído", "cancelado"] as const;
+export type ExecutionStatus = (typeof executionStatuses)[number];
+
+// Actual maintenance executions (history)
+export const maintenanceExecutions = pgTable("maintenance_executions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id"),
+  planId: varchar("plan_id"),
+  assetId: varchar("asset_id").notNull(),
+  maintenanceType: text("maintenance_type").notNull(),
+  scheduledDate: timestamp("scheduled_date").notNull(),
+  executedDate: timestamp("executed_date"),
+  status: text("status").notNull().default("pendente"),
+  responsibleName: text("responsible_name"),
+  supplierId: varchar("supplier_id"),
+  cost: real("cost"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMaintenanceExecutionSchema = createInsertSchema(maintenanceExecutions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  scheduledDate: z.coerce.date(),
+  executedDate: z.coerce.date().optional().nullable(),
+  cost: z.coerce.number().optional().nullable(),
+});
+
+export type InsertMaintenanceExecution = z.infer<typeof insertMaintenanceExecutionSchema>;
+export type MaintenanceExecution = typeof maintenanceExecutions.$inferSelect;
+
+export const checklistItemStatuses = ["ok", "ajuste", "crítico", "não_verificado"] as const;
+export type ChecklistItemStatus = (typeof checklistItemStatuses)[number];
+
+// Filled checklist items during execution
+export const executionChecklistItems = pgTable("execution_checklist_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  executionId: varchar("execution_id").notNull(),
+  itemDescription: text("item_description").notNull(),
+  status: text("status").notNull().default("não_verificado"),
+  observations: text("observations"),
+  photos: text("photos").array(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertExecutionChecklistItemSchema = createInsertSchema(executionChecklistItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertExecutionChecklistItem = z.infer<typeof insertExecutionChecklistItemSchema>;
+export type ExecutionChecklistItem = typeof executionChecklistItems.$inferSelect;
+
+// Documents attached to executions
+export const maintenanceDocuments = pgTable("maintenance_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  executionId: varchar("execution_id").notNull(),
+  documentType: text("document_type").notNull(), // laudo, ART, foto, certificado
+  fileName: text("file_name").notNull(),
+  fileUrl: text("file_url").notNull(),
+  notes: text("notes"),
+  uploadedBy: varchar("uploaded_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMaintenanceDocumentSchema = createInsertSchema(maintenanceDocuments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertMaintenanceDocument = z.infer<typeof insertMaintenanceDocumentSchema>;
+export type MaintenanceDocument = typeof maintenanceDocuments.$inferSelect;

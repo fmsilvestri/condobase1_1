@@ -1,0 +1,85 @@
+Crie um MÓDULO DE PLANO DE MANUTENÇÃO PREVENTIVA para um aplicativo de gestão de condomínios, desenvolvido no Replit, com foco em:
+- prevenção de falhas
+- redução de custos
+- rastreabilidade técnica
+- automação de tarefas recorrentes
+
+============================
+1. OBJETIVO DO MÓDULO
+============================
+Permitir que o condomínio tenha:
+- Cadastro de ativos e equipamentos
+- Planos automáticos de manutenção preventiva
+- Checklists digitais por ativo
+- Alertas de vencimento
+- Histórico técnico completo
+- Relatórios gerenciais
+
+============================
+2. FUNCIONALIDADES OBRIGATÓRIAS
+============================
+
+2.1 Cadastro de Ativos
+Cada ativo deve conter:
+- id
+- nome do ativo
+- categoria (elevador, bomba, elétrica, segurança, incêndio, hidráulica, estrutura, lazer)
+- localização
+- fabricante
+- data de instalação
+- vida útil estimada
+- status (ativo / inativo)
+- fornecedor responsável
+
+2.2 Plano de Manutenção Preventiva
+Para cada ativo, permitir:
+- tipo de manutenção (preventiva, corretiva, inspeção)
+- periodicidade (mensal, trimestral, semestral, anual)
+- checklist padrão por tipo de ativo
+- data da próxima manutenção
+- responsável (interno ou fornecedor)
+- documentos obrigatórios (laudo, ART, fotos)
+
+2.3 Checklists Digitais
+- Checklist dinâmico por tipo de ativo
+- Campos:
+  - item
+  - status (ok / ajuste / crítico)
+  - observações
+  - upload de fotos
+- Obrigatoriedade de preenchimento para conclusão
+
+2.4 Alertas e Automação
+- Alertar antes do vencimento da manutenção
+- Criar automaticamente nova ordem de manutenção após conclusão
+- Destacar ativos críticos sem manutenção
+
+2.5 Histórico Técnico
+- Linha do tempo por ativo
+- Registro de:
+  - data
+  - tipo de manutenção
+  - checklist preenchido
+  - custo
+  - fornecedor
+  - documentos anexados
+
+2.6 Relatórios
+- Manutenções realizadas no período
+- Manutenções em atraso
+- Custo por ativo
+- Preventiva x corretiva
+- Exportação (PDF / CSV)
+
+============================
+3. MODELO DE DADOS (SUGESTÃO)
+============================
+Criar tabelas:
+- condominios
+- ativos
+- planos_manutencao
+- ordens_manutencao
+- checklist_modelos
+- checklist_execucoes
+- fornecedores
+- documentos
