@@ -20,6 +20,27 @@ import {
   CircleDot,
   Camera,
   X,
+  Zap,
+  Droplets,
+  Waves,
+  Building2,
+  Container,
+  Dumbbell,
+  Gamepad2,
+  PawPrint,
+  Goal,
+  DoorOpen,
+  Fence,
+  KeyRound,
+  Paintbrush,
+  Hammer,
+  Sparkles,
+  Grid3X3,
+  TreePine,
+  Flame,
+  Fan,
+  Cog,
+  type LucideIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
@@ -61,11 +82,41 @@ import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { equipmentCategories, type Equipment, type MaintenanceRequest, type MaintenanceCompletion } from "@shared/schema";
 
+const equipmentIcons: { name: string; icon: LucideIcon; label: string }[] = [
+  { name: "zap", icon: Zap, label: "Elétrico" },
+  { name: "droplets", icon: Droplets, label: "Hidráulico" },
+  { name: "waves", icon: Waves, label: "Piscina" },
+  { name: "building2", icon: Building2, label: "Elevador" },
+  { name: "container", icon: Container, label: "Cisterna" },
+  { name: "fan", icon: Fan, label: "Bomba" },
+  { name: "dumbbell", icon: Dumbbell, label: "Academia" },
+  { name: "gamepad2", icon: Gamepad2, label: "Brinquedoteca" },
+  { name: "pawprint", icon: PawPrint, label: "Pet Place" },
+  { name: "goal", icon: Goal, label: "Campo" },
+  { name: "dooropen", icon: DoorOpen, label: "Porta" },
+  { name: "fence", icon: Fence, label: "Portão" },
+  { name: "keyround", icon: KeyRound, label: "Acesso" },
+  { name: "paintbrush", icon: Paintbrush, label: "Pintura" },
+  { name: "hammer", icon: Hammer, label: "Reboco" },
+  { name: "sparkles", icon: Sparkles, label: "Limpeza" },
+  { name: "grid3x3", icon: Grid3X3, label: "Piso" },
+  { name: "treepine", icon: TreePine, label: "Jardim" },
+  { name: "flame", icon: Flame, label: "Gás" },
+  { name: "cog", icon: Cog, label: "Geral" },
+  { name: "wrench", icon: Wrench, label: "Manutenção" },
+];
+
+const getEquipmentIcon = (iconName?: string | null): LucideIcon => {
+  const found = equipmentIcons.find(i => i.name === iconName);
+  return found?.icon || Wrench;
+};
+
 const equipmentFormSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
   category: z.string().min(1, "Categoria é obrigatória"),
   location: z.string().min(1, "Localização é obrigatória"),
   description: z.string().optional(),
+  icon: z.string().optional(),
   status: z.string().default("operacional"),
   photos: z.array(z.string()).optional(),
 });
@@ -122,6 +173,7 @@ export default function Maintenance() {
       category: "",
       location: "",
       description: "",
+      icon: "",
       status: "operacional",
       photos: [],
     },
@@ -255,6 +307,7 @@ export default function Maintenance() {
       category: eq.category,
       location: eq.location,
       description: eq.description || "",
+      icon: eq.icon || "",
       status: eq.status,
     });
   };
@@ -469,6 +522,35 @@ export default function Maintenance() {
                         </FormItem>
                       )}
                     />
+                    <FormField
+                      control={equipmentForm.control}
+                      name="icon"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Ícone do Equipamento</FormLabel>
+                          <div className="grid grid-cols-7 gap-2 p-3 border rounded-lg bg-muted/30">
+                            {equipmentIcons.map((iconItem) => {
+                              const IconComponent = iconItem.icon;
+                              return (
+                                <Button
+                                  key={iconItem.name}
+                                  type="button"
+                                  variant={field.value === iconItem.name ? "default" : "ghost"}
+                                  size="icon"
+                                  onClick={() => field.onChange(iconItem.name)}
+                                  title={iconItem.label}
+                                  className="h-9 w-9"
+                                  data-testid={`icon-${iconItem.name}`}
+                                >
+                                  <IconComponent className="h-4 w-4" />
+                                </Button>
+                              );
+                            })}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     <div className="space-y-2">
                       <Label>Foto do Equipamento</Label>
                       <div className="flex items-center gap-4">
@@ -609,6 +691,35 @@ export default function Maintenance() {
                           <FormControl>
                             <Textarea placeholder="Detalhes adicionais..." {...field} data-testid="input-edit-equipment-description" />
                           </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={equipmentForm.control}
+                      name="icon"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Ícone do Equipamento</FormLabel>
+                          <div className="grid grid-cols-7 gap-2 p-3 border rounded-lg bg-muted/30">
+                            {equipmentIcons.map((iconItem) => {
+                              const IconComponent = iconItem.icon;
+                              return (
+                                <Button
+                                  key={iconItem.name}
+                                  type="button"
+                                  variant={field.value === iconItem.name ? "default" : "ghost"}
+                                  size="icon"
+                                  onClick={() => field.onChange(iconItem.name)}
+                                  title={iconItem.label}
+                                  className="h-9 w-9"
+                                  data-testid={`edit-icon-${iconItem.name}`}
+                                >
+                                  <IconComponent className="h-4 w-4" />
+                                </Button>
+                              );
+                            })}
+                          </div>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -798,14 +909,21 @@ export default function Maintenance() {
             />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredEquipment.map((eq) => (
+              {filteredEquipment.map((eq) => {
+                const EquipmentIcon = getEquipmentIcon(eq.icon);
+                return (
                 <Card key={eq.id} className="hover-elevate" data-testid={`equipment-card-${eq.id}`}>
                   <CardHeader className="flex flex-row items-start justify-between gap-4 pb-2">
-                    <div className="min-w-0 flex-1">
-                      <CardTitle className="text-base" data-testid={`text-equipment-name-${eq.id}`}>{eq.name}</CardTitle>
-                      <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
-                        <MapPin className="h-3.5 w-3.5" />
-                        {eq.location}
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                        <EquipmentIcon className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <CardTitle className="text-base" data-testid={`text-equipment-name-${eq.id}`}>{eq.name}</CardTitle>
+                        <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                          <MapPin className="h-3.5 w-3.5" />
+                          {eq.location}
+                        </div>
                       </div>
                     </div>
                     <StatusBadge status={eq.status as any} size="sm" />
@@ -840,7 +958,8 @@ export default function Maintenance() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+              );
+              })}
             </div>
           )}
         </TabsContent>

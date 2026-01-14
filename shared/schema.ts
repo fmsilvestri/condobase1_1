@@ -112,6 +112,7 @@ export const equipment = pgTable("equipment", {
   category: text("category").notNull(),
   location: text("location").notNull(),
   description: text("description"),
+  icon: text("icon"),
   photos: text("photos").array(),
   status: text("status").notNull().default("operacional"),
   createdAt: timestamp("created_at").defaultNow(),
