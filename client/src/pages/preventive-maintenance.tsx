@@ -228,6 +228,7 @@ export default function PreventiveMaintenance() {
   const handleAssetSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const supplierIdValue = formData.get("supplierId") as string;
     const data = {
       name: formData.get("name") as string,
       category: formData.get("category") as string,
@@ -236,7 +237,7 @@ export default function PreventiveMaintenance() {
       installationDate: formData.get("installationDate") ? new Date(formData.get("installationDate") as string).toISOString() : null,
       estimatedLifespan: formData.get("estimatedLifespan") ? parseInt(formData.get("estimatedLifespan") as string) : null,
       status: formData.get("status") as string || "ativo",
-      supplierId: formData.get("supplierId") as string || null,
+      supplierId: supplierIdValue && supplierIdValue !== "none" ? supplierIdValue : null,
       notes: formData.get("notes") as string || null,
     };
 
@@ -532,12 +533,12 @@ export default function PreventiveMaintenance() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="supplierId">Fornecedor Responsável</Label>
-                      <Select name="supplierId" defaultValue={selectedAsset?.supplierId || ""}>
+                      <Select name="supplierId" defaultValue={selectedAsset?.supplierId || "none"}>
                         <SelectTrigger data-testid="select-asset-supplier">
                           <SelectValue placeholder="Selecione" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Nenhum</SelectItem>
+                          <SelectItem value="none">Nenhum</SelectItem>
                           {suppliers.map((supplier) => (
                             <SelectItem key={supplier.id} value={supplier.id}>
                               {supplier.name}
