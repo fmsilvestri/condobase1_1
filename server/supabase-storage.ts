@@ -248,7 +248,7 @@ export class SupabaseStorage implements IStorage {
   async getEquipment(): Promise<Equipment[]> {
     const { data, error } = await this.sb
       .from("equipment")
-      .select("*")
+      .select("id, condominium_id, name, category, location, description, icon, photos, status, manufacturer, installation_date, estimated_lifespan, supplier_id, notes, created_at, updated_at")
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return (data || []).map(d => toCamelCase(d) as Equipment);
@@ -257,7 +257,7 @@ export class SupabaseStorage implements IStorage {
   async getEquipmentById(id: string): Promise<Equipment | undefined> {
     const { data, error } = await this.sb
       .from("equipment")
-      .select("*")
+      .select("id, condominium_id, name, category, location, description, icon, photos, status, manufacturer, installation_date, estimated_lifespan, supplier_id, notes, created_at, updated_at")
       .eq("id", id)
       .single();
     if (error || !data) return undefined;
