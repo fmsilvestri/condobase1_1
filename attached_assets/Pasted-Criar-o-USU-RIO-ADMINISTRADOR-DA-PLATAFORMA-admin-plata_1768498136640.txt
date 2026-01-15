@@ -1,0 +1,65 @@
+Criar o USUÁRIO ADMINISTRADOR DA PLATAFORMA (admin_plataforma),
+responsável por cadastrar, editar, ativar e desativar condomínios dentro do sistema.
+
+Esse usuário:
+* NÃO pertence a um condomínio específico
+* Possui acesso global à plataforma
+* Gerencia apenas dados estruturais da plataforma
+* NÃO acessa dados operacionais dos condomínios (financeiro, moradores, etc.)
+
+REQUISITOS FUNCIONAIS:
+1. Criar perfil "admin_plataforma"
+2. Apenas usuários com esse perfil podem:
+   - Criar novos condomínios
+   - Editar dados cadastrais do condomínio
+   - Ativar ou desativar condomínios
+   - Criar o usuário síndico inicial de cada condomínio
+3. Usuários comuns NÃO podem acessar rotas administrativas da plataforma
+
+MODELAGEM DE DADOS (SUPABASE):
+* Utilizar auth.users para autenticação
+* Criar tabela perfis_plataforma para identificar o admin
+* Criar tabela condominios para armazenar os condomínios cadastrados
+
+SEGURANÇA:
+* Ativar Row Level Security (RLS)
+* Garantir que apenas o admin_plataforma tenha acesso às rotas administrativas
+* Nunca confiar em permissões vindas do frontend
+* Validar permissões no backend (Replit)
+
+BACKEND (REPLIT):
+1. Criar middleware para:
+   - Autenticar usuário (JWT)
+   - Identificar se o usuário é admin_plataforma
+   - Bloquear acesso não autorizado
+
+2. Criar rotas administrativas:
+   - POST   /admin/condominios        → criar condomínio
+   - PUT    /admin/condominios/:id    → editar condomínio
+   - PATCH  /admin/condominios/:id    → ativar/desativar condomínio
+   - GET    /admin/condominios        → listar condomínios
+
+3. Todas essas rotas devem ser acessíveis APENAS pelo admin_plataforma
+
+FRONTEND (se aplicável):
+* Criar tela exclusiva "Painel da Plataforma"
+* Exibir lista de condomínios
+* Formulário de cadastro de condomínio
+* Status do condomínio (ativo / inativo)
+
+RESULTADO ESPERADO:
+1. Código pronto no Replit para:
+   - Middleware admin_plataforma
+   - Controllers administrativos
+   - Rotas protegidas
+2. Script SQL para Supabase (tabelas + RLS)
+3. Fluxo completo:
+   - Login admin
+   - Acesso ao painel da plataforma
+   - Cadastro de condomínio
+   - Condomínio disponível para gestão
+
+RESTRIÇÕES:
+* NÃO duplicar código
+* NÃO permitir acesso cruzado
+* NÃO permitir que usuários comuns criem condomínios
