@@ -26,15 +26,17 @@ Preferred communication style: Simple, everyday language.
 - **Runtime**: Node.js with Express
 - **Language**: TypeScript (ES modules)
 - **API Pattern**: RESTful JSON API with `/api` prefix
-- **Storage**: Abstracted storage interface (currently in-memory, designed for PostgreSQL)
+- **Storage**: Supabase client for all data operations (equipment, maintenance, documents, suppliers, announcements)
 - **Schema Validation**: Zod schemas shared between frontend and backend
 - **Build**: esbuild for production server bundling
 
 ### Data Layer
-- **ORM**: Drizzle ORM with PostgreSQL dialect
+- **Primary Database**: Supabase (PostgreSQL) - system of record for all application data
+- **Storage Implementation**: `server/supabase-storage.ts` uses Supabase client for CRUD operations
 - **Schema Location**: `shared/schema.ts` - contains all table definitions and Zod insert schemas
-- **Database**: PostgreSQL (configured via DATABASE_URL environment variable)
-- **Migrations**: Drizzle Kit for schema management (`db:push` command)
+- **ORM**: Drizzle ORM available for local PostgreSQL operations (secondary)
+- **Case Conversion**: `toSnakeCase`/`toCamelCase` helpers convert between JS camelCase and DB snake_case
+- **Migrations**: Schema managed in Supabase dashboard or via Drizzle Kit
 
 ### Project Structure
 ```
