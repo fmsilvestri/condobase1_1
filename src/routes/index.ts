@@ -48,7 +48,7 @@ const storage = createStorage();
 
 export { storage };
 
-const publicPaths = ["/supabase-config", "/supabase-status", "/login"];
+const publicPaths = ["/supabase-config", "/supabase-status", "/login", "/auth/debug", "/auth/fix-association"];
 const userScopedPaths = ["/condominiums", "/users", "/user-condominiums", "/admin", "/auth"];
 
 router.use(optionalJWT);
@@ -147,15 +147,82 @@ router.get("/auth/me", async (req, res) => {
       return res.status(404).json({ error: "Usuário não encontrado" });
     }
     
+    // Get user's condominiums and auto-select first one if none selected
+    const userCondos = await storage.getUserCondominiums(userId);
+    
     res.json({
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role
+      role: user.role,
+      condominiums: userCondos
     });
   } catch (error: any) {
     console.error("[Auth/Me] Error:", error.message);
     res.status(500).json({ error: "Erro ao buscar usuário" });
+  }
+});
+
+// Debug endpoint to check user data
+router.get("/auth/debug", async (req, res) => {
+  try {
+    const users = await storage.getUsers();
+    const condos = await storage.getCondominiums();
+    const allUserCondos = await Promise.all(
+      users.map(async u => ({
+        userId: u.id,
+        email: u.email,
+        condos: await storage.getUserCondominiums(u.id)
+      }))
+    );
+    
+    res.json({ users, condos, userCondos: allUserCondos });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Fix user-condominium association using direct DB insert
+router.post("/auth/fix-association", async (req, res) => {
+  try {
+    const { userId, condominiumId, role } = req.body;
+    
+    if (!userId || !condominiumId) {
+      return res.status(400).json({ error: "userId and condominiumId required" });
+    }
+    
+    // First check if the user exists
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found", userId });
+    }
+    
+    // Check if condominium exists
+    const condo = await storage.getCondominiumById(condominiumId);
+    if (!condo) {
+      return res.status(404).json({ error: "Condominium not found", condominiumId });
+    }
+    
+    // Check if association already exists
+    const existingCondos = await storage.getUserCondominiums(userId);
+    const alreadyAssociated = existingCondos.some(uc => uc.condominiumId === condominiumId);
+    
+    if (alreadyAssociated) {
+      return res.json({ success: true, message: "Already associated", existingCondos });
+    }
+    
+    // Add the association
+    const association = await storage.addUserToCondominium({
+      userId,
+      condominiumId,
+      role: role || "síndico",
+      isActive: true
+    });
+    
+    res.json({ success: true, association });
+  } catch (error: any) {
+    console.error("[Fix Association] Error:", error);
+    res.status(500).json({ error: error.message, stack: error.stack });
   }
 });
 

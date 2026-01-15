@@ -4,6 +4,7 @@ import { eq, desc, and } from "drizzle-orm";
 import type { IStorage } from "./storage";
 import {
   condominiums as condominiumsTable,
+  users as usersTable,
   userCondominiums as userCondominiumsTable,
   notifications as notificationsTable,
   modulePermissions as modulePermissionsTable,
@@ -21,6 +22,14 @@ import {
   maintenanceExecutions as maintenanceExecutionsTable,
   executionChecklistItems as executionChecklistItemsTable,
   maintenanceDocuments as maintenanceDocumentsTable,
+  gasReadings as gasReadingsTable,
+  energyEvents as energyEventsTable,
+  occupancyData as occupancyDataTable,
+  equipment as equipmentTable,
+  maintenanceRequests as maintenanceRequestsTable,
+  documents as documentsTable,
+  suppliers as suppliersTable,
+  announcements as announcementsTable,
   type Condominium,
   type InsertCondominium,
   type UserCondominium,
@@ -132,7 +141,7 @@ export class SupabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  // User-Condominium relationship methods
+  // User-Condominium relationship methods - using Drizzle for local database
   async getUserCondominiums(userId: string): Promise<(UserCondominium & { condominium?: Condominium })[]> {
     const userCondos = await db.select().from(userCondominiumsTable)
       .where(eq(userCondominiumsTable.userId, userId))
@@ -180,33 +189,19 @@ export class SupabaseStorage implements IStorage {
     return result.length > 0;
   }
 
+  // User methods - using local database for consistency with user_condominiums
   async getUser(id: string): Promise<User | undefined> {
-    const { data, error } = await this.sb
-      .from("users")
-      .select("*")
-      .eq("id", id)
-      .single();
-    if (error || !data) return undefined;
-    return toCamelCase(data) as User;
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+    return user;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const { data, error } = await this.sb
-      .from("users")
-      .select("*")
-      .eq("email", email)
-      .single();
-    if (error || !data) return undefined;
-    return toCamelCase(data) as User;
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+    return user;
   }
 
   async getUsers(): Promise<User[]> {
-    const { data, error } = await this.sb
-      .from("users")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) throw new Error(error.message);
-    return (data || []).map(d => toCamelCase(d) as User);
+    return db.select().from(usersTable).orderBy(desc(usersTable.createdAt));
   }
 
   async createUser(user: InsertUser): Promise<User> {
@@ -249,23 +244,15 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getEquipment(condominiumId?: string): Promise<Equipment[]> {
-    let query = this.sb
-      .from("equipment")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const query = condominiumId
+      ? db.select().from(equipmentTable).where(eq(equipmentTable.condominiumId, condominiumId)).orderBy(desc(equipmentTable.createdAt))
+      : db.select().from(equipmentTable).orderBy(desc(equipmentTable.createdAt));
     
-    if (condominiumId) {
-      query = query.eq("condominium_id", condominiumId);
-    }
-    
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
-    
-    return (data || []).map(d => {
-      const equipment = toCamelCase(d) as Equipment;
+    const data = await query;
+    return data.map(equipment => {
       const cachedIcon = this.equipmentIconCache.get(equipment.id);
       if (cachedIcon) {
-        equipment.icon = cachedIcon;
+        return { ...equipment, icon: cachedIcon };
       }
       return equipment;
     });
@@ -365,18 +352,12 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getMaintenanceRequests(condominiumId?: string): Promise<MaintenanceRequest[]> {
-    let query = this.sb
-      .from("maintenance_requests")
-      .select("*")
-      .order("created_at", { ascending: false });
-    
     if (condominiumId) {
-      query = query.eq("condominium_id", condominiumId);
+      return db.select().from(maintenanceRequestsTable)
+        .where(eq(maintenanceRequestsTable.condominiumId, condominiumId))
+        .orderBy(desc(maintenanceRequestsTable.createdAt));
     }
-    
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
-    return (data || []).map(d => toCamelCase(d) as MaintenanceRequest);
+    return db.select().from(maintenanceRequestsTable).orderBy(desc(maintenanceRequestsTable.createdAt));
   }
 
   async getMaintenanceRequestById(id: string): Promise<MaintenanceRequest | undefined> {
@@ -529,121 +510,80 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getGasReadings(condominiumId?: string): Promise<GasReading[]> {
-    let query = this.sb
-      .from("gas_readings")
-      .select("*")
-      .order("created_at", { ascending: false });
-    
     if (condominiumId) {
-      query = query.eq("condominium_id", condominiumId);
+      return db.select().from(gasReadingsTable)
+        .where(eq(gasReadingsTable.condominiumId, condominiumId))
+        .orderBy(desc(gasReadingsTable.createdAt));
     }
-    
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
-    return (data || []).map(d => toCamelCase(d) as GasReading);
+    return db.select().from(gasReadingsTable).orderBy(desc(gasReadingsTable.createdAt));
   }
 
   async createGasReading(reading: InsertGasReading): Promise<GasReading> {
-    const { data, error } = await this.sb
-      .from("gas_readings")
-      .insert(toSnakeCase(reading))
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-    return toCamelCase(data) as GasReading;
+    const [created] = await db.insert(gasReadingsTable).values(reading).returning();
+    return created;
   }
 
   async getEnergyEvents(condominiumId?: string): Promise<EnergyEvent[]> {
-    let query = this.sb
-      .from("energy_events")
-      .select("*")
-      .order("created_at", { ascending: false });
-    
     if (condominiumId) {
-      query = query.eq("condominium_id", condominiumId);
+      return db.select().from(energyEventsTable)
+        .where(eq(energyEventsTable.condominiumId, condominiumId))
+        .orderBy(desc(energyEventsTable.createdAt));
     }
-    
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
-    return (data || []).map(d => toCamelCase(d) as EnergyEvent);
+    return db.select().from(energyEventsTable).orderBy(desc(energyEventsTable.createdAt));
   }
 
   async createEnergyEvent(event: InsertEnergyEvent): Promise<EnergyEvent> {
-    const { data, error } = await this.sb
-      .from("energy_events")
-      .insert(toSnakeCase(event))
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-    return toCamelCase(data) as EnergyEvent;
+    const [created] = await db.insert(energyEventsTable).values(event).returning();
+    return created;
   }
 
   async updateEnergyEvent(id: string, event: Partial<InsertEnergyEvent>): Promise<EnergyEvent | undefined> {
-    const updateData = toSnakeCase(event);
+    const updateData: Partial<InsertEnergyEvent> = { ...event };
     if (event.status === "ok") {
-      updateData.resolved_at = new Date().toISOString();
+      (updateData as any).resolvedAt = new Date();
     }
-    const { data, error } = await this.sb
-      .from("energy_events")
-      .update(updateData)
-      .eq("id", id)
-      .select()
-      .single();
-    if (error || !data) return undefined;
-    return toCamelCase(data) as EnergyEvent;
+    const [updated] = await db.update(energyEventsTable)
+      .set(updateData)
+      .where(eq(energyEventsTable.id, id))
+      .returning();
+    return updated;
   }
 
   async getOccupancyData(condominiumId?: string): Promise<OccupancyData | undefined> {
-    let query = this.sb
-      .from("occupancy_data")
-      .select("*")
-      .order("updated_at", { ascending: false })
-      .limit(1);
-    
     if (condominiumId) {
-      query = query.eq("condominium_id", condominiumId);
+      const [data] = await db.select().from(occupancyDataTable)
+        .where(eq(occupancyDataTable.condominiumId, condominiumId))
+        .orderBy(desc(occupancyDataTable.updatedAt))
+        .limit(1);
+      return data;
     }
-    
-    const { data, error } = await query.single();
-    if (error || !data) return undefined;
-    return toCamelCase(data) as OccupancyData;
+    const [data] = await db.select().from(occupancyDataTable)
+      .orderBy(desc(occupancyDataTable.updatedAt))
+      .limit(1);
+    return data;
   }
 
   async updateOccupancyData(occupancy: InsertOccupancyData): Promise<OccupancyData> {
-    const existing = await this.getOccupancyData();
+    const existing = await this.getOccupancyData(occupancy.condominiumId);
     if (existing) {
-      const { data, error } = await this.sb
-        .from("occupancy_data")
-        .update(toSnakeCase(occupancy))
-        .eq("id", existing.id)
-        .select()
-        .single();
-      if (error) throw new Error(error.message);
-      return toCamelCase(data) as OccupancyData;
+      const [updated] = await db.update(occupancyDataTable)
+        .set(occupancy)
+        .where(eq(occupancyDataTable.id, existing.id))
+        .returning();
+      return updated;
     } else {
-      const { data, error } = await this.sb
-        .from("occupancy_data")
-        .insert(toSnakeCase(occupancy))
-        .select()
-        .single();
-      if (error) throw new Error(error.message);
-      return toCamelCase(data) as OccupancyData;
+      const [created] = await db.insert(occupancyDataTable).values(occupancy).returning();
+      return created;
     }
   }
 
   async getDocuments(condominiumId?: string): Promise<Document[]> {
-    let query = this.sb
-      .from("documents")
-      .select("*")
-      .order("created_at", { ascending: false });
-    
     if (condominiumId) {
-      query = query.eq("condominium_id", condominiumId);
+      return db.select().from(documentsTable)
+        .where(eq(documentsTable.condominiumId, condominiumId))
+        .orderBy(desc(documentsTable.createdAt));
     }
-    
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
-    return (data || []).map(d => toCamelCase(d) as Document);
+    return db.select().from(documentsTable).orderBy(desc(documentsTable.createdAt));
   }
 
   async getDocumentById(id: string): Promise<Document | undefined> {
@@ -734,18 +674,12 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getAnnouncements(condominiumId?: string): Promise<Announcement[]> {
-    let query = this.sb
-      .from("announcements")
-      .select("*")
-      .order("created_at", { ascending: false });
-    
     if (condominiumId) {
-      query = query.eq("condominium_id", condominiumId);
+      return db.select().from(announcementsTable)
+        .where(eq(announcementsTable.condominiumId, condominiumId))
+        .orderBy(desc(announcementsTable.createdAt));
     }
-    
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
-    return (data || []).map(d => toCamelCase(d) as Announcement);
+    return db.select().from(announcementsTable).orderBy(desc(announcementsTable.createdAt));
   }
 
   async getAnnouncementById(id: string): Promise<Announcement | undefined> {

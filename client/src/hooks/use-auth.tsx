@@ -48,6 +48,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userData = await response.json();
         setUser(userData);
         localStorage.setItem("dbUserId", userData.id);
+        
+        // Auto-select first condominium if none selected and user has condominiums
+        const selectedCondoId = localStorage.getItem("selectedCondominiumId");
+        if (!selectedCondoId && userData.condominiums?.length > 0) {
+          const firstCondo = userData.condominiums[0];
+          localStorage.setItem("selectedCondominiumId", firstCondo.condominiumId);
+        }
       } else {
         localStorage.removeItem("authToken");
         localStorage.removeItem("dbUserId");
