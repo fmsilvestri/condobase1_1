@@ -91,10 +91,8 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ error: "Credenciais inválidas" });
     }
     
-    let user = await storage.getUser(data.user.id);
-    if (!user) {
-      user = await storage.getUserByEmail(email);
-    }
+    // Always lookup by email first to get the correct database user ID
+    let user = await storage.getUserByEmail(email);
     
     if (!user) {
       return res.status(403).json({ 
@@ -103,30 +101,31 @@ router.post("/login", async (req, res) => {
       });
     }
     
-    const role = user.role;
-    
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
       console.error("[Login] JWT_SECRET não configurado");
       return res.status(500).json({ error: "Erro de configuração do servidor" });
     }
     
+    // Use the database user ID (not Supabase Auth ID) in the JWT
     const token = jwt.sign(
       { 
         sub: user.id,
         email: user.email,
-        role: role
+        role: user.role
       },
       jwtSecret,
       { expiresIn: "8h" }
     );
+    
+    console.log(`[Login] User ${user.email} logged in with DB ID: ${user.id}`);
     
     res.json({ 
       token, 
       user: {
         id: user.id,
         email: user.email,
-        role: role,
+        role: user.role,
         name: user.name
       }
     });
