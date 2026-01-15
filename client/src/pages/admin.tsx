@@ -647,7 +647,7 @@ export default function Admin() {
             </div>
           </ScrollArea>
           <DialogFooter>
-            <Button variant="outline" onClick={handleCloseCondosDialog}>
+            <Button variant="outline" onClick={handleCloseCondosDialog} data-testid="button-close-condos-dialog">
               Fechar
             </Button>
           </DialogFooter>
