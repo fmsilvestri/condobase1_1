@@ -124,11 +124,13 @@ interface AppSidebarProps {
 export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
   const [location] = useLocation();
   const { canAccessModule } = useModulePermissions();
-  const { condominiums, selectedCondominium, selectCondominium } = useCondominium();
+  const { condominiums, selectedCondominium, selectCondominium, userRoleInCondominium } = useCondominium();
 
-  const displayRole = userRole === "admin" ? "Administrador" : userRole === "síndico" ? "Síndico" : "Condômino";
+  const isPlatformAdmin = userRole === "admin";
+  const effectiveRole = isPlatformAdmin ? "admin" : (userRoleInCondominium || userRole);
+  const displayRole = isPlatformAdmin ? "Administrador" : effectiveRole === "síndico" ? "Síndico" : effectiveRole === "prestador" ? "Prestador" : "Condômino";
   const displayName = userName || "Usuário";
-  const isAdmin = userRole === "admin" || userRole === "síndico";
+  const isAdmin = isPlatformAdmin || effectiveRole === "síndico";
 
   const filteredMainModules = mainModules.filter(item => {
     const moduleKey = moduleKeyMap[item.url];

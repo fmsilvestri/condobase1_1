@@ -87,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userData = await response.json();
         setDbRole(userData.role);
         setDbUserId(userData.id);
+        localStorage.setItem("dbUserId", userData.id);
         return userData;
       }
     } catch (error) {
@@ -112,6 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await supabase.auth.signOut();
       setDbRole(null);
       setDbUserId(null);
+      localStorage.removeItem("dbUserId");
+      localStorage.removeItem("selectedCondominiumId");
     }
   };
 

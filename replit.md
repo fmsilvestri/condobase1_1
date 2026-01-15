@@ -67,10 +67,19 @@ The application consists of these main feature modules:
 - **Fornecedores**: Supplier contact management by category
 - **Comunicados**: Announcements and resident communications
 
+### Multi-Tenant Architecture
+- **Data Isolation**: Each condominium has isolated data; users only see data for their selected condominium
+- **Condominium Context**: `server/condominium-context.ts` middleware resolves active condominium and user role from request headers
+- **Headers**: Frontend sends `x-condominium-id` and `x-user-id` headers via `client/src/lib/queryClient.ts`
+- **Storage Layer**: All storage methods accept optional `condominiumId` parameter for data filtering
+- **Condominium Selector**: Dropdown in sidebar allows switching between condominiums
+- **Query Invalidation**: Switching condominiums invalidates cached queries to refresh data
+
 ### User Roles
-- **Admin**: Super administrator with full system access, can manage all users and settings
-- **Síndico**: Building administrator with full CRUD access to all modules, report generation, user management
+- **Admin (Platform)**: Super administrator with full system access across all condominiums
+- **Síndico**: Building administrator with full CRUD access for their assigned condominiums
 - **Condômino (Resident)**: Access controlled by síndico via module permissions (read-only for most modules except maintenance requests)
+- **Prestador (Service Provider)**: Service providers with limited access to specific modules
 
 ### Module Permissions System
 - **Location**: `server/routes.ts` (API), `client/src/pages/feature-access.tsx` (UI), `client/src/hooks/use-module-permissions.tsx` (state)
@@ -87,7 +96,8 @@ The application consists of these main feature modules:
 - **Session Management**: JWT-based sessions via Supabase (frontend only)
 - **Default Síndico**: fmsilvestri39@gmail.com (Hey123!)
 - **RLS**: Temporarily disabled for development - re-enable with proper policies for production
-- **Security Note**: Backend API trusts client-provided userId for authorization. For production, implement JWT token verification middleware using Supabase auth server-side.
+- **Security Note**: Backend API trusts client-provided userId and condominiumId headers for authorization. For production, implement JWT token verification middleware using Supabase auth server-side to prevent header spoofing.
+- **Per-Condominium Roles**: User roles within condominiums are stored in `user_condominiums` table with `role` column, checked by `requireSindicoOrAdmin` middleware
 
 ### Real-Time Notifications
 - **WebSocket Server**: `server/websocket.ts` - handles WebSocket connections with JWT authentication

@@ -72,10 +72,7 @@ export default function Condominiums() {
 
   const createMutation = useMutation({
     mutationFn: async (data: InsertCondominium) => {
-      return await apiRequest("/api/condominiums", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return await apiRequest("POST", "/api/condominiums", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/condominiums"] });
@@ -90,10 +87,7 @@ export default function Condominiums() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<InsertCondominium> }) => {
-      return await apiRequest(`/api/condominiums/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      });
+      return await apiRequest("PATCH", `/api/condominiums/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/condominiums"] });
@@ -108,9 +102,7 @@ export default function Condominiums() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest(`/api/condominiums/${id}`, {
-        method: "DELETE",
-      });
+      return await apiRequest("DELETE", `/api/condominiums/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/condominiums"] });
@@ -123,10 +115,7 @@ export default function Condominiums() {
 
   const addUserMutation = useMutation({
     mutationFn: async (data: { userId: string; condominiumId: string; role: string; unit?: string }) => {
-      return await apiRequest("/api/user-condominiums", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return await apiRequest("POST", "/api/user-condominiums", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/condominiums", selectedCondominium?.id, "users"] });
@@ -141,9 +130,7 @@ export default function Condominiums() {
 
   const removeUserMutation = useMutation({
     mutationFn: async ({ userId, condominiumId }: { userId: string; condominiumId: string }) => {
-      return await apiRequest(`/api/user-condominiums/${userId}/${condominiumId}`, {
-        method: "DELETE",
-      });
+      return await apiRequest("DELETE", `/api/user-condominiums/${userId}/${condominiumId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/condominiums", selectedCondominium?.id, "users"] });

@@ -7,7 +7,9 @@ export interface CondominiumContext {
   condominiumId: string | null;
   userId: string | null;
   userRole: string | null;
+  condominiumRole: string | null;
   isAdmin: boolean;
+  isSindicoInCondominium: boolean;
 }
 
 declare global {
@@ -31,7 +33,9 @@ export async function condominiumContextMiddleware(
       condominiumId: condominiumId || null,
       userId: userId || null,
       userRole: null,
+      condominiumRole: null,
       isAdmin: false,
+      isSindicoInCondominium: false,
     };
 
     if (userId) {
@@ -40,10 +44,14 @@ export async function condominiumContextMiddleware(
         context.userRole = user.role;
         context.isAdmin = user.role === "admin";
 
-        if (condominiumId && !context.isAdmin) {
+        if (condominiumId) {
           const userCondos = await storage.getUserCondominiums(userId);
-          const hasAccess = userCondos.some((uc) => uc.condominiumId === condominiumId);
-          if (!hasAccess) {
+          const userCondoEntry = userCondos.find((uc) => uc.condominiumId === condominiumId);
+          
+          if (userCondoEntry || context.isAdmin) {
+            context.condominiumRole = userCondoEntry?.role || null;
+            context.isSindicoInCondominium = userCondoEntry?.role === "síndico" || context.isAdmin;
+          } else {
             context.condominiumId = null;
           }
         }
@@ -73,8 +81,11 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
 }
 
 export function requireSindicoOrAdmin(req: Request, res: Response, next: NextFunction) {
-  const role = req.condominiumContext?.userRole;
-  if (role !== "admin" && role !== "síndico") {
+  const ctx = req.condominiumContext;
+  const isPlatformAdmin = ctx?.isAdmin;
+  const isSindicoInCondo = ctx?.isSindicoInCondominium;
+  
+  if (!isPlatformAdmin && !isSindicoInCondo) {
     return res.status(403).json({ error: "Acesso negado: requer permissão de síndico ou administrador" });
   }
   next();

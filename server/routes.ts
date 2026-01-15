@@ -372,7 +372,8 @@ export async function registerRoutes(
 
   app.get("/api/equipment", async (req, res) => {
     try {
-      const equipment = await storage.getEquipment();
+      const condominiumId = req.condominiumContext?.condominiumId || undefined;
+      const equipment = await storage.getEquipment(condominiumId);
       res.json(equipment);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch equipment" });
@@ -430,7 +431,8 @@ export async function registerRoutes(
 
   app.get("/api/maintenance", async (req, res) => {
     try {
-      const requests = await storage.getMaintenanceRequests();
+      const condominiumId = req.condominiumContext?.condominiumId || undefined;
+      const requests = await storage.getMaintenanceRequests(condominiumId);
       res.json(requests);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch maintenance requests" });
@@ -536,7 +538,8 @@ export async function registerRoutes(
 
   app.get("/api/maintenance-completions", async (req, res) => {
     try {
-      const completions = await storage.getMaintenanceCompletions();
+      const condominiumId = req.condominiumContext?.condominiumId || undefined;
+      const completions = await storage.getMaintenanceCompletions(condominiumId);
       res.json(completions);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch maintenance completions" });
@@ -583,7 +586,8 @@ export async function registerRoutes(
 
   app.get("/api/pool", async (req, res) => {
     try {
-      const readings = await storage.getPoolReadings();
+      const condominiumId = req.condominiumContext?.condominiumId || undefined;
+      const readings = await storage.getPoolReadings(condominiumId);
       res.json(readings);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch pool readings" });
@@ -608,7 +612,8 @@ export async function registerRoutes(
 
   app.get("/api/reservoirs", async (req, res) => {
     try {
-      const reservoirs = await storage.getReservoirs();
+      const condominiumId = req.condominiumContext?.condominiumId || undefined;
+      const reservoirs = await storage.getReservoirs(condominiumId);
       res.json(reservoirs);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch reservoirs" });
@@ -663,7 +668,8 @@ export async function registerRoutes(
 
   app.get("/api/water", async (req, res) => {
     try {
-      const readings = await storage.getWaterReadings();
+      const condominiumId = req.condominiumContext?.condominiumId || undefined;
+      const readings = await storage.getWaterReadings(condominiumId);
       res.json(readings);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch water readings" });
@@ -685,7 +691,8 @@ export async function registerRoutes(
   // Hydrometer readings routes
   app.get("/api/hydrometer", async (req, res) => {
     try {
-      const readings = await storage.getHydrometerReadings();
+      const condominiumId = req.condominiumContext?.condominiumId || undefined;
+      const readings = await storage.getHydrometerReadings(condominiumId);
       res.json(readings);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch hydrometer readings" });
@@ -729,7 +736,8 @@ export async function registerRoutes(
 
   app.get("/api/gas", async (req, res) => {
     try {
-      const readings = await storage.getGasReadings();
+      const condominiumId = req.condominiumContext?.condominiumId || undefined;
+      const readings = await storage.getGasReadings(condominiumId);
       res.json(readings);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch gas readings" });
@@ -750,7 +758,8 @@ export async function registerRoutes(
 
   app.get("/api/energy", async (req, res) => {
     try {
-      const events = await storage.getEnergyEvents();
+      const condominiumId = req.condominiumContext?.condominiumId || undefined;
+      const events = await storage.getEnergyEvents(condominiumId);
       res.json(events);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch energy events" });
@@ -781,7 +790,8 @@ export async function registerRoutes(
 
   app.get("/api/occupancy", async (req, res) => {
     try {
-      const data = await storage.getOccupancyData();
+      const condominiumId = req.condominiumContext?.condominiumId || undefined;
+      const data = await storage.getOccupancyData(condominiumId);
       res.json(data || {});
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch occupancy data" });
@@ -800,7 +810,8 @@ export async function registerRoutes(
 
   app.get("/api/documents", async (req, res) => {
     try {
-      const documents = await storage.getDocuments();
+      const condominiumId = req.condominiumContext?.condominiumId || undefined;
+      const documents = await storage.getDocuments(condominiumId);
       res.json(documents);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch documents" });
@@ -855,7 +866,8 @@ export async function registerRoutes(
 
   app.get("/api/suppliers", async (req, res) => {
     try {
-      const suppliers = await storage.getSuppliers();
+      const condominiumId = req.condominiumContext?.condominiumId || undefined;
+      const suppliers = await storage.getSuppliers(condominiumId);
       res.json(suppliers);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch suppliers" });
@@ -910,7 +922,8 @@ export async function registerRoutes(
 
   app.get("/api/announcements", async (req, res) => {
     try {
-      const announcements = await storage.getAnnouncements();
+      const condominiumId = req.condominiumContext?.condominiumId || undefined;
+      const announcements = await storage.getAnnouncements(condominiumId);
       res.json(announcements);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch announcements" });

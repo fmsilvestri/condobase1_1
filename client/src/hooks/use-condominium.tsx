@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { useQuery } from "@tanstack/react-query";
 import type { Condominium, UserCondominium } from "@shared/schema";
 import { useAuth } from "./use-auth";
+import { queryClient } from "@/lib/queryClient";
 
 interface CondominiumContextType {
   condominiums: Condominium[];
@@ -42,11 +43,23 @@ export function CondominiumProvider({ children }: { children: ReactNode }) {
   }, [condominiums, userCondominiums]);
 
   const selectCondominium = (condominium: Condominium | null) => {
+    const previousId = selectedCondominium?.id;
     setSelectedCondominium(condominium);
     if (condominium) {
       localStorage.setItem("selectedCondominiumId", condominium.id);
     } else {
       localStorage.removeItem("selectedCondominiumId");
+    }
+    if (previousId !== condominium?.id) {
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          if (typeof key !== 'string') return false;
+          return key.startsWith('/api/') && 
+            !key.includes('/api/condominiums') && 
+            !key.includes('/api/users');
+        }
+      });
     }
   };
 
