@@ -79,6 +79,7 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useCondominium } from "@/hooks/use-condominium";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { equipmentCategories, type Equipment, type MaintenanceRequest, type MaintenanceCompletion } from "@shared/schema";
 
@@ -150,6 +151,7 @@ export default function Maintenance() {
   const [completionPhotos, setCompletionPhotos] = useState<string[]>([]);
   const { toast } = useToast();
   const { canEdit, userId, dbUserId, isSindico, isAdmin } = useAuth();
+  const { selectedCondominium } = useCondominium();
   
   // Only síndicos and admins can update status
   const canUpdateStatus = isSindico || isAdmin;
@@ -269,6 +271,7 @@ export default function Maintenance() {
       const dataWithPhoto = {
         ...data,
         photos: equipmentPhoto ? [equipmentPhoto] : [],
+        condominiumId: selectedCondominium?.id,
       };
       return apiRequest("POST", "/api/equipment", dataWithPhoto);
     },
