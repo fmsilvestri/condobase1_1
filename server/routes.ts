@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { createStorage } from "./supabase-storage";
 import { sendNotificationToUser, broadcastNotification } from "./websocket";
 import { optionalJWT, requireAuth } from "./auth-middleware";
+import jwt from "jsonwebtoken";
 import { 
   condominiumContextMiddleware, 
   getCondominiumId, 
@@ -54,7 +55,7 @@ export async function registerRoutes(
   app.use(optionalJWT);
   app.use(condominiumContextMiddleware);
 
-  const publicPaths = ["/supabase-config", "/supabase-status"];
+  const publicPaths = ["/supabase-config", "/supabase-status", "/login"];
   const userScopedPaths = ["/condominiums", "/users", "/user-condominiums"];
   
   app.use("/api", (req, res, next) => {
@@ -71,6 +72,73 @@ export async function registerRoutes(
       return next();
     }
     return requireCondominium(req, res, next);
+  });
+
+  // Login endpoint - authenticates via Supabase and returns custom JWT
+  app.post("/api/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email e senha são obrigatórios" });
+      }
+      
+      if (!isSupabaseConfigured || !supabase) {
+        return res.status(503).json({ error: "Supabase não configurado" });
+      }
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) {
+        return res.status(401).json({ error: "Credenciais inválidas" });
+      }
+      
+      let user = await storage.getUser(data.user.id);
+      if (!user) {
+        user = await storage.getUserByEmail(email);
+      }
+      
+      if (!user) {
+        return res.status(403).json({ 
+          error: "Usuário não cadastrado no sistema",
+          hint: "Entre em contato com o administrador para liberar seu acesso"
+        });
+      }
+      
+      const role = user.role;
+      
+      const jwtSecret = process.env.JWT_SECRET;
+      if (!jwtSecret) {
+        console.error("[Login] JWT_SECRET não configurado");
+        return res.status(500).json({ error: "Erro de configuração do servidor" });
+      }
+      
+      const token = jwt.sign(
+        { 
+          sub: user.id,
+          email: user.email,
+          role: role
+        },
+        jwtSecret,
+        { expiresIn: "8h" }
+      );
+      
+      res.json({ 
+        token, 
+        user: {
+          id: user.id,
+          email: user.email,
+          role: role,
+          name: user.name
+        }
+      });
+    } catch (error: any) {
+      console.error("[Login] Error:", error.message);
+      res.status(500).json({ error: "Erro ao processar login" });
+    }
   });
 
   app.get("/api/supabase-config", (req, res) => {

@@ -27,32 +27,43 @@ export async function condominiumContextMiddleware(
 ) {
   try {
     const requestedCondominiumId = req.headers["x-condominium-id"] as string | undefined;
-    const userId = req.jwtUser?.sub || (process.env.NODE_ENV === "development" ? req.headers["x-user-id"] as string | undefined : undefined);
+    const jwtUserId = req.jwtUser?.sub;
+    const jwtEmail = req.jwtUser?.email;
+    const devUserId = process.env.NODE_ENV === "development" ? req.headers["x-user-id"] as string | undefined : undefined;
 
     const context: CondominiumContext = {
       condominiumId: null,
-      userId: userId || null,
+      userId: null,
       userRole: null,
       condominiumRole: null,
       isAdmin: false,
       isSindicoInCondominium: false,
     };
 
-    if (userId) {
-      const user = await storage.getUser(userId);
-      if (user) {
-        context.userRole = user.role;
-        context.isAdmin = user.role === "admin";
+    let user = null;
+    
+    if (jwtUserId) {
+      user = await storage.getUser(jwtUserId);
+      if (!user && jwtEmail) {
+        user = await storage.getUserByEmail(jwtEmail);
+      }
+    } else if (devUserId) {
+      user = await storage.getUser(devUserId);
+    }
+    
+    if (user) {
+      context.userId = user.id;
+      context.userRole = user.role;
+      context.isAdmin = user.role === "admin";
 
-        if (requestedCondominiumId) {
-          const userCondos = await storage.getUserCondominiums(userId);
-          const userCondoEntry = userCondos.find((uc) => uc.condominiumId === requestedCondominiumId);
-          
-          if (userCondoEntry || context.isAdmin) {
-            context.condominiumId = requestedCondominiumId;
-            context.condominiumRole = userCondoEntry?.role || null;
-            context.isSindicoInCondominium = userCondoEntry?.role === "síndico" || context.isAdmin;
-          }
+      if (requestedCondominiumId) {
+        const userCondos = await storage.getUserCondominiums(user.id);
+        const userCondoEntry = userCondos.find((uc) => uc.condominiumId === requestedCondominiumId);
+        
+        if (userCondoEntry || context.isAdmin) {
+          context.condominiumId = requestedCondominiumId;
+          context.condominiumRole = userCondoEntry?.role || null;
+          context.isSindicoInCondominium = userCondoEntry?.role === "síndico" || context.isAdmin;
         }
       }
     }
