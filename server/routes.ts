@@ -1140,8 +1140,9 @@ export async function registerRoutes(
       const validatedData = insertSupplierSchema.parse(req.body);
       const supplier = await storage.createSupplier(validatedData);
       res.status(201).json(supplier);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid supplier data" });
+    } catch (error: any) {
+      console.error("Supplier validation error:", error.message || error);
+      res.status(400).json({ error: "Invalid supplier data", details: error.message });
     }
   });
 
