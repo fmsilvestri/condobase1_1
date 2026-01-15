@@ -1,0 +1,60 @@
+Adicionar ao sistema atual as seguintes funções: 
+As funcionalidades e estrutura são as mesmas para todos os condomínios, porém:
+* Cada condomínio possui dados próprios
+* Cada condomínio possui usuários diferentes
+* Um usuário só pode acessar os dados do(s) condomínio(s) ao qual pertence
+
+OBJETIVO:
+Refatorar o sistema atual para suportar MÚLTIPLOS CONDOMÍNIOS (arquitetura multi-tenant),
+sem duplicar código, mantendo uma única base do sistema.
+
+REQUISITOS FUNCIONAIS:
+1. Criar entidade CONDOMINIO como núcleo do sistema
+2. Todas as entidades do sistema devem estar vinculadas a um condominium_id
+   (ex: usuários, unidades, despesas, receitas, manutenções, fornecedores, documentos, etc.)
+3. Usuários devem ter vínculo com condomínio e perfil de acesso
+
+MODELO DE USUÁRIOS:
+* Admin Plataforma (acessa todos os condomínios)
+* Síndico / Administrador (acessa apenas seu condomínio)
+* Condômino (acessa apenas sua unidade)
+* Prestador de Serviço (acesso limitado às ordens de serviço)
+
+CONTROLE DE ACESSO:
+* Implementar isolamento total de dados por condomínio
+* Nenhuma consulta deve retornar dados de outro condomínio
+* O condominium_id deve ser validado em todas as operações (CRUD)
+
+BACKEND:
+* Adaptar as rotas da API para sempre considerar o condomínio ativo pelo supabase já existente
+* O condomínio ativo deve ser identificado via:
+  - login do usuário
+  - token de autenticação
+  - ou subdomínio (ex: condominio1.app.com)
+
+BANCO DE DADOS supabase
+* Ajustar o schema adicionando condominium_id em todas as tabelas relevantes
+* Criar tabela de relacionamento usuario_condominio
+* Garantir integridade referencial
+
+FRONTEND:
+* Exibir apenas dados do condomínio ativo
+* Permitir troca de condomínio apenas para usuários autorizados
+* Exibir nome, logo e dados do condomínio no layout
+
+SEGURANÇA:
+* Garantir isolamento de dados (multi-tenant seguro)
+* Validar permissões em backend e frontend
+* Bloquear acesso direto por URL a dados de outro condomínio
+
+RESULTADO ESPERADO:
+1. Explicação clara da nova arquitetura multi-condomínio
+2. Lista de alterações necessárias no banco de dados
+3. Ajustes no backend (controllers, services, middlewares)
+4. Ajustes no frontend
+5. Exemplo de fluxo de login com seleção de condomínio
+6. Boas práticas para escalar o sistema como SaaS
+
+NÃO:
+* Não duplicar código por condomínio
+* Não criar instâncias separadas do sistema

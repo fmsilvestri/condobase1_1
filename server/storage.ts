@@ -79,63 +79,63 @@ export interface IStorage {
   updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
   deleteUser(id: string): Promise<boolean>;
 
-  getEquipment(): Promise<Equipment[]>;
+  getEquipment(condominiumId?: string): Promise<Equipment[]>;
   getEquipmentById(id: string): Promise<Equipment | undefined>;
   createEquipment(equipment: InsertEquipment): Promise<Equipment>;
   updateEquipment(id: string, equipment: Partial<InsertEquipment>): Promise<Equipment | undefined>;
   deleteEquipment(id: string): Promise<boolean>;
 
-  getMaintenanceRequests(): Promise<MaintenanceRequest[]>;
+  getMaintenanceRequests(condominiumId?: string): Promise<MaintenanceRequest[]>;
   getMaintenanceRequestById(id: string): Promise<MaintenanceRequest | undefined>;
   createMaintenanceRequest(request: InsertMaintenanceRequest): Promise<MaintenanceRequest>;
   updateMaintenanceRequest(id: string, request: Partial<InsertMaintenanceRequest>): Promise<MaintenanceRequest | undefined>;
   deleteMaintenanceRequest(id: string): Promise<boolean>;
 
-  getMaintenanceCompletions(): Promise<MaintenanceCompletion[]>;
+  getMaintenanceCompletions(condominiumId?: string): Promise<MaintenanceCompletion[]>;
   getMaintenanceCompletionsByEquipmentId(equipmentId: string): Promise<MaintenanceCompletion[]>;
   createMaintenanceCompletion(completion: InsertMaintenanceCompletion): Promise<MaintenanceCompletion>;
   deleteMaintenanceCompletion(id: string): Promise<boolean>;
 
-  getPoolReadings(): Promise<PoolReading[]>;
+  getPoolReadings(condominiumId?: string): Promise<PoolReading[]>;
   createPoolReading(reading: InsertPoolReading): Promise<PoolReading>;
 
-  getReservoirs(): Promise<Reservoir[]>;
+  getReservoirs(condominiumId?: string): Promise<Reservoir[]>;
   getReservoirById(id: string): Promise<Reservoir | undefined>;
   createReservoir(reservoir: InsertReservoir): Promise<Reservoir>;
   updateReservoir(id: string, reservoir: Partial<InsertReservoir>): Promise<Reservoir | undefined>;
   deleteReservoir(id: string): Promise<boolean>;
 
-  getWaterReadings(): Promise<WaterReading[]>;
+  getWaterReadings(condominiumId?: string): Promise<WaterReading[]>;
   createWaterReading(reading: InsertWaterReading): Promise<WaterReading>;
 
-  getHydrometerReadings(): Promise<HydrometerReading[]>;
+  getHydrometerReadings(condominiumId?: string): Promise<HydrometerReading[]>;
   createHydrometerReading(reading: InsertHydrometerReading): Promise<HydrometerReading>;
   updateHydrometerReading(id: string, reading: Partial<InsertHydrometerReading>): Promise<HydrometerReading | undefined>;
   deleteHydrometerReading(id: string): Promise<boolean>;
 
-  getGasReadings(): Promise<GasReading[]>;
+  getGasReadings(condominiumId?: string): Promise<GasReading[]>;
   createGasReading(reading: InsertGasReading): Promise<GasReading>;
 
-  getEnergyEvents(): Promise<EnergyEvent[]>;
+  getEnergyEvents(condominiumId?: string): Promise<EnergyEvent[]>;
   createEnergyEvent(event: InsertEnergyEvent): Promise<EnergyEvent>;
   updateEnergyEvent(id: string, event: Partial<InsertEnergyEvent>): Promise<EnergyEvent | undefined>;
 
-  getOccupancyData(): Promise<OccupancyData | undefined>;
+  getOccupancyData(condominiumId?: string): Promise<OccupancyData | undefined>;
   updateOccupancyData(data: InsertOccupancyData): Promise<OccupancyData>;
 
-  getDocuments(): Promise<Document[]>;
+  getDocuments(condominiumId?: string): Promise<Document[]>;
   getDocumentById(id: string): Promise<Document | undefined>;
   createDocument(doc: InsertDocument): Promise<Document>;
   updateDocument(id: string, doc: Partial<InsertDocument>): Promise<Document | undefined>;
   deleteDocument(id: string): Promise<boolean>;
 
-  getSuppliers(): Promise<Supplier[]>;
+  getSuppliers(condominiumId?: string): Promise<Supplier[]>;
   getSupplierById(id: string): Promise<Supplier | undefined>;
   createSupplier(supplier: InsertSupplier): Promise<Supplier>;
   updateSupplier(id: string, supplier: Partial<InsertSupplier>): Promise<Supplier | undefined>;
   deleteSupplier(id: string): Promise<boolean>;
 
-  getAnnouncements(): Promise<Announcement[]>;
+  getAnnouncements(condominiumId?: string): Promise<Announcement[]>;
   getAnnouncementById(id: string): Promise<Announcement | undefined>;
   createAnnouncement(announcement: InsertAnnouncement): Promise<Announcement>;
   updateAnnouncement(id: string, announcement: Partial<InsertAnnouncement>): Promise<Announcement | undefined>;
@@ -452,7 +452,7 @@ export class MemStorage implements IStorage {
     return this.users.delete(id);
   }
 
-  async getEquipment(): Promise<Equipment[]> {
+  async getEquipment(condominiumId?: string): Promise<Equipment[]> {
     return Array.from(this.equipment.values()).sort((a, b) => 
       (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
     );
@@ -481,7 +481,7 @@ export class MemStorage implements IStorage {
     return this.equipment.delete(id);
   }
 
-  async getMaintenanceRequests(): Promise<MaintenanceRequest[]> {
+  async getMaintenanceRequests(condominiumId?: string): Promise<MaintenanceRequest[]> {
     return Array.from(this.maintenanceRequests.values()).sort((a, b) =>
       (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
     );
@@ -513,7 +513,7 @@ export class MemStorage implements IStorage {
     return this.maintenanceRequests.delete(id);
   }
 
-  async getMaintenanceCompletions(): Promise<MaintenanceCompletion[]> {
+  async getMaintenanceCompletions(condominiumId?: string): Promise<MaintenanceCompletion[]> {
     return Array.from(this.maintenanceCompletions.values()).sort((a, b) =>
       (b.completedAt?.getTime() || 0) - (a.completedAt?.getTime() || 0)
     );
@@ -536,7 +536,7 @@ export class MemStorage implements IStorage {
     return this.maintenanceCompletions.delete(id);
   }
 
-  async getPoolReadings(): Promise<PoolReading[]> {
+  async getPoolReadings(condominiumId?: string): Promise<PoolReading[]> {
     return Array.from(this.poolReadings.values()).sort((a, b) =>
       (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
     );
@@ -549,7 +549,7 @@ export class MemStorage implements IStorage {
     return reading;
   }
 
-  async getReservoirs(): Promise<Reservoir[]> {
+  async getReservoirs(condominiumId?: string): Promise<Reservoir[]> {
     return Array.from(this.reservoirs.values()).sort((a, b) =>
       (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
     );
@@ -578,7 +578,7 @@ export class MemStorage implements IStorage {
     return this.reservoirs.delete(id);
   }
 
-  async getWaterReadings(): Promise<WaterReading[]> {
+  async getWaterReadings(condominiumId?: string): Promise<WaterReading[]> {
     return Array.from(this.waterReadings.values()).sort((a, b) =>
       (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
     );
@@ -591,7 +591,7 @@ export class MemStorage implements IStorage {
     return reading;
   }
 
-  async getHydrometerReadings(): Promise<HydrometerReading[]> {
+  async getHydrometerReadings(condominiumId?: string): Promise<HydrometerReading[]> {
     return Array.from(this.hydrometerReadings.values()).sort((a, b) =>
       (b.readingDate?.getTime() || 0) - (a.readingDate?.getTime() || 0)
     );
@@ -616,7 +616,7 @@ export class MemStorage implements IStorage {
     return this.hydrometerReadings.delete(id);
   }
 
-  async getGasReadings(): Promise<GasReading[]> {
+  async getGasReadings(condominiumId?: string): Promise<GasReading[]> {
     return Array.from(this.gasReadings.values()).sort((a, b) =>
       (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
     );
@@ -629,7 +629,7 @@ export class MemStorage implements IStorage {
     return reading;
   }
 
-  async getEnergyEvents(): Promise<EnergyEvent[]> {
+  async getEnergyEvents(condominiumId?: string): Promise<EnergyEvent[]> {
     return Array.from(this.energyEvents.values()).sort((a, b) =>
       (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
     );
@@ -653,7 +653,7 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
-  async getOccupancyData(): Promise<OccupancyData | undefined> {
+  async getOccupancyData(condominiumId?: string): Promise<OccupancyData | undefined> {
     return this.occupancyData;
   }
 
@@ -663,7 +663,7 @@ export class MemStorage implements IStorage {
     return this.occupancyData;
   }
 
-  async getDocuments(): Promise<Document[]> {
+  async getDocuments(condominiumId?: string): Promise<Document[]> {
     return Array.from(this.documents.values()).sort((a, b) =>
       (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
     );
@@ -692,7 +692,7 @@ export class MemStorage implements IStorage {
     return this.documents.delete(id);
   }
 
-  async getSuppliers(): Promise<Supplier[]> {
+  async getSuppliers(condominiumId?: string): Promise<Supplier[]> {
     return Array.from(this.suppliers.values()).sort((a, b) =>
       (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
     );
@@ -721,7 +721,7 @@ export class MemStorage implements IStorage {
     return this.suppliers.delete(id);
   }
 
-  async getAnnouncements(): Promise<Announcement[]> {
+  async getAnnouncements(condominiumId?: string): Promise<Announcement[]> {
     return Array.from(this.announcements.values()).sort((a, b) =>
       (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
     );

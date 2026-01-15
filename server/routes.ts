@@ -2,6 +2,14 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { createStorage } from "./supabase-storage";
 import { sendNotificationToUser, broadcastNotification } from "./websocket";
+import { 
+  condominiumContextMiddleware, 
+  getCondominiumId, 
+  getUserId, 
+  isAdmin,
+  requireCondominium,
+  requireSindicoOrAdmin 
+} from "./condominium-context";
 import {
   insertCondominiumSchema,
   insertUserCondominiumSchema,
@@ -35,10 +43,14 @@ import { supabase, isSupabaseConfigured } from "./supabase";
 
 const storage = createStorage();
 
+export { storage };
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  app.use(condominiumContextMiddleware);
 
   app.get("/api/supabase-config", (req, res) => {
     res.json({
@@ -204,16 +216,18 @@ export async function registerRoutes(
   
   app.get("/api/dashboard", async (req, res) => {
     try {
+      const condominiumId = getCondominiumId(req) || (req.query.condominiumId as string) || undefined;
+      
       const [equipment, requests, poolReadings, waterReadings, gasReadings, energyEvents, occupancy, documents, announcements] = await Promise.all([
-        storage.getEquipment(),
-        storage.getMaintenanceRequests(),
-        storage.getPoolReadings(),
-        storage.getWaterReadings(),
-        storage.getGasReadings(),
-        storage.getEnergyEvents(),
-        storage.getOccupancyData(),
-        storage.getDocuments(),
-        storage.getAnnouncements(),
+        storage.getEquipment(condominiumId),
+        storage.getMaintenanceRequests(condominiumId),
+        storage.getPoolReadings(condominiumId),
+        storage.getWaterReadings(condominiumId),
+        storage.getGasReadings(condominiumId),
+        storage.getEnergyEvents(condominiumId),
+        storage.getOccupancyData(condominiumId),
+        storage.getDocuments(condominiumId),
+        storage.getAnnouncements(condominiumId),
       ]);
 
       const openRequests = requests.filter(r => r.status !== "concluído").length;

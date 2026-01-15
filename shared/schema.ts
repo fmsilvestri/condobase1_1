@@ -29,8 +29,17 @@ export const insertCondominiumSchema = createInsertSchema(condominiums).omit({
 export type InsertCondominium = z.infer<typeof insertCondominiumSchema>;
 export type Condominium = typeof condominiums.$inferSelect;
 
-export const userRoles = ["condômino", "síndico", "admin"] as const;
+// User roles:
+// - admin: Platform admin with access to all condominiums
+// - síndico: Condominium administrator with full access to their condominium
+// - condômino: Resident with access to their unit data only
+// - prestador: Service provider with limited access to work orders
+export const userRoles = ["condômino", "síndico", "admin", "prestador"] as const;
 export type UserRole = (typeof userRoles)[number];
+
+// Roles that can be assigned per condominium (user_condominiums table)
+export const condominiumRoles = ["condômino", "síndico", "prestador"] as const;
+export type CondominiumRole = (typeof condominiumRoles)[number];
 
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -423,6 +432,7 @@ export type Announcement = typeof announcements.$inferSelect;
 
 export const notifications = pgTable("notifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id"),
   userId: varchar("user_id").notNull(),
   type: text("type").notNull(), // "announcement_new", "announcement_updated", "maintenance_update"
   title: text("title").notNull(),

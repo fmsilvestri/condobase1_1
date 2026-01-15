@@ -248,14 +248,19 @@ export class SupabaseStorage implements IStorage {
     return !error;
   }
 
-  async getEquipment(): Promise<Equipment[]> {
-    const { data, error } = await this.sb
+  async getEquipment(condominiumId?: string): Promise<Equipment[]> {
+    let query = this.sb
       .from("equipment")
       .select("*")
       .order("created_at", { ascending: false });
+    
+    if (condominiumId) {
+      query = query.eq("condominium_id", condominiumId);
+    }
+    
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
     
-    // Merge with local icon cache
     return (data || []).map(d => {
       const equipment = toCamelCase(d) as Equipment;
       const cachedIcon = this.equipmentIconCache.get(equipment.id);
@@ -359,11 +364,17 @@ export class SupabaseStorage implements IStorage {
     return !error;
   }
 
-  async getMaintenanceRequests(): Promise<MaintenanceRequest[]> {
-    const { data, error } = await this.sb
+  async getMaintenanceRequests(condominiumId?: string): Promise<MaintenanceRequest[]> {
+    let query = this.sb
       .from("maintenance_requests")
       .select("*")
       .order("created_at", { ascending: false });
+    
+    if (condominiumId) {
+      query = query.eq("condominium_id", condominiumId);
+    }
+    
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
     return (data || []).map(d => toCamelCase(d) as MaintenanceRequest);
   }
@@ -431,7 +442,12 @@ export class SupabaseStorage implements IStorage {
     return true;
   }
 
-  async getPoolReadings(): Promise<PoolReading[]> {
+  async getPoolReadings(condominiumId?: string): Promise<PoolReading[]> {
+    if (condominiumId) {
+      return await db.select().from(poolReadingsTable)
+        .where(eq(poolReadingsTable.condominiumId, condominiumId))
+        .orderBy(desc(poolReadingsTable.createdAt));
+    }
     return await db.select().from(poolReadingsTable).orderBy(desc(poolReadingsTable.createdAt));
   }
 
@@ -479,7 +495,12 @@ export class SupabaseStorage implements IStorage {
     return true;
   }
 
-  async getWaterReadings(): Promise<WaterReading[]> {
+  async getWaterReadings(condominiumId?: string): Promise<WaterReading[]> {
+    if (condominiumId) {
+      return await db.select().from(waterReadingsTable)
+        .where(eq(waterReadingsTable.condominiumId, condominiumId))
+        .orderBy(desc(waterReadingsTable.createdAt));
+    }
     return await db.select().from(waterReadingsTable).orderBy(desc(waterReadingsTable.createdAt));
   }
 
@@ -507,11 +528,17 @@ export class SupabaseStorage implements IStorage {
     return true;
   }
 
-  async getGasReadings(): Promise<GasReading[]> {
-    const { data, error } = await this.sb
+  async getGasReadings(condominiumId?: string): Promise<GasReading[]> {
+    let query = this.sb
       .from("gas_readings")
       .select("*")
       .order("created_at", { ascending: false });
+    
+    if (condominiumId) {
+      query = query.eq("condominium_id", condominiumId);
+    }
+    
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
     return (data || []).map(d => toCamelCase(d) as GasReading);
   }
@@ -526,11 +553,17 @@ export class SupabaseStorage implements IStorage {
     return toCamelCase(data) as GasReading;
   }
 
-  async getEnergyEvents(): Promise<EnergyEvent[]> {
-    const { data, error } = await this.sb
+  async getEnergyEvents(condominiumId?: string): Promise<EnergyEvent[]> {
+    let query = this.sb
       .from("energy_events")
       .select("*")
       .order("created_at", { ascending: false });
+    
+    if (condominiumId) {
+      query = query.eq("condominium_id", condominiumId);
+    }
+    
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
     return (data || []).map(d => toCamelCase(d) as EnergyEvent);
   }
@@ -560,13 +593,18 @@ export class SupabaseStorage implements IStorage {
     return toCamelCase(data) as EnergyEvent;
   }
 
-  async getOccupancyData(): Promise<OccupancyData | undefined> {
-    const { data, error } = await this.sb
+  async getOccupancyData(condominiumId?: string): Promise<OccupancyData | undefined> {
+    let query = this.sb
       .from("occupancy_data")
       .select("*")
       .order("updated_at", { ascending: false })
-      .limit(1)
-      .single();
+      .limit(1);
+    
+    if (condominiumId) {
+      query = query.eq("condominium_id", condominiumId);
+    }
+    
+    const { data, error } = await query.single();
     if (error || !data) return undefined;
     return toCamelCase(data) as OccupancyData;
   }
@@ -593,11 +631,17 @@ export class SupabaseStorage implements IStorage {
     }
   }
 
-  async getDocuments(): Promise<Document[]> {
-    const { data, error } = await this.sb
+  async getDocuments(condominiumId?: string): Promise<Document[]> {
+    let query = this.sb
       .from("documents")
       .select("*")
       .order("created_at", { ascending: false });
+    
+    if (condominiumId) {
+      query = query.eq("condominium_id", condominiumId);
+    }
+    
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
     return (data || []).map(d => toCamelCase(d) as Document);
   }
@@ -689,11 +733,17 @@ export class SupabaseStorage implements IStorage {
     return !error;
   }
 
-  async getAnnouncements(): Promise<Announcement[]> {
-    const { data, error } = await this.sb
+  async getAnnouncements(condominiumId?: string): Promise<Announcement[]> {
+    let query = this.sb
       .from("announcements")
       .select("*")
       .order("created_at", { ascending: false });
+    
+    if (condominiumId) {
+      query = query.eq("condominium_id", condominiumId);
+    }
+    
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
     return (data || []).map(d => toCamelCase(d) as Announcement);
   }
