@@ -205,42 +205,37 @@ export class SupabaseStorage implements IStorage {
   }
 
   async createUser(user: InsertUser): Promise<User> {
-    const { data, error } = await this.sb
-      .from("users")
-      .insert(toSnakeCase(user))
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-    return toCamelCase(data) as User;
+    const [created] = await db.insert(usersTable).values(user).returning();
+    return created;
   }
 
   async upsertUser(userData: InsertUser & { id: string }): Promise<User> {
-    const { data, error } = await this.sb
-      .from("users")
-      .upsert(toSnakeCase(userData), { onConflict: "id" })
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-    return toCamelCase(data) as User;
+    const existing = await this.getUser(userData.id);
+    if (existing) {
+      const [updated] = await db.update(usersTable)
+        .set({ ...userData, updatedAt: new Date() })
+        .where(eq(usersTable.id, userData.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(usersTable).values(userData).returning();
+      return created;
+    }
   }
 
   async updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined> {
-    const { data, error } = await this.sb
-      .from("users")
-      .update(toSnakeCase(user))
-      .eq("id", id)
-      .select()
-      .single();
-    if (error || !data) return undefined;
-    return toCamelCase(data) as User;
+    const [updated] = await db.update(usersTable)
+      .set({ ...user, updatedAt: new Date() })
+      .where(eq(usersTable.id, id))
+      .returning();
+    return updated;
   }
 
   async deleteUser(id: string): Promise<boolean> {
-    const { error } = await this.sb
-      .from("users")
-      .delete()
-      .eq("id", id);
-    return !error;
+    const result = await db.delete(usersTable)
+      .where(eq(usersTable.id, id))
+      .returning({ id: usersTable.id });
+    return result.length > 0;
   }
 
   async getEquipment(condominiumId?: string): Promise<Equipment[]> {
