@@ -553,11 +553,53 @@ export async function registerRoutes(
 
   app.patch("/api/users/:id", async (req, res) => {
     try {
-      const validatedData = updateUserSchema.parse(req.body);
+      const { password, ...userData } = req.body;
+      const validatedData = updateUserSchema.parse(userData);
+      
+      // Update user data in local database
       const user = await storage.updateUser(req.params.id, validatedData);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
+      
+      // If password is provided, update in Supabase Auth
+      if (password && password.length >= 6) {
+        const { supabaseAdmin, isSupabaseAdminConfigured } = await import("./supabase");
+        if (isSupabaseAdminConfigured && supabaseAdmin) {
+          try {
+            // First try to create user in Supabase Auth (will fail if exists)
+            const { data: newAuthUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+              email: user.email,
+              password,
+              email_confirm: true,
+            });
+            
+            if (createError && createError.message.includes("already been registered")) {
+              // User exists, need to update password - get user list with filter
+              const { data: { users: authUsers }, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+                filter: { email: user.email },
+                page: 1,
+                perPage: 1
+              } as any);
+              
+              if (!listError && authUsers && authUsers.length > 0) {
+                const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+                  authUsers[0].id,
+                  { password }
+                );
+                if (updateError) {
+                  console.error("Failed to update password in Supabase Auth:", updateError.message);
+                }
+              }
+            } else if (createError) {
+              console.error("Failed to create user in Supabase Auth:", createError.message);
+            }
+          } catch (authError: any) {
+            console.error("Supabase Auth error:", authError.message);
+          }
+        }
+      }
+      
       res.json(user);
     } catch (error: any) {
       res.status(400).json({ error: "Failed to update user", details: error.message });

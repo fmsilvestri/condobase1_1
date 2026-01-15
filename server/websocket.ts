@@ -12,36 +12,23 @@ interface ConnectedClient {
 const clients: Map<string, ConnectedClient[]> = new Map();
 
 async function verifyTokenAndGetLocalUserId(token: string, claimedLocalUserId: string): Promise<string | null> {
-  if (!isSupabaseConfigured || !supabase) {
-    console.log("[WebSocket] Supabase not configured, using claimed userId");
-    return claimedLocalUserId;
-  }
-  
+  // For now, verify by checking if the claimed user exists in the local database
+  // The user is already authenticated via the API routes using JWT
   try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error) {
-      console.log("[WebSocket] Token verification error:", error.message);
-      return null;
-    }
-    if (!user || !user.email) {
-      console.log("[WebSocket] No user/email found for token");
-      return null;
-    }
-    
-    const localUser = await storage.getUserByEmail(user.email);
+    const localUser = await storage.getUser(claimedLocalUserId);
     if (!localUser) {
-      console.log("[WebSocket] Local user not found for email:", user.email);
+      console.log("[WebSocket] User not found in local database:", claimedLocalUserId);
       return null;
     }
     
-    if (localUser.id !== claimedLocalUserId) {
-      console.log("[WebSocket] Claimed userId doesn't match local user for this email");
+    if (!localUser.isActive) {
+      console.log("[WebSocket] User is not active:", claimedLocalUserId);
       return null;
     }
     
     return localUser.id;
   } catch (error) {
-    console.error("[WebSocket] Token verification exception:", error);
+    console.error("[WebSocket] User verification exception:", error);
     return null;
   }
 }

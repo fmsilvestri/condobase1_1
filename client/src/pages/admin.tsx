@@ -70,6 +70,7 @@ const userFormSchema = z.object({
   name: z.string().min(2, "Nome é obrigatório"),
   role: z.enum(["condômino", "síndico", "admin"]),
   unit: z.string().optional(),
+  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres").optional().or(z.literal("")),
   isActive: z.boolean().default(true),
 });
 
@@ -92,6 +93,7 @@ export default function Admin() {
       name: "",
       role: "condômino",
       unit: "",
+      password: "",
       isActive: true,
     },
   });
@@ -146,6 +148,7 @@ export default function Admin() {
         name: user.name,
         role: user.role as "condômino" | "síndico" | "admin",
         unit: user.unit || "",
+        password: "",
         isActive: user.isActive,
       });
     } else {
@@ -155,6 +158,7 @@ export default function Admin() {
         name: "",
         role: "condômino",
         unit: "",
+        password: "",
         isActive: true,
       });
     }
@@ -425,6 +429,24 @@ export default function Admin() {
                         <SelectItem value="admin">Administrador</SelectItem>
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{editingUser ? "Nova Senha (deixe vazio para manter)" : "Senha"}</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="password" 
+                        placeholder={editingUser ? "••••••••" : "Mínimo 6 caracteres"} 
+                        {...field} 
+                        data-testid="input-user-password" 
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
