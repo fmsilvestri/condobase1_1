@@ -89,7 +89,8 @@ export default function Login() {
       localStorage.setItem("dbUserId", result.user.id);
       
       toast({ title: "Login realizado com sucesso!" });
-      navigate("/");
+      // Force full page reload to reinitialize auth context
+      window.location.href = "/";
     } catch (error: any) {
       toast({ title: "Erro no login", description: error.message, variant: "destructive" });
     } finally {
