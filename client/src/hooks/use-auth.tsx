@@ -1,12 +1,17 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { supabase, supabaseReady } from "@/lib/supabase";
-import type { User, Session } from "@supabase/supabase-js";
+import { apiRequest } from "@/lib/queryClient";
+
+interface DbUser {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+}
 
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: DbUser | null;
   loading: boolean;
-  signOut: () => Promise<void>;
+  signOut: () => void;
   userRole: string | null;
   userName: string | null;
   userEmail: string | null;
@@ -17,119 +22,89 @@ interface AuthContextType {
   isCondomino: boolean;
   canEdit: boolean;
   accessToken: string | null;
+  refreshAuth: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<DbUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [dbRole, setDbRole] = useState<string | null>(null);
-  const [dbUserId, setDbUserId] = useState<string | null>(null);
+
+  const fetchCurrentUser = async () => {
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/auth/me", {
+        headers: { "Authorization": `Bearer ${token}` },
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+        localStorage.setItem("dbUserId", userData.id);
+      } else {
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("dbUserId");
+        setUser(null);
+      }
+    } catch (error) {
+      console.error("Error fetching current user:", error);
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function initAuth() {
-      await supabaseReady;
-      
-      if (!supabase) {
-        setLoading(false);
-        return;
-      }
-
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        await syncUser(
-          session.user.id,
-          session.user.email!,
-          session.user.user_metadata?.name || session.user.user_metadata?.full_name
-        );
-      }
-      
-      setLoading(false);
-
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        async (event, session) => {
-          setSession(session);
-          setUser(session?.user ?? null);
-          
-          if (session?.user) {
-            await syncUser(
-              session.user.id,
-              session.user.email!,
-              session.user.user_metadata?.name || session.user.user_metadata?.full_name
-            );
-          } else {
-            setDbRole(null);
-          }
-          
-          setLoading(false);
-        }
-      );
-
-      return () => subscription.unsubscribe();
-    }
-
-    initAuth();
+    fetchCurrentUser();
   }, []);
 
-  const syncUser = async (userId: string, email: string, name?: string | null) => {
-    try {
-      const response = await fetch("/api/users/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: userId, email, name }),
-      });
-      if (response.ok) {
-        const userData = await response.json();
-        setDbRole(userData.role);
-        setDbUserId(userData.id);
-        localStorage.setItem("dbUserId", userData.id);
-        return userData;
-      }
-    } catch (error) {
-      console.error("Error syncing user:", error);
-    }
-    return null;
+  const signOut = () => {
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("dbUserId");
+    localStorage.removeItem("selectedCondominiumId");
+    setUser(null);
+    window.location.href = "/login";
   };
 
-  const fetchUserRole = async (email: string) => {
-    try {
-      const response = await fetch(`/api/users/by-email/${encodeURIComponent(email)}`);
-      if (response.ok) {
-        const userData = await response.json();
-        setDbRole(userData.role);
-      }
-    } catch (error) {
-      console.error("Error fetching user role:", error);
-    }
+  const refreshAuth = async () => {
+    await fetchCurrentUser();
   };
 
-  const signOut = async () => {
-    if (supabase) {
-      await supabase.auth.signOut();
-      setDbRole(null);
-      setDbUserId(null);
-      localStorage.removeItem("dbUserId");
-      localStorage.removeItem("selectedCondominiumId");
-    }
-  };
-
-  const userRole = dbRole || user?.user_metadata?.role || null;
-  const userName = user?.user_metadata?.name || user?.email?.split("@")[0] || null;
+  const userRole = user?.role || null;
+  const userName = user?.name || user?.email?.split("@")[0] || null;
   const userEmail = user?.email || null;
   const userId = user?.id || null;
+  const dbUserId = user?.id || null;
   const isAdmin = userRole === "admin";
   const isSindico = userRole === "síndico";
   const isCondomino = userRole === "condômino";
   const canEdit = isAdmin || isSindico;
-  const accessToken = session?.access_token || null;
+  const accessToken = localStorage.getItem("authToken");
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut, userRole, userName, userEmail, userId, dbUserId, isAdmin, isSindico, isCondomino, canEdit, accessToken }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      signOut, 
+      userRole, 
+      userName, 
+      userEmail, 
+      userId, 
+      dbUserId, 
+      isAdmin, 
+      isSindico, 
+      isCondomino, 
+      canEdit, 
+      accessToken,
+      refreshAuth 
+    }}>
       {children}
     </AuthContext.Provider>
   );

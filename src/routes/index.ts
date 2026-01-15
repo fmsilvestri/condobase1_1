@@ -49,7 +49,7 @@ const storage = createStorage();
 export { storage };
 
 const publicPaths = ["/supabase-config", "/supabase-status", "/login"];
-const userScopedPaths = ["/condominiums", "/users", "/user-condominiums", "/admin"];
+const userScopedPaths = ["/condominiums", "/users", "/user-condominiums", "/admin", "/auth"];
 
 router.use(optionalJWT);
 router.use(condominiumContextMiddleware);
@@ -133,6 +133,30 @@ router.post("/login", async (req, res) => {
   } catch (error: any) {
     console.error("[Login] Error:", error.message);
     res.status(500).json({ error: "Erro ao processar login" });
+  }
+});
+
+router.get("/auth/me", async (req, res) => {
+  const userId = req.condominiumContext?.userId;
+  if (!userId) {
+    return res.status(401).json({ error: "Não autenticado" });
+  }
+  
+  try {
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ error: "Usuário não encontrado" });
+    }
+    
+    res.json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role
+    });
+  } catch (error: any) {
+    console.error("[Auth/Me] Error:", error.message);
+    res.status(500).json({ error: "Erro ao buscar usuário" });
   }
 });
 
