@@ -66,24 +66,28 @@ export default function Login() {
   });
 
   const handleLogin = async (data: z.infer<typeof loginSchema>) => {
-    await supabaseReady;
-    if (!supabase) {
-      toast({ title: "Supabase não configurado", variant: "destructive" });
-      return;
-    }
-
     setIsLoading(true);
     try {
-      const { data: authData, error } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: data.email, password: data.password }),
       });
 
-      if (error) {
-        toast({ title: "Erro no login", description: error.message, variant: "destructive" });
+      const result = await response.json();
+
+      if (!response.ok) {
+        toast({ 
+          title: "Erro no login", 
+          description: result.error || "Credenciais inválidas", 
+          variant: "destructive" 
+        });
         return;
       }
 
+      localStorage.setItem("authToken", result.token);
+      localStorage.setItem("dbUserId", result.user.id);
+      
       toast({ title: "Login realizado com sucesso!" });
       navigate("/");
     } catch (error: any) {

@@ -7,16 +7,20 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-function getCondominiumHeaders(): Record<string, string> {
+function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
   const condominiumId = localStorage.getItem("selectedCondominiumId");
   const dbUserId = localStorage.getItem("dbUserId");
+  const token = localStorage.getItem("authToken");
   
   if (condominiumId) {
     headers["x-condominium-id"] = condominiumId;
   }
   if (dbUserId) {
     headers["x-user-id"] = dbUserId;
+  }
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
   }
   return headers;
 }
@@ -26,12 +30,12 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const condoHeaders = getCondominiumHeaders();
+  const authHeaders = getAuthHeaders();
   const res = await fetch(url, {
     method,
     headers: {
       ...(data ? { "Content-Type": "application/json" } : {}),
-      ...condoHeaders,
+      ...authHeaders,
     },
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
@@ -47,10 +51,10 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const condoHeaders = getCondominiumHeaders();
+    const authHeaders = getAuthHeaders();
     const res = await fetch(queryKey.join("/") as string, {
       credentials: "include",
-      headers: condoHeaders,
+      headers: authHeaders,
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
