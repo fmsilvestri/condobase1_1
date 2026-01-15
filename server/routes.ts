@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { createStorage } from "./supabase-storage";
 import { sendNotificationToUser, broadcastNotification } from "./websocket";
+import { optionalJWT, requireAuth } from "./auth-middleware";
 import { 
   condominiumContextMiddleware, 
   getCondominiumId, 
@@ -50,7 +51,27 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
+  app.use(optionalJWT);
   app.use(condominiumContextMiddleware);
+
+  const publicPaths = ["/supabase-config", "/supabase-status"];
+  const userScopedPaths = ["/condominiums", "/users", "/user-condominiums"];
+  
+  app.use("/api", (req, res, next) => {
+    if (publicPaths.some(p => req.path === p || req.path.startsWith(p + "/"))) {
+      return next();
+    }
+    return requireAuth(req, res, next);
+  });
+
+  app.use("/api", (req, res, next) => {
+    const isPublic = publicPaths.some(p => req.path === p || req.path.startsWith(p + "/"));
+    const isUserScoped = userScopedPaths.some(p => req.path === p || req.path.startsWith(p + "/"));
+    if (isPublic || isUserScoped) {
+      return next();
+    }
+    return requireCondominium(req, res, next);
+  });
 
   app.get("/api/supabase-config", (req, res) => {
     res.json({
@@ -95,8 +116,23 @@ export async function registerRoutes(
   // Condominium routes
   app.get("/api/condominiums", async (req, res) => {
     try {
-      const condominiums = await storage.getCondominiums();
-      res.json(condominiums);
+      const userId = getUserId(req);
+      const isPlatformAdmin = isAdmin(req);
+      
+      if (isPlatformAdmin) {
+        const condominiums = await storage.getCondominiums();
+        return res.json(condominiums);
+      }
+      
+      if (userId) {
+        const userCondos = await storage.getUserCondominiums(userId);
+        const condoIds = userCondos.map(uc => uc.condominiumId);
+        const allCondos = await storage.getCondominiums();
+        const userCondominiums = allCondos.filter(c => condoIds.includes(c.id));
+        return res.json(userCondominiums);
+      }
+      
+      res.json([]);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -262,6 +298,12 @@ export async function registerRoutes(
   // Users/Admin routes
   app.get("/api/users", async (req, res) => {
     try {
+      const isPlatformAdmin = isAdmin(req);
+      
+      if (!isPlatformAdmin) {
+        return res.status(403).json({ error: "Acesso negado: requer permissão de administrador" });
+      }
+      
       const users = await storage.getUsers();
       res.json(users);
     } catch (error: any) {
@@ -504,6 +546,7 @@ export async function registerRoutes(
         
         const notification = await storage.createNotification({
           userId: request.requestedBy,
+          condominiumId: request.condominiumId,
           type: "maintenance_update",
           title: `Chamado Atualizado: ${statusLabel}`,
           message: `Seu chamado "${request.title}" foi atualizado para "${statusLabel}".`,
@@ -950,6 +993,7 @@ export async function registerRoutes(
       // Create notifications for all users about the new announcement
       try {
         const notifications = await storage.createNotificationsForAllUsers({
+          condominiumId: announcement.condominiumId,
           type: "announcement_new",
           title: "Novo Comunicado",
           message: announcement.title,
@@ -981,6 +1025,7 @@ export async function registerRoutes(
       // Create notifications for all users about the updated announcement
       try {
         const notifications = await storage.createNotificationsForAllUsers({
+          condominiumId: announcement.condominiumId,
           type: "announcement_updated",
           title: "Comunicado Atualizado",
           message: announcement.title,

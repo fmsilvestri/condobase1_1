@@ -26,11 +26,11 @@ export async function condominiumContextMiddleware(
   next: NextFunction
 ) {
   try {
-    const condominiumId = req.headers["x-condominium-id"] as string | undefined;
-    const userId = req.headers["x-user-id"] as string | undefined;
+    const requestedCondominiumId = req.headers["x-condominium-id"] as string | undefined;
+    const userId = req.jwtUser?.sub || (process.env.NODE_ENV === "development" ? req.headers["x-user-id"] as string | undefined : undefined);
 
     const context: CondominiumContext = {
-      condominiumId: condominiumId || null,
+      condominiumId: null,
       userId: userId || null,
       userRole: null,
       condominiumRole: null,
@@ -44,15 +44,14 @@ export async function condominiumContextMiddleware(
         context.userRole = user.role;
         context.isAdmin = user.role === "admin";
 
-        if (condominiumId) {
+        if (requestedCondominiumId) {
           const userCondos = await storage.getUserCondominiums(userId);
-          const userCondoEntry = userCondos.find((uc) => uc.condominiumId === condominiumId);
+          const userCondoEntry = userCondos.find((uc) => uc.condominiumId === requestedCondominiumId);
           
           if (userCondoEntry || context.isAdmin) {
+            context.condominiumId = requestedCondominiumId;
             context.condominiumRole = userCondoEntry?.role || null;
             context.isSindicoInCondominium = userCondoEntry?.role === "síndico" || context.isAdmin;
-          } else {
-            context.condominiumId = null;
           }
         }
       }

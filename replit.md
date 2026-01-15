@@ -93,11 +93,26 @@ The application consists of these main feature modules:
 - **Supabase Auth**: Email/password and Google OAuth authentication
 - **User Model**: email, name, role, unit, isActive, timestamps
 - **Admin Panel**: Accessible only to admin and síndico roles via sidebar navigation
-- **Session Management**: JWT-based sessions via Supabase (frontend only)
+- **Session Management**: JWT-based sessions via Supabase
 - **Default Síndico**: fmsilvestri39@gmail.com (Hey123!)
 - **RLS**: Temporarily disabled for development - re-enable with proper policies for production
-- **Security Note**: Backend API trusts client-provided userId and condominiumId headers for authorization. For production, implement JWT token verification middleware using Supabase auth server-side to prevent header spoofing.
 - **Per-Condominium Roles**: User roles within condominiums are stored in `user_condominiums` table with `role` column, checked by `requireSindicoOrAdmin` middleware
+
+### API Security
+- **JWT Middleware**: `server/auth-middleware.ts` provides `optionalJWT`, `authenticateJWT`, and `requireAuth` middlewares
+- **Authentication**: All /api routes (except public) require authentication via `requireAuth`
+- **User Identity**: In production, userId comes from JWT only; in development, x-user-id header is accepted for convenience
+- **Condominium Access**: Context middleware validates that user is a member of the requested condominium via `user_condominiums` table
+- **Tenant Isolation**: All tenant-scoped routes require valid condominium context via `requireCondominium`
+- **Route Categories**:
+  - Public (no auth): /api/supabase-config, /api/supabase-status
+  - User-scoped (auth only): /api/condominiums, /api/users, /api/user-condominiums
+  - Tenant-scoped (auth + condominium): All other /api routes
+- **Listing Filters**: 
+  - /api/condominiums returns only condos user belongs to (admins see all)
+  - /api/users restricted to platform admins only
+- **FK Constraints**: All tenant tables have foreign key to condominiums.id (NOT NULL)
+- **Known Limitation**: Resource-level authorization (checking resource.condominiumId on individual reads/updates by ID) is not yet implemented. Future enhancement needed.
 
 ### Real-Time Notifications
 - **WebSocket Server**: `server/websocket.ts` - handles WebSocket connections with JWT authentication
