@@ -254,96 +254,28 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getEquipmentById(id: string): Promise<Equipment | undefined> {
-    const { data, error } = await this.sb
-      .from("equipment")
-      .select("*")
-      .eq("id", id)
-      .single();
-    if (error || !data) return undefined;
-    
-    const equipment = toCamelCase(data) as Equipment;
-    // Merge with local icon cache
-    const cachedIcon = this.equipmentIconCache.get(id);
-    if (cachedIcon) {
-      equipment.icon = cachedIcon;
-    }
-    return equipment;
+    const [result] = await db.select().from(equipmentTable).where(eq(equipmentTable.id, id));
+    return result;
   }
 
   async createEquipment(equipment: InsertEquipment): Promise<Equipment> {
-    // Extract icon separately to handle schema cache issues
-    const { icon, ...restEquipment } = equipment;
-    
-    const { data, error } = await this.sb
-      .from("equipment")
-      .insert(toSnakeCase(restEquipment))
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-    
-    // Save icon to local cache
-    if (icon && data?.id) {
-      this.equipmentIconCache.set(data.id, icon);
-      console.log("[storage] Icon cached for equipment:", data.id, icon);
-    }
-    
-    const result = toCamelCase(data) as Equipment;
-    if (icon) {
-      result.icon = icon;
-    }
+    const [result] = await db.insert(equipmentTable).values(equipment).returning();
     return result;
   }
 
   async updateEquipment(id: string, equipment: Partial<InsertEquipment>): Promise<Equipment | undefined> {
-    console.log("[storage] Updating equipment:", id, JSON.stringify(equipment));
-    
-    // Extract icon and handle separately
-    const { icon, ...restEquipment } = equipment;
-    const snakeCaseData = toSnakeCase(restEquipment);
-    
-    const { data, error } = await this.sb
-      .from("equipment")
-      .update(snakeCaseData)
-      .eq("id", id)
-      .select()
-      .single();
-    
-    if (error) {
-      console.error("[storage] Equipment update error:", error.message);
-      throw new Error(error.message);
-    }
-    
-    // Save icon to local cache
-    if (icon !== undefined && icon !== null) {
-      this.equipmentIconCache.set(id, icon);
-      console.log("[storage] Icon cached for equipment:", id, icon);
-    } else if (icon === null) {
-      // Remove from cache if explicitly set to null
-      this.equipmentIconCache.delete(id);
-    }
-    
-    if (!data) return undefined;
-    
-    const result = toCamelCase(data) as Equipment;
-    
-    // Add icon from cache
-    const cachedIcon = this.equipmentIconCache.get(id);
-    if (cachedIcon) {
-      result.icon = cachedIcon;
-    } else if (icon !== undefined) {
-      result.icon = icon;
-    }
-    
-    console.log("[storage] Update successful, returning:", JSON.stringify(result));
+    const [result] = await db.update(equipmentTable)
+      .set({ ...equipment, updatedAt: new Date() })
+      .where(eq(equipmentTable.id, id))
+      .returning();
     return result;
   }
 
   async deleteEquipment(id: string): Promise<boolean> {
-    const { error } = await this.sb
-      .from("equipment")
-      .delete()
-      .eq("id", id);
-    return !error;
+    const result = await db.delete(equipmentTable)
+      .where(eq(equipmentTable.id, id))
+      .returning({ id: equipmentTable.id });
+    return result.length > 0;
   }
 
   async getMaintenanceRequests(condominiumId?: string): Promise<MaintenanceRequest[]> {
