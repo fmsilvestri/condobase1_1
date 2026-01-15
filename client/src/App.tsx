@@ -31,6 +31,7 @@ import Security from "@/pages/security";
 import Condominiums from "@/pages/condominiums";
 import Login from "@/pages/login";
 import PreventiveMaintenance from "@/pages/preventive-maintenance";
+import PlatformAdmin from "@/pages/platform-admin";
 
 function Router() {
   return (
@@ -48,6 +49,7 @@ function Router() {
       <Route path="/fornecedores" component={Suppliers} />
       <Route path="/comunicados" component={Announcements} />
       <Route path="/admin" component={Admin} />
+      <Route path="/painel-plataforma" component={PlatformAdmin} />
       <Route path="/controle-acesso" component={FeatureAccess} />
       <Route path="/relatorios" component={Reports} />
       <Route path="/seguranca" component={Security} />

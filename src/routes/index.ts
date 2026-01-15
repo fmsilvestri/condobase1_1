@@ -435,6 +435,178 @@ router.get(
   }
 );
 
+// Criar usuário síndico inicial para um condomínio
+router.post(
+  "/admin/condominios/:condominiumId/sindico",
+  identificarAdminPlataforma,
+  permitirApenasAdminPlataforma,
+  async (req, res) => {
+    try {
+      const { condominiumId } = req.params;
+      const { email, name, password } = req.body;
+
+      if (!email || !name) {
+        return res.status(400).json({ error: "Email e nome são obrigatórios" });
+      }
+
+      // Verificar se o condomínio existe
+      const condominium = await storage.getCondominiumById(condominiumId);
+      if (!condominium) {
+        return res.status(404).json({ error: "Condomínio não encontrado" });
+      }
+
+      // Verificar se já existe um usuário com esse email
+      let user = await storage.getUserByEmail(email);
+      
+      if (!user) {
+        // Criar usuário no banco local
+        user = await storage.createUser({
+          email,
+          name,
+          role: "síndico",
+          isActive: true
+        });
+
+        // Se tiver password, criar no Supabase Auth também
+        if (password && isSupabaseConfigured && supabase) {
+          try {
+            const { error: authError } = await supabase.auth.admin.createUser({
+              email,
+              password,
+              email_confirm: true
+            });
+            if (authError) {
+              console.warn("[Admin] Erro ao criar usuário no Supabase Auth:", authError.message);
+            }
+          } catch (authErr) {
+            console.warn("[Admin] Supabase Auth não disponível para criar usuário");
+          }
+        }
+      }
+
+      // Verificar se já está associado ao condomínio
+      const existingAssociations = await storage.getUserCondominiums(user.id);
+      const alreadyAssociated = existingAssociations.some(
+        uc => uc.condominiumId === condominiumId
+      );
+
+      if (alreadyAssociated) {
+        return res.status(409).json({ 
+          error: "Usuário já está associado a este condomínio",
+          user,
+          association: existingAssociations.find(uc => uc.condominiumId === condominiumId)
+        });
+      }
+
+      // Associar usuário ao condomínio como síndico
+      const userCondominium = await storage.addUserToCondominium({
+        userId: user.id,
+        condominiumId,
+        role: "síndico",
+        isActive: true
+      });
+
+      res.status(201).json({
+        success: true,
+        user,
+        association: userCondominium,
+        condominium
+      });
+    } catch (error: any) {
+      console.error("[Admin] Erro ao criar síndico:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
+// Criar usuário para a plataforma (admin pode criar qualquer tipo de usuário)
+router.post(
+  "/admin/usuarios",
+  identificarAdminPlataforma,
+  permitirApenasAdminPlataforma,
+  async (req, res) => {
+    try {
+      const { email, name, role, password, condominiumId } = req.body;
+
+      if (!email || !name) {
+        return res.status(400).json({ error: "Email e nome são obrigatórios" });
+      }
+
+      // Verificar se já existe
+      const existing = await storage.getUserByEmail(email);
+      if (existing) {
+        return res.status(409).json({ error: "Usuário já existe com este email" });
+      }
+
+      // Criar usuário no banco local
+      const user = await storage.createUser({
+        email,
+        name,
+        role: role || "condômino",
+        isActive: true
+      });
+
+      // Se tiver password, criar no Supabase Auth
+      if (password && isSupabaseConfigured && supabase) {
+        try {
+          const { error: authError } = await supabase.auth.admin.createUser({
+            email,
+            password,
+            email_confirm: true
+          });
+          if (authError) {
+            console.warn("[Admin] Erro ao criar usuário no Supabase Auth:", authError.message);
+          }
+        } catch (authErr) {
+          console.warn("[Admin] Supabase Auth não disponível");
+        }
+      }
+
+      // Se informou condominiumId, associar
+      let association = null;
+      if (condominiumId) {
+        association = await storage.addUserToCondominium({
+          userId: user.id,
+          condominiumId,
+          role: role === "síndico" ? "síndico" : "condômino",
+          isActive: true
+        });
+      }
+
+      res.status(201).json({
+        success: true,
+        user,
+        association
+      });
+    } catch (error: any) {
+      console.error("[Admin] Erro ao criar usuário:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
+// Ativar/desativar usuário
+router.patch(
+  "/admin/usuarios/:userId/status",
+  identificarAdminPlataforma,
+  permitirApenasAdminPlataforma,
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { isActive } = req.body;
+
+      const user = await storage.updateUser(userId, { isActive });
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+
+      res.json({ success: true, user });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
 router.get("/users/:userId/condominiums", async (req, res) => {
   try {
     const userCondominiums = await storage.getUserCondominiums(req.params.userId);

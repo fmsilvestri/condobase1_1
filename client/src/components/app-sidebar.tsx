@@ -281,19 +281,34 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 {userRole === "admin" && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={location === "/condominios"}
-                      data-testid="nav-condominios"
-                      className="rounded-lg h-9 transition-all duration-200 data-[active=true]:bg-cyan-500/15 data-[active=true]:text-cyan-600 dark:data-[active=true]:text-cyan-400 data-[active=true]:font-medium"
-                    >
-                      <Link href="/condominios">
-                        <Building2 className="h-4 w-4" />
-                        <span className="text-sm">Condomínios</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                  <>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={location === "/painel-plataforma"}
+                        data-testid="nav-painel-plataforma"
+                        className="rounded-lg h-9 transition-all duration-200 data-[active=true]:bg-cyan-500/15 data-[active=true]:text-cyan-600 dark:data-[active=true]:text-cyan-400 data-[active=true]:font-medium"
+                      >
+                        <Link href="/painel-plataforma">
+                          <Shield className="h-4 w-4" />
+                          <span className="text-sm">Painel da Plataforma</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={location === "/condominios"}
+                        data-testid="nav-condominios"
+                        className="rounded-lg h-9 transition-all duration-200 data-[active=true]:bg-cyan-500/15 data-[active=true]:text-cyan-600 dark:data-[active=true]:text-cyan-400 data-[active=true]:font-medium"
+                      >
+                        <Link href="/condominios">
+                          <Building2 className="h-4 w-4" />
+                          <span className="text-sm">Condomínios</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  </>
                 )}
               </SidebarMenu>
             </SidebarGroupContent>

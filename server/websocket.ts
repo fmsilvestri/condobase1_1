@@ -2,6 +2,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "http";
 import type { Notification } from "@shared/schema";
 import { supabase, isSupabaseConfigured } from "./supabase";
+import { storage } from "./storage";
 
 interface ConnectedClient {
   ws: WebSocket;
@@ -10,10 +11,10 @@ interface ConnectedClient {
 
 const clients: Map<string, ConnectedClient[]> = new Map();
 
-async function verifyToken(token: string): Promise<string | null> {
+async function verifyTokenAndGetLocalUserId(token: string, claimedLocalUserId: string): Promise<string | null> {
   if (!isSupabaseConfigured || !supabase) {
-    console.log("[WebSocket] Supabase not configured, skipping token verification");
-    return null;
+    console.log("[WebSocket] Supabase not configured, using claimed userId");
+    return claimedLocalUserId;
   }
   
   try {
@@ -22,11 +23,23 @@ async function verifyToken(token: string): Promise<string | null> {
       console.log("[WebSocket] Token verification error:", error.message);
       return null;
     }
-    if (!user) {
-      console.log("[WebSocket] No user found for token");
+    if (!user || !user.email) {
+      console.log("[WebSocket] No user/email found for token");
       return null;
     }
-    return user.id;
+    
+    const localUser = await storage.getUserByEmail(user.email);
+    if (!localUser) {
+      console.log("[WebSocket] Local user not found for email:", user.email);
+      return null;
+    }
+    
+    if (localUser.id !== claimedLocalUserId) {
+      console.log("[WebSocket] Claimed userId doesn't match local user for this email");
+      return null;
+    }
+    
+    return localUser.id;
   } catch (error) {
     console.error("[WebSocket] Token verification exception:", error);
     return null;
@@ -57,7 +70,7 @@ export function setupWebSocket(httpServer: Server) {
           return;
         }
         
-        const verifiedUserId = await verifyToken(authMessage.token);
+        const verifiedUserId = await verifyTokenAndGetLocalUserId(authMessage.token, authMessage.userId);
         
         if (!verifiedUserId) {
           console.log("[WebSocket] Token verification failed");
@@ -65,32 +78,26 @@ export function setupWebSocket(httpServer: Server) {
           return;
         }
         
-        if (verifiedUserId !== authMessage.userId) {
-          console.log("[WebSocket] User ID mismatch");
-          ws.close(1008, "Authentication failed");
-          return;
-        }
-        
         clearTimeout(authTimeout);
         authenticated = true;
-        userId = authMessage.userId;
+        userId = verifiedUserId;
         
         console.log(`[WebSocket] Client authenticated: ${userId}`);
         
-        const clientList = clients.get(userId) || [];
-        clientList.push({ ws, userId });
-        clients.set(userId, clientList);
+        const clientList = clients.get(verifiedUserId) || [];
+        clientList.push({ ws, userId: verifiedUserId });
+        clients.set(verifiedUserId, clientList);
         
-        ws.send(JSON.stringify({ type: "authenticated", userId }));
+        ws.send(JSON.stringify({ type: "authenticated", userId: verifiedUserId }));
         
         ws.on("close", () => {
-          console.log(`[WebSocket] Client disconnected: ${userId}`);
-          const clientList = clients.get(userId!) || [];
+          console.log(`[WebSocket] Client disconnected: ${verifiedUserId}`);
+          const clientList = clients.get(verifiedUserId) || [];
           const filteredList = clientList.filter((c) => c.ws !== ws);
           if (filteredList.length === 0) {
-            clients.delete(userId!);
+            clients.delete(verifiedUserId);
           } else {
-            clients.set(userId!, filteredList);
+            clients.set(verifiedUserId, filteredList);
           }
         });
         
