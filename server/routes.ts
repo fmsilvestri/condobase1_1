@@ -41,7 +41,8 @@ import {
 } from "@shared/schema";
 
 import { z } from "zod";
-import { supabase, supabaseAdmin, isSupabaseConfigured, isSupabaseAdminConfigured } from "./supabase";
+import { supabase, isSupabaseConfigured } from "./supabase";
+import { identificarAdminPlataforma, permitirApenasAdminPlataforma } from "./admin-middleware";
 
 const storage = createStorage();
 
@@ -56,7 +57,7 @@ export async function registerRoutes(
   app.use(condominiumContextMiddleware);
 
   const publicPaths = ["/supabase-config", "/supabase-status", "/login"];
-  const userScopedPaths = ["/condominiums", "/users", "/user-condominiums"];
+  const userScopedPaths = ["/condominiums", "/users", "/user-condominiums", "/admin"];
   
   app.use("/api", (req, res, next) => {
     if (publicPaths.some(p => req.path === p || req.path.startsWith(p + "/"))) {
@@ -218,101 +219,139 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/condominiums", async (req, res) => {
-    try {
-      if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-        return res.status(503).json({ error: "Supabase Admin não configurado" });
+  app.post(
+    "/api/condominiums",
+    identificarAdminPlataforma,
+    permitirApenasAdminPlataforma,
+    async (req, res) => {
+      try {
+        const validatedData = insertCondominiumSchema.parse(req.body);
+        const condominium = await storage.createCondominium(validatedData);
+        res.status(201).json(condominium);
+      } catch (error: any) {
+        res.status(400).json({ error: error.message });
       }
-      
-      const validatedData = insertCondominiumSchema.parse(req.body);
-      
-      const { data, error } = await supabaseAdmin
-        .from("condominiums")
-        .insert({
-          name: validatedData.name,
-          address: validatedData.address || null,
-          city: validatedData.city || null,
-          state: validatedData.state || null,
-          zip_code: validatedData.zipCode || null,
-          phone: validatedData.phone || null,
-          email: validatedData.email || null,
-          total_units: validatedData.totalUnits || null,
-          is_active: validatedData.isActive ?? true,
-        })
-        .select()
-        .single();
-      
-      if (error) {
-        return res.status(400).json({ error: error.message });
-      }
-      
-      res.status(201).json(data);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
     }
-  });
+  );
 
-  app.patch("/api/condominiums/:id", async (req, res) => {
-    try {
-      if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-        return res.status(503).json({ error: "Supabase Admin não configurado" });
+  app.patch(
+    "/api/condominiums/:id",
+    identificarAdminPlataforma,
+    permitirApenasAdminPlataforma,
+    async (req, res) => {
+      try {
+        const partialCondominiumSchema = insertCondominiumSchema.partial();
+        const validatedData = partialCondominiumSchema.parse(req.body);
+        const condominium = await storage.updateCondominium(req.params.id, validatedData);
+        if (!condominium) {
+          return res.status(404).json({ error: "Condomínio não encontrado" });
+        }
+        res.json(condominium);
+      } catch (error: any) {
+        if (error.name === "ZodError") {
+          return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+        }
+        res.status(500).json({ error: error.message });
       }
-      
-      const partialCondominiumSchema = insertCondominiumSchema.partial();
-      const validatedData = partialCondominiumSchema.parse(req.body);
-      
-      const updateData: Record<string, any> = {};
-      if (validatedData.name !== undefined) updateData.name = validatedData.name;
-      if (validatedData.address !== undefined) updateData.address = validatedData.address;
-      if (validatedData.city !== undefined) updateData.city = validatedData.city;
-      if (validatedData.state !== undefined) updateData.state = validatedData.state;
-      if (validatedData.zipCode !== undefined) updateData.zip_code = validatedData.zipCode;
-      if (validatedData.phone !== undefined) updateData.phone = validatedData.phone;
-      if (validatedData.email !== undefined) updateData.email = validatedData.email;
-      if (validatedData.totalUnits !== undefined) updateData.total_units = validatedData.totalUnits;
-      if (validatedData.isActive !== undefined) updateData.is_active = validatedData.isActive;
-      updateData.updated_at = new Date().toISOString();
-      
-      const { data, error } = await supabaseAdmin
-        .from("condominiums")
-        .update(updateData)
-        .eq("id", req.params.id)
-        .select()
-        .single();
-      
-      if (error) {
-        return res.status(404).json({ error: "Condomínio não encontrado" });
-      }
-      
-      res.json(data);
-    } catch (error: any) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
-      }
-      res.status(500).json({ error: error.message });
     }
-  });
+  );
 
-  app.delete("/api/condominiums/:id", async (req, res) => {
-    try {
-      if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-        return res.status(503).json({ error: "Supabase Admin não configurado" });
+  app.delete(
+    "/api/condominiums/:id",
+    identificarAdminPlataforma,
+    permitirApenasAdminPlataforma,
+    async (req, res) => {
+      try {
+        const deleted = await storage.deleteCondominium(req.params.id);
+        if (!deleted) {
+          return res.status(404).json({ error: "Condomínio não encontrado" });
+        }
+        res.json({ success: true });
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
       }
-      
-      const { error } = await supabaseAdmin
-        .from("condominiums")
-        .delete()
-        .eq("id", req.params.id);
-      
-      if (error) {
-        return res.status(404).json({ error: "Condomínio não encontrado" });
-      }
-      
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
     }
-  });
+  );
+
+  // Admin routes - require platform admin
+  app.post(
+    "/api/admin/condominios",
+    identificarAdminPlataforma,
+    permitirApenasAdminPlataforma,
+    async (req, res) => {
+      try {
+        const validatedData = insertCondominiumSchema.parse(req.body);
+        const condominium = await storage.createCondominium(validatedData);
+        res.status(201).json(condominium);
+      } catch (error: any) {
+        res.status(400).json({ error: error.message });
+      }
+    }
+  );
+
+  app.get(
+    "/api/admin/condominios",
+    identificarAdminPlataforma,
+    permitirApenasAdminPlataforma,
+    async (req, res) => {
+      try {
+        const condominiums = await storage.getCondominiums();
+        res.json(condominiums);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  );
+
+  app.patch(
+    "/api/admin/condominios/:id",
+    identificarAdminPlataforma,
+    permitirApenasAdminPlataforma,
+    async (req, res) => {
+      try {
+        const partialCondominiumSchema = insertCondominiumSchema.partial();
+        const validatedData = partialCondominiumSchema.parse(req.body);
+        const condominium = await storage.updateCondominium(req.params.id, validatedData);
+        if (!condominium) {
+          return res.status(404).json({ error: "Condomínio não encontrado" });
+        }
+        res.json(condominium);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  );
+
+  app.delete(
+    "/api/admin/condominios/:id",
+    identificarAdminPlataforma,
+    permitirApenasAdminPlataforma,
+    async (req, res) => {
+      try {
+        const deleted = await storage.deleteCondominium(req.params.id);
+        if (!deleted) {
+          return res.status(404).json({ error: "Condomínio não encontrado" });
+        }
+        res.json({ success: true });
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  );
+
+  app.get(
+    "/api/admin/usuarios",
+    identificarAdminPlataforma,
+    permitirApenasAdminPlataforma,
+    async (req, res) => {
+      try {
+        const users = await storage.getUsers();
+        res.json(users);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  );
 
   // User-Condominium relationship routes
   app.get("/api/users/:userId/condominiums", async (req, res) => {
