@@ -13,6 +13,8 @@ import {
   UserCheck,
   UserX,
   Loader2,
+  Building2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,8 +64,10 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { User } from "@shared/schema";
+import type { User, Condominium, UserCondominium } from "@shared/schema";
 import { userRoles } from "@shared/schema";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const userFormSchema = z.object({
   email: z.string().email("E-mail inválido"),
@@ -80,10 +84,26 @@ export default function Admin() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
+  const [managingCondosUser, setManagingCondosUser] = useState<User | null>(null);
   const { toast } = useToast();
 
   const { data: users = [], isLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
+  });
+
+  const { data: allCondominiums = [] } = useQuery<Condominium[]>({
+    queryKey: ["/api/admin/condominios"],
+  });
+
+  const { data: userCondominiums = [], refetch: refetchUserCondos } = useQuery<(UserCondominium & { condominium: Condominium })[]>({
+    queryKey: ["/api/users", managingCondosUser?.id, "condominiums"],
+    queryFn: async () => {
+      if (!managingCondosUser) return [];
+      const res = await fetch(`/api/users/${managingCondosUser.id}/condominiums`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!managingCondosUser,
   });
 
   const form = useForm<UserFormData>({
@@ -139,6 +159,55 @@ export default function Admin() {
       toast({ title: "Erro ao remover usuário", description: error.message, variant: "destructive" });
     },
   });
+
+  const addCondoMutation = useMutation({
+    mutationFn: async ({ userId, condominiumId, role }: { userId: string; condominiumId: string; role: string }) => {
+      return apiRequest("POST", "/api/user-condominiums", { userId, condominiumId, role });
+    },
+    onSuccess: () => {
+      refetchUserCondos();
+      toast({ title: "Condomínio adicionado com sucesso!" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao adicionar condomínio", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const removeCondoMutation = useMutation({
+    mutationFn: async ({ userId, condominiumId }: { userId: string; condominiumId: string }) => {
+      return apiRequest("DELETE", `/api/user-condominiums/${userId}/${condominiumId}`);
+    },
+    onSuccess: () => {
+      refetchUserCondos();
+      toast({ title: "Condomínio removido com sucesso!" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao remover condomínio", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleOpenCondosDialog = (user: User) => {
+    setManagingCondosUser(user);
+  };
+
+  const handleCloseCondosDialog = () => {
+    setManagingCondosUser(null);
+  };
+
+  const handleToggleCondominium = (condominiumId: string, isAssigned: boolean) => {
+    if (!managingCondosUser) return;
+    
+    if (isAssigned) {
+      removeCondoMutation.mutate({ userId: managingCondosUser.id, condominiumId });
+    } else {
+      const role = managingCondosUser.role === "síndico" ? "síndico" : "condômino";
+      addCondoMutation.mutate({ userId: managingCondosUser.id, condominiumId, role });
+    }
+  };
+
+  const isCondoAssigned = (condominiumId: string): boolean => {
+    return userCondominiums.some(uc => uc.condominiumId === condominiumId);
+  };
 
   const handleOpenDialog = (user?: User) => {
     if (user) {
@@ -333,12 +402,22 @@ export default function Admin() {
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleOpenCondosDialog(user)}
+                          data-testid={`button-condos-${user.id}`}
+                          title="Gerenciar condomínios"
+                        >
+                          <Building2 className="h-4 w-4" />
+                        </Button>
                         <Button
                           size="icon"
                           variant="ghost"
                           onClick={() => handleOpenDialog(user)}
                           data-testid={`button-edit-${user.id}`}
+                          title="Editar usuário"
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -347,6 +426,7 @@ export default function Admin() {
                           variant="ghost"
                           onClick={() => setDeletingUser(user)}
                           data-testid={`button-delete-${user.id}`}
+                          title="Excluir usuário"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -513,6 +593,66 @@ export default function Admin() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!managingCondosUser} onOpenChange={handleCloseCondosDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Condomínios de {managingCondosUser?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Selecione quais condomínios este usuário pode acessar
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-80 pr-4">
+            <div className="space-y-3">
+              {allCondominiums.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Nenhum condomínio cadastrado
+                </p>
+              ) : (
+                allCondominiums.map((condo) => {
+                  const isAssigned = isCondoAssigned(condo.id);
+                  const isLoading = addCondoMutation.isPending || removeCondoMutation.isPending;
+                  
+                  return (
+                    <div
+                      key={condo.id}
+                      className="flex items-center gap-3 p-3 rounded-lg border hover-elevate"
+                      data-testid={`condo-item-${condo.id}`}
+                    >
+                      <Checkbox
+                        id={`condo-${condo.id}`}
+                        checked={isAssigned}
+                        disabled={isLoading}
+                        onCheckedChange={() => handleToggleCondominium(condo.id, isAssigned)}
+                        data-testid={`checkbox-condo-${condo.id}`}
+                      />
+                      <label
+                        htmlFor={`condo-${condo.id}`}
+                        className="flex-1 text-sm font-medium cursor-pointer"
+                      >
+                        {condo.name}
+                      </label>
+                      {isAssigned && (
+                        <Badge variant="secondary" className="text-xs">
+                          Vinculado
+                        </Badge>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCloseCondosDialog}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

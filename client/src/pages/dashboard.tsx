@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useModulePermissions } from "@/hooks/use-module-permissions";
+import { useCondominium } from "@/hooks/use-condominium";
 
 interface DashboardData {
   openRequests: number;
@@ -45,6 +46,7 @@ export default function Dashboard() {
     queryKey: ["/api/dashboard"],
   });
   const { canAccessModule } = useModulePermissions();
+  const { selectedCondominium } = useCondominium();
 
   if (isLoading) {
     return (
@@ -189,11 +191,11 @@ export default function Dashboard() {
             className="text-xl font-semibold text-foreground" 
             data-testid="text-dashboard-title"
           >
-            Painel de Controle
+            {selectedCondominium?.name || "Painel de Controle"}
           </h1>
           <p className="text-sm text-muted-foreground flex items-center gap-2" data-testid="text-dashboard-subtitle">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Visão geral do condomínio
+            {selectedCondominium ? "Painel de Controle" : "Selecione um condomínio"}
           </p>
         </div>
       </div>
