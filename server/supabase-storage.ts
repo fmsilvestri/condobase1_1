@@ -288,46 +288,32 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getMaintenanceRequestById(id: string): Promise<MaintenanceRequest | undefined> {
-    const { data, error } = await this.sb
-      .from("maintenance_requests")
-      .select("*")
-      .eq("id", id)
-      .single();
-    if (error || !data) return undefined;
-    return toCamelCase(data) as MaintenanceRequest;
+    const [result] = await db.select().from(maintenanceRequestsTable).where(eq(maintenanceRequestsTable.id, id));
+    return result;
   }
 
   async createMaintenanceRequest(request: InsertMaintenanceRequest): Promise<MaintenanceRequest> {
-    const { data, error } = await this.sb
-      .from("maintenance_requests")
-      .insert(toSnakeCase(request))
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-    return toCamelCase(data) as MaintenanceRequest;
+    const [result] = await db.insert(maintenanceRequestsTable).values(request).returning();
+    return result;
   }
 
   async updateMaintenanceRequest(id: string, request: Partial<InsertMaintenanceRequest>): Promise<MaintenanceRequest | undefined> {
-    const updateData = toSnakeCase(request);
+    const updateData: any = { ...request, updatedAt: new Date() };
     if (request.status === "concluído") {
-      updateData.completed_at = new Date().toISOString();
+      updateData.completedAt = new Date();
     }
-    const { data, error } = await this.sb
-      .from("maintenance_requests")
-      .update(updateData)
-      .eq("id", id)
-      .select()
-      .single();
-    if (error || !data) return undefined;
-    return toCamelCase(data) as MaintenanceRequest;
+    const [result] = await db.update(maintenanceRequestsTable)
+      .set(updateData)
+      .where(eq(maintenanceRequestsTable.id, id))
+      .returning();
+    return result;
   }
 
   async deleteMaintenanceRequest(id: string): Promise<boolean> {
-    const { error } = await this.sb
-      .from("maintenance_requests")
-      .delete()
-      .eq("id", id);
-    return !error;
+    const result = await db.delete(maintenanceRequestsTable)
+      .where(eq(maintenanceRequestsTable.id, id))
+      .returning({ id: maintenanceRequestsTable.id });
+    return result.length > 0;
   }
 
   async getMaintenanceCompletions(): Promise<MaintenanceCompletion[]> {
@@ -514,90 +500,62 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getDocumentById(id: string): Promise<Document | undefined> {
-    const { data, error } = await this.sb
-      .from("documents")
-      .select("*")
-      .eq("id", id)
-      .single();
-    if (error || !data) return undefined;
-    return toCamelCase(data) as Document;
+    const [result] = await db.select().from(documentsTable).where(eq(documentsTable.id, id));
+    return result;
   }
 
   async createDocument(doc: InsertDocument): Promise<Document> {
-    const { data, error } = await this.sb
-      .from("documents")
-      .insert(toSnakeCase(doc))
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-    return toCamelCase(data) as Document;
+    const [result] = await db.insert(documentsTable).values(doc).returning();
+    return result;
   }
 
   async updateDocument(id: string, doc: Partial<InsertDocument>): Promise<Document | undefined> {
-    const { data, error } = await this.sb
-      .from("documents")
-      .update(toSnakeCase(doc))
-      .eq("id", id)
-      .select()
-      .single();
-    if (error || !data) return undefined;
-    return toCamelCase(data) as Document;
+    const [result] = await db.update(documentsTable)
+      .set(doc)
+      .where(eq(documentsTable.id, id))
+      .returning();
+    return result;
   }
 
   async deleteDocument(id: string): Promise<boolean> {
-    const { error } = await this.sb
-      .from("documents")
-      .delete()
-      .eq("id", id);
-    return !error;
+    const result = await db.delete(documentsTable)
+      .where(eq(documentsTable.id, id))
+      .returning({ id: documentsTable.id });
+    return result.length > 0;
   }
 
-  async getSuppliers(): Promise<Supplier[]> {
-    const { data, error } = await this.sb
-      .from("suppliers")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) throw new Error(error.message);
-    return (data || []).map(d => toCamelCase(d) as Supplier);
+  async getSuppliers(condominiumId?: string): Promise<Supplier[]> {
+    if (condominiumId) {
+      return db.select().from(suppliersTable)
+        .where(eq(suppliersTable.condominiumId, condominiumId))
+        .orderBy(desc(suppliersTable.createdAt));
+    }
+    return db.select().from(suppliersTable).orderBy(desc(suppliersTable.createdAt));
   }
 
   async getSupplierById(id: string): Promise<Supplier | undefined> {
-    const { data, error } = await this.sb
-      .from("suppliers")
-      .select("*")
-      .eq("id", id)
-      .single();
-    if (error || !data) return undefined;
-    return toCamelCase(data) as Supplier;
+    const [result] = await db.select().from(suppliersTable).where(eq(suppliersTable.id, id));
+    return result;
   }
 
   async createSupplier(supplier: InsertSupplier): Promise<Supplier> {
-    const { data, error } = await this.sb
-      .from("suppliers")
-      .insert(toSnakeCase(supplier))
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-    return toCamelCase(data) as Supplier;
+    const [result] = await db.insert(suppliersTable).values(supplier).returning();
+    return result;
   }
 
   async updateSupplier(id: string, supplier: Partial<InsertSupplier>): Promise<Supplier | undefined> {
-    const { data, error } = await this.sb
-      .from("suppliers")
-      .update(toSnakeCase(supplier))
-      .eq("id", id)
-      .select()
-      .single();
-    if (error || !data) return undefined;
-    return toCamelCase(data) as Supplier;
+    const [result] = await db.update(suppliersTable)
+      .set(supplier)
+      .where(eq(suppliersTable.id, id))
+      .returning();
+    return result;
   }
 
   async deleteSupplier(id: string): Promise<boolean> {
-    const { error } = await this.sb
-      .from("suppliers")
-      .delete()
-      .eq("id", id);
-    return !error;
+    const result = await db.delete(suppliersTable)
+      .where(eq(suppliersTable.id, id))
+      .returning({ id: suppliersTable.id });
+    return result.length > 0;
   }
 
   async getAnnouncements(condominiumId?: string): Promise<Announcement[]> {
@@ -610,42 +568,28 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getAnnouncementById(id: string): Promise<Announcement | undefined> {
-    const { data, error } = await this.sb
-      .from("announcements")
-      .select("*")
-      .eq("id", id)
-      .single();
-    if (error || !data) return undefined;
-    return toCamelCase(data) as Announcement;
+    const [result] = await db.select().from(announcementsTable).where(eq(announcementsTable.id, id));
+    return result;
   }
 
   async createAnnouncement(announcement: InsertAnnouncement): Promise<Announcement> {
-    const { data, error } = await this.sb
-      .from("announcements")
-      .insert(toSnakeCase(announcement))
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-    return toCamelCase(data) as Announcement;
+    const [result] = await db.insert(announcementsTable).values(announcement).returning();
+    return result;
   }
 
   async updateAnnouncement(id: string, announcement: Partial<InsertAnnouncement>): Promise<Announcement | undefined> {
-    const { data, error } = await this.sb
-      .from("announcements")
-      .update(toSnakeCase(announcement))
-      .eq("id", id)
-      .select()
-      .single();
-    if (error || !data) return undefined;
-    return toCamelCase(data) as Announcement;
+    const [result] = await db.update(announcementsTable)
+      .set(announcement)
+      .where(eq(announcementsTable.id, id))
+      .returning();
+    return result;
   }
 
   async deleteAnnouncement(id: string): Promise<boolean> {
-    const { error } = await this.sb
-      .from("announcements")
-      .delete()
-      .eq("id", id);
-    return !error;
+    const result = await db.delete(announcementsTable)
+      .where(eq(announcementsTable.id, id))
+      .returning({ id: announcementsTable.id });
+    return result.length > 0;
   }
 
   async getNotifications(userId: string): Promise<Notification[]> {
@@ -736,10 +680,14 @@ export class SupabaseStorage implements IStorage {
     const existing = await this.getWasteConfig();
     if (existing) {
       const [updated] = await db.update(wasteConfigTable)
-        .set({ ...config, updatedAt: new Date() })
+        .set(config)
         .where(eq(wasteConfigTable.id, existing.id))
         .returning();
       return updated;
+    }
+    // Cannot create without condominiumId
+    if (!config.condominiumId) {
+      throw new Error("condominiumId is required to create waste config");
     }
     const defaultSchedule = JSON.stringify([
       { day: "Segunda", organic: true, recyclable: false },
@@ -755,6 +703,7 @@ export class SupabaseStorage implements IStorage {
     
     const [created] = await db.insert(wasteConfigTable)
       .values({
+        condominiumId: config.condominiumId,
         schedule: config.schedule || defaultSchedule,
         organicItems: config.organicItems || defaultOrganic,
         recyclableCategories: config.recyclableCategories || defaultRecyclable,
