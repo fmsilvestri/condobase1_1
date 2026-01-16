@@ -1,7 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "http";
 import type { Notification } from "@shared/schema";
-import { supabase, isSupabaseConfigured } from "./supabase";
 import { storage } from "./storage";
 
 interface ConnectedClient {
@@ -11,22 +10,24 @@ interface ConnectedClient {
 
 const clients: Map<string, ConnectedClient[]> = new Map();
 
-async function verifyTokenAndGetLocalUserId(token: string, claimedLocalUserId: string): Promise<string | null> {
-  // For now, verify by checking if the claimed user exists in the local database
-  // The user is already authenticated via the API routes using JWT
+async function verifyTokenAndGetUserId(token: string, claimedUserId: string): Promise<string | null> {
+  // Verify user exists in user_condominiums table via the storage layer
   try {
-    const localUser = await storage.getUser(claimedLocalUserId);
-    if (!localUser) {
-      console.log("[WebSocket] User not found in local database:", claimedLocalUserId);
+    const userCondos = await storage.getUserCondominiums(claimedUserId);
+    
+    if (!userCondos || userCondos.length === 0) {
+      console.log("[WebSocket] User not found in user_condominiums:", claimedUserId);
       return null;
     }
     
-    if (!localUser.isActive) {
-      console.log("[WebSocket] User is not active:", claimedLocalUserId);
+    // Check if any of the user's condominium associations are active
+    const hasActiveAssociation = userCondos.some(uc => uc.isActive);
+    if (!hasActiveAssociation) {
+      console.log("[WebSocket] User has no active condominium associations:", claimedUserId);
       return null;
     }
     
-    return localUser.id;
+    return claimedUserId;
   } catch (error) {
     console.error("[WebSocket] User verification exception:", error);
     return null;
@@ -57,7 +58,7 @@ export function setupWebSocket(httpServer: Server) {
           return;
         }
         
-        const verifiedUserId = await verifyTokenAndGetLocalUserId(authMessage.token, authMessage.userId);
+        const verifiedUserId = await verifyTokenAndGetUserId(authMessage.token, authMessage.userId);
         
         if (!verifiedUserId) {
           console.log("[WebSocket] Token verification failed");

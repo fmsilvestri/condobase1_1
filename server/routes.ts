@@ -1137,11 +1137,14 @@ export async function registerRoutes(
 
   app.post("/api/suppliers", async (req, res) => {
     try {
+      console.log("[Supplier POST] Received body:", JSON.stringify(req.body));
       const validatedData = insertSupplierSchema.parse(req.body);
+      console.log("[Supplier POST] Validated data:", JSON.stringify(validatedData));
       const supplier = await storage.createSupplier(validatedData);
       res.status(201).json(supplier);
     } catch (error: any) {
       const zodErrors = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : null;
+      console.log("[Supplier POST] Validation error:", error.message, "| Zod errors:", zodErrors);
       res.status(400).json({ 
         error: "Invalid supplier data", 
         details: error.message,
