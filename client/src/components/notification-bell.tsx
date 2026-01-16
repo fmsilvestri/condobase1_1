@@ -14,6 +14,24 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Notification } from "@shared/schema";
 import { Link } from "wouter";
 
+function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  const condominiumId = localStorage.getItem("selectedCondominiumId");
+  const dbUserId = localStorage.getItem("dbUserId");
+  const token = localStorage.getItem("authToken");
+  
+  if (condominiumId) {
+    headers["x-condominium-id"] = condominiumId;
+  }
+  if (dbUserId) {
+    headers["x-user-id"] = dbUserId;
+  }
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 function NotificationBellContent({ userId, accessToken }: { userId: string; accessToken: string | null }) {
   const [isOpen, setIsOpen] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
@@ -22,7 +40,11 @@ function NotificationBellContent({ userId, accessToken }: { userId: string; acce
   const { data: notifications = [] } = useQuery<Notification[]>({
     queryKey: ["/api/notifications", userId, "unread"],
     queryFn: async () => {
-      const res = await fetch(`/api/notifications/${userId}/unread`);
+      const authHeaders = getAuthHeaders();
+      const res = await fetch(`/api/notifications/${userId}/unread`, {
+        headers: authHeaders,
+        credentials: "include",
+      });
       if (!res.ok) return [];
       return res.json();
     },

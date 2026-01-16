@@ -206,15 +206,26 @@ export default function Suppliers() {
   };
 
   const handleSubmit = (data: z.infer<typeof supplierFormSchema>) => {
+    const normalizedData = {
+      name: data.name,
+      category: data.category,
+      icon: data.icon || undefined,
+      phone: data.phone || undefined,
+      whatsapp: data.whatsapp || undefined,
+      email: data.email || undefined,
+      address: data.address || undefined,
+      notes: data.notes || undefined,
+    };
+    
     if (editingSupplier) {
-      updateSupplierMutation.mutate({ ...data, id: editingSupplier.id });
+      updateSupplierMutation.mutate({ ...normalizedData, id: editingSupplier.id });
     } else {
       if (!selectedCondominium?.id) {
         toast({ title: "Selecione um condomínio primeiro", variant: "destructive" });
         return;
       }
       createSupplierMutation.mutate({
-        ...data,
+        ...normalizedData,
         condominiumId: selectedCondominium.id,
       });
     }
