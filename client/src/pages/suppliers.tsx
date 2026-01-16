@@ -209,9 +209,13 @@ export default function Suppliers() {
     if (editingSupplier) {
       updateSupplierMutation.mutate({ ...data, id: editingSupplier.id });
     } else {
+      if (!selectedCondominium?.id) {
+        toast({ title: "Selecione um condomínio primeiro", variant: "destructive" });
+        return;
+      }
       createSupplierMutation.mutate({
         ...data,
-        condominiumId: selectedCondominium?.id,
+        condominiumId: selectedCondominium.id,
       });
     }
   };
