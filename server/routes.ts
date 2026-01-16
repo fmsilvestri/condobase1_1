@@ -1137,33 +1137,37 @@ export async function registerRoutes(
 
   app.post("/api/suppliers", async (req, res) => {
     try {
-      console.log("[Supplier POST] Received body:", JSON.stringify(req.body));
+      const { name, category, condominiumId, icon, phone, whatsapp, email, address, notes } = req.body;
       
-      // Normalize empty strings to undefined for optional fields
-      const normalizedData = {
-        ...req.body,
-        icon: req.body.icon || undefined,
-        phone: req.body.phone || undefined,
-        whatsapp: req.body.whatsapp || undefined,
-        email: req.body.email || undefined,
-        address: req.body.address || undefined,
-        notes: req.body.notes || undefined,
+      // Basic validation - only name and category are required
+      if (!name || typeof name !== 'string' || name.trim() === '') {
+        return res.status(400).json({ error: "Nome é obrigatório" });
+      }
+      if (!category || typeof category !== 'string' || category.trim() === '') {
+        return res.status(400).json({ error: "Categoria é obrigatória" });
+      }
+      if (!condominiumId || typeof condominiumId !== 'string') {
+        return res.status(400).json({ error: "Condomínio é obrigatório" });
+      }
+      
+      // Build data object, converting empty strings to null
+      const supplierData = {
+        name: name.trim(),
+        category: category.trim(),
+        condominiumId,
+        icon: icon && icon.trim() !== '' ? icon.trim() : null,
+        phone: phone && phone.trim() !== '' ? phone.trim() : null,
+        whatsapp: whatsapp && whatsapp.trim() !== '' ? whatsapp.trim() : null,
+        email: email && email.trim() !== '' ? email.trim() : null,
+        address: address && address.trim() !== '' ? address.trim() : null,
+        notes: notes && notes.trim() !== '' ? notes.trim() : null,
       };
       
-      console.log("[Supplier POST] Normalized data:", JSON.stringify(normalizedData));
-      const validatedData = insertSupplierSchema.parse(normalizedData);
-      console.log("[Supplier POST] Validated data:", JSON.stringify(validatedData));
-      const supplier = await storage.createSupplier(validatedData);
+      const supplier = await storage.createSupplier(supplierData);
       res.status(201).json(supplier);
     } catch (error: any) {
-      const zodErrors = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : null;
-      console.error("[Supplier POST] Validation error:", error.message, "| Zod errors:", zodErrors, "| Body:", JSON.stringify(req.body));
-      res.status(400).json({ 
-        error: "Invalid supplier data", 
-        details: error.message,
-        zodErrors,
-        receivedBody: req.body
-      });
+      console.error("[Supplier POST] Error:", error.message);
+      res.status(500).json({ error: "Erro ao criar fornecedor", details: error.message });
     }
   });
 
