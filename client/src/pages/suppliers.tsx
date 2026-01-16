@@ -71,6 +71,7 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useCondominium } from "@/hooks/use-condominium";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { equipmentCategories, type Supplier } from "@shared/schema";
 
@@ -122,6 +123,7 @@ export default function Suppliers() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const { toast } = useToast();
   const { canEdit } = useAuth();
+  const { selectedCondominium } = useCondominium();
 
   const { data: suppliers = [], isLoading } = useQuery<Supplier[]>({
     queryKey: ["/api/suppliers"],
@@ -142,7 +144,7 @@ export default function Suppliers() {
   });
 
   const createSupplierMutation = useMutation({
-    mutationFn: (data: z.infer<typeof supplierFormSchema>) =>
+    mutationFn: (data: z.infer<typeof supplierFormSchema> & { condominiumId?: string }) =>
       apiRequest("POST", "/api/suppliers", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
@@ -207,7 +209,10 @@ export default function Suppliers() {
     if (editingSupplier) {
       updateSupplierMutation.mutate({ ...data, id: editingSupplier.id });
     } else {
-      createSupplierMutation.mutate(data);
+      createSupplierMutation.mutate({
+        ...data,
+        condominiumId: selectedCondominium?.id,
+      });
     }
   };
 
