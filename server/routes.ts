@@ -1138,13 +1138,26 @@ export async function registerRoutes(
   app.post("/api/suppliers", async (req, res) => {
     try {
       console.log("[Supplier POST] Received body:", JSON.stringify(req.body));
-      const validatedData = insertSupplierSchema.parse(req.body);
+      
+      // Normalize empty strings to undefined for optional fields
+      const normalizedData = {
+        ...req.body,
+        icon: req.body.icon || undefined,
+        phone: req.body.phone || undefined,
+        whatsapp: req.body.whatsapp || undefined,
+        email: req.body.email || undefined,
+        address: req.body.address || undefined,
+        notes: req.body.notes || undefined,
+      };
+      
+      console.log("[Supplier POST] Normalized data:", JSON.stringify(normalizedData));
+      const validatedData = insertSupplierSchema.parse(normalizedData);
       console.log("[Supplier POST] Validated data:", JSON.stringify(validatedData));
       const supplier = await storage.createSupplier(validatedData);
       res.status(201).json(supplier);
     } catch (error: any) {
       const zodErrors = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : null;
-      console.log("[Supplier POST] Validation error:", error.message, "| Zod errors:", zodErrors);
+      console.error("[Supplier POST] Validation error:", error.message, "| Zod errors:", zodErrors, "| Body:", JSON.stringify(req.body));
       res.status(400).json({ 
         error: "Invalid supplier data", 
         details: error.message,

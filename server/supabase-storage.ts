@@ -141,7 +141,7 @@ export class SupabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  // User-Condominium relationship methods - using Drizzle for local database
+  // User-Condominium relationship methods - using local PostgreSQL database
   async getUserCondominiums(userId: string): Promise<(UserCondominium & { condominium?: Condominium })[]> {
     const userCondos = await db.select().from(userCondominiumsTable)
       .where(eq(userCondominiumsTable.userId, userId))
