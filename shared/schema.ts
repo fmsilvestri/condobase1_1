@@ -405,6 +405,13 @@ export const suppliers = pgTable("suppliers", {
 export const insertSupplierSchema = createInsertSchema(suppliers).omit({
   id: true,
   createdAt: true,
+}).extend({
+  icon: z.string().optional().transform(v => v === "" ? undefined : v),
+  phone: z.string().optional().transform(v => v === "" ? undefined : v),
+  whatsapp: z.string().optional().transform(v => v === "" ? undefined : v),
+  email: z.string().optional().transform(v => v === "" ? undefined : v),
+  address: z.string().optional().transform(v => v === "" ? undefined : v),
+  notes: z.string().optional().transform(v => v === "" ? undefined : v),
 });
 
 export type InsertSupplier = z.infer<typeof insertSupplierSchema>;

@@ -151,8 +151,13 @@ export default function Suppliers() {
       toast({ title: "Fornecedor cadastrado com sucesso!" });
       handleCloseDialog();
     },
-    onError: () => {
-      toast({ title: "Erro ao cadastrar fornecedor", variant: "destructive" });
+    onError: (error: Error) => {
+      console.error("[Supplier Create] Error:", error.message);
+      toast({ 
+        title: "Erro ao cadastrar fornecedor", 
+        description: error.message,
+        variant: "destructive" 
+      });
     },
   });
 
