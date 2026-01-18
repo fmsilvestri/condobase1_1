@@ -1414,6 +1414,9 @@ router.get("/announcements/:id", async (req, res) => {
 router.post("/announcements", async (req, res) => {
   try {
     const condominiumId = req.condominiumContext?.condominiumId;
+    console.log("[Announcements POST] condominiumId:", condominiumId);
+    console.log("[Announcements POST] body:", JSON.stringify(req.body, null, 2));
+    
     if (!condominiumId) {
       return res.status(400).json({ error: "Condomínio não selecionado" });
     }
@@ -1421,7 +1424,11 @@ router.post("/announcements", async (req, res) => {
     const dataWithCondominium = {
       ...req.body,
       condominiumId,
+      expiresAt: req.body.expiresAt || null,
+      photos: req.body.photos || [],
     };
+    
+    console.log("[Announcements POST] dataWithCondominium:", JSON.stringify(dataWithCondominium, null, 2));
     
     const validatedData = insertAnnouncementSchema.parse(dataWithCondominium);
     const announcement = await storage.createAnnouncement(validatedData);
