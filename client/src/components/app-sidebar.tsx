@@ -19,6 +19,7 @@ import {
   Building2,
   ChevronDown,
   CalendarCheck,
+  HelpCircle,
 } from "lucide-react";
 import {
   Sidebar,
@@ -112,6 +113,11 @@ const secondaryModules = [
     title: "Comunicados",
     url: "/comunicados",
     icon: Megaphone,
+  },
+  {
+    title: "Perguntas Frequentes",
+    url: "/faq",
+    icon: HelpCircle,
   },
 ];
 

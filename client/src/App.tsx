@@ -32,6 +32,7 @@ import Condominiums from "@/pages/condominiums";
 import Login from "@/pages/login";
 import PreventiveMaintenance from "@/pages/preventive-maintenance";
 import PlatformAdmin from "@/pages/platform-admin";
+import Faq from "@/pages/faq";
 
 function Router() {
   return (
@@ -54,6 +55,7 @@ function Router() {
       <Route path="/relatorios" component={Reports} />
       <Route path="/seguranca" component={Security} />
       <Route path="/condominios" component={Condominiums} />
+      <Route path="/faq" component={Faq} />
       <Route component={NotFound} />
     </Switch>
   );
