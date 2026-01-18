@@ -1413,7 +1413,17 @@ router.get("/announcements/:id", async (req, res) => {
 
 router.post("/announcements", async (req, res) => {
   try {
-    const validatedData = insertAnnouncementSchema.parse(req.body);
+    const condominiumId = req.condominiumContext?.condominiumId;
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não selecionado" });
+    }
+    
+    const dataWithCondominium = {
+      ...req.body,
+      condominiumId,
+    };
+    
+    const validatedData = insertAnnouncementSchema.parse(dataWithCondominium);
     const announcement = await storage.createAnnouncement(validatedData);
     
     try {
