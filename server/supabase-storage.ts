@@ -506,30 +506,37 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getOccupancyData(condominiumId?: string): Promise<OccupancyData | undefined> {
+    let query = this.sb.from("occupancy_data").select("*").order("updated_at", { ascending: false }).limit(1);
     if (condominiumId) {
-      const [data] = await db.select().from(occupancyDataTable)
-        .where(eq(occupancyDataTable.condominiumId, condominiumId))
-        .orderBy(desc(occupancyDataTable.updatedAt))
-        .limit(1);
-      return data;
+      query = query.eq("condominium_id", condominiumId);
     }
-    const [data] = await db.select().from(occupancyDataTable)
-      .orderBy(desc(occupancyDataTable.updatedAt))
-      .limit(1);
-    return data;
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) return undefined;
+    return toCamelCase(data[0]) as OccupancyData;
   }
 
   async updateOccupancyData(occupancy: InsertOccupancyData): Promise<OccupancyData> {
     const existing = await this.getOccupancyData(occupancy.condominiumId);
+    const snakeCaseData = toSnakeCase(occupancy);
+    
     if (existing) {
-      const [updated] = await db.update(occupancyDataTable)
-        .set(occupancy)
-        .where(eq(occupancyDataTable.id, existing.id))
-        .returning();
-      return updated;
+      const { data, error } = await this.sb
+        .from("occupancy_data")
+        .update({ ...snakeCaseData, updated_at: new Date().toISOString() })
+        .eq("id", existing.id)
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      return toCamelCase(data) as OccupancyData;
     } else {
-      const [created] = await db.insert(occupancyDataTable).values(occupancy).returning();
-      return created;
+      const { data, error } = await this.sb
+        .from("occupancy_data")
+        .insert(snakeCaseData)
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      return toCamelCase(data) as OccupancyData;
     }
   }
 

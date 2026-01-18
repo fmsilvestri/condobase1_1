@@ -1233,11 +1233,22 @@ router.get("/occupancy", async (req, res) => {
 
 router.put("/occupancy", async (req, res) => {
   try {
-    const validatedData = insertOccupancyDataSchema.parse(req.body);
+    const condominiumId = req.condominiumContext?.condominiumId;
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não selecionado" });
+    }
+    
+    const dataWithCondominium = {
+      ...req.body,
+      condominiumId,
+    };
+    
+    const validatedData = insertOccupancyDataSchema.parse(dataWithCondominium);
     const data = await storage.updateOccupancyData(validatedData);
     res.json(data);
-  } catch (error) {
-    res.status(400).json({ error: "Invalid occupancy data" });
+  } catch (error: any) {
+    console.error("[Occupancy PUT] Error:", error?.message || error);
+    res.status(400).json({ error: "Invalid occupancy data", details: error?.message });
   }
 });
 
