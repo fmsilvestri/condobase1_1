@@ -1319,11 +1319,36 @@ router.get("/suppliers/:id", async (req, res) => {
 
 router.post("/suppliers", async (req, res) => {
   try {
-    const validatedData = insertSupplierSchema.parse(req.body);
-    const supplier = await storage.createSupplier(validatedData);
+    const { name, category, condominiumId, phone, whatsapp, email, address, notes } = req.body;
+    
+    // Basic validation - only name and category are required
+    if (!name || typeof name !== 'string' || name.trim() === '') {
+      return res.status(400).json({ error: "Nome é obrigatório" });
+    }
+    if (!category || typeof category !== 'string' || category.trim() === '') {
+      return res.status(400).json({ error: "Categoria é obrigatória" });
+    }
+    if (!condominiumId || typeof condominiumId !== 'string') {
+      return res.status(400).json({ error: "Condomínio é obrigatório" });
+    }
+    
+    // Build data object, converting empty strings to null (no icon field - not in Supabase)
+    const supplierData = {
+      name: name.trim(),
+      category: category.trim(),
+      condominiumId,
+      phone: phone && phone.trim() !== '' ? phone.trim() : null,
+      whatsapp: whatsapp && whatsapp.trim() !== '' ? whatsapp.trim() : null,
+      email: email && email.trim() !== '' ? email.trim() : null,
+      address: address && address.trim() !== '' ? address.trim() : null,
+      notes: notes && notes.trim() !== '' ? notes.trim() : null,
+    };
+    
+    const supplier = await storage.createSupplier(supplierData);
     res.status(201).json(supplier);
-  } catch (error) {
-    res.status(400).json({ error: "Invalid supplier data" });
+  } catch (error: any) {
+    console.error("[Supplier POST] Error:", error.message);
+    res.status(500).json({ error: "Erro ao criar fornecedor", details: error.message });
   }
 });
 
