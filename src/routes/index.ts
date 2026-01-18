@@ -2017,7 +2017,15 @@ router.delete("/maintenance-documents/:id", async (req, res) => {
 router.get("/faqs", async (req, res) => {
   try {
     const condominiumId = req.condominiumContext?.condominiumId || undefined;
-    const faqs = await storage.getFaqs(condominiumId);
+    const userRole = req.condominiumContext?.role;
+    const isAdminOrSindico = userRole === "admin" || userRole === "síndico";
+    
+    let faqs = await storage.getFaqs(condominiumId);
+    
+    if (!isAdminOrSindico) {
+      faqs = faqs.filter((faq: any) => faq.isPublished === true);
+    }
+    
     res.json(faqs);
   } catch (error: any) {
     res.status(500).json({ error: "Erro ao buscar FAQs" });
@@ -2034,6 +2042,14 @@ router.get("/faqs/:id", async (req, res) => {
     if (!faq) {
       return res.status(404).json({ error: "FAQ não encontrada" });
     }
+    
+    const userRole = req.condominiumContext?.role;
+    const isAdminOrSindico = userRole === "admin" || userRole === "síndico";
+    
+    if (!faq.isPublished && !isAdminOrSindico) {
+      return res.status(404).json({ error: "FAQ não encontrada" });
+    }
+    
     await storage.incrementFaqViewCount(req.params.id);
     res.json(faq);
   } catch (error: any) {
@@ -2043,43 +2059,32 @@ router.get("/faqs/:id", async (req, res) => {
 
 router.post("/faqs", requireSindicoOrAdmin, async (req, res) => {
   try {
-    const { question, answer, category, condominiumId, isPublished, createdBy } = req.body;
-    
-    if (!question || typeof question !== 'string' || question.trim() === '') {
-      return res.status(400).json({ error: "Pergunta é obrigatória" });
-    }
-    if (!answer || typeof answer !== 'string' || answer.trim() === '') {
-      return res.status(400).json({ error: "Resposta é obrigatória" });
-    }
-    if (!condominiumId || typeof condominiumId !== 'string') {
-      return res.status(400).json({ error: "Condomínio é obrigatório" });
-    }
-    
-    const faqData = {
-      question: question.trim(),
-      answer: answer.trim(),
-      category: category || "geral",
-      condominiumId,
-      isPublished: isPublished !== false,
-      createdBy: createdBy || null,
-    };
-    
-    const faq = await storage.createFaq(faqData);
+    const validatedData = insertFaqSchema.parse(req.body);
+    const faq = await storage.createFaq(validatedData);
     res.status(201).json(faq);
   } catch (error: any) {
+    if (error.name === "ZodError") {
+      return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+    }
     console.error("[FAQ POST] Error:", error.message);
     res.status(500).json({ error: "Erro ao criar FAQ", details: error.message });
   }
 });
 
+const updateFaqSchema = insertFaqSchema.partial();
+
 router.patch("/faqs/:id", requireSindicoOrAdmin, async (req, res) => {
   try {
-    const faq = await storage.updateFaq(req.params.id, req.body);
+    const validatedData = updateFaqSchema.parse(req.body);
+    const faq = await storage.updateFaq(req.params.id, validatedData);
     if (!faq) {
       return res.status(404).json({ error: "FAQ não encontrada" });
     }
     res.json(faq);
   } catch (error: any) {
+    if (error.name === "ZodError") {
+      return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+    }
     res.status(400).json({ error: "Erro ao atualizar FAQ" });
   }
 });
