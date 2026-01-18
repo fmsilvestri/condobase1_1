@@ -16,6 +16,8 @@ import {
   Smile,
   Paperclip,
   X,
+  Share2,
+  MessageCircle,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -57,8 +59,9 @@ import {
 } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useCondominium } from "@/hooks/use-condominium";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Announcement } from "@shared/schema";
+import type { Announcement, Condominium } from "@shared/schema";
 
 const announcementFormSchema = z.object({
   title: z.string().min(1, "Título é obrigatório"),
@@ -91,6 +94,20 @@ export default function Announcements() {
   const [announcementPhotos, setAnnouncementPhotos] = useState<string[]>([]);
   const { toast } = useToast();
   const { canEdit } = useAuth();
+  const { selectedCondominium } = useCondominium();
+
+  const shareViaWhatsApp = (announcement: Announcement) => {
+    const condoName = selectedCondominium?.name || "Condomínio";
+    const priorityText = announcement.priority === "alta" ? "URGENTE: " : "";
+    
+    const message = `${priorityText}*${condoName}*\n\n*${announcement.title}*\n\n${announcement.content}`;
+    
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/?text=${encodedMessage}`;
+    
+    window.open(whatsappUrl, "_blank");
+    toast({ title: "Abrindo WhatsApp para compartilhar..." });
+  };
 
   const { data: announcements = [], isLoading } = useQuery<Announcement[]>({
     queryKey: ["/api/announcements"],
@@ -633,29 +650,41 @@ export default function Announcements() {
                     </span>
                   </div>
                 </div>
-                {canEdit && (
-                  <div className="flex gap-1">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8" 
-                      onClick={() => handleEditClick(announcement)}
-                      data-testid={`button-edit-${announcement.id}`}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 text-destructive"
-                      onClick={() => deleteAnnouncementMutation.mutate(announcement.id)}
-                      disabled={deleteAnnouncementMutation.isPending}
-                      data-testid={`button-delete-${announcement.id}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
+                <div className="flex gap-1">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-green-600 hover:text-green-700"
+                    onClick={() => shareViaWhatsApp(announcement)}
+                    title="Enviar via WhatsApp"
+                    data-testid={`button-whatsapp-${announcement.id}`}
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                  </Button>
+                  {canEdit && (
+                    <>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8" 
+                        onClick={() => handleEditClick(announcement)}
+                        data-testid={`button-edit-${announcement.id}`}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => deleteAnnouncementMutation.mutate(announcement.id)}
+                        disabled={deleteAnnouncementMutation.isPending}
+                        data-testid={`button-delete-${announcement.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground leading-relaxed" data-testid={`text-announcement-content-${announcement.id}`}>
