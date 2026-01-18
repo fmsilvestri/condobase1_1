@@ -749,3 +749,42 @@ export const insertMaintenanceDocumentSchema = createInsertSchema(maintenanceDoc
 
 export type InsertMaintenanceDocument = z.infer<typeof insertMaintenanceDocumentSchema>;
 export type MaintenanceDocument = typeof maintenanceDocuments.$inferSelect;
+
+// FAQ categories for knowledge base
+export const faqCategories = [
+  "geral",
+  "financeiro",
+  "manutenção",
+  "reservas",
+  "regras",
+  "segurança",
+  "áreas comuns",
+  "animais",
+  "mudanças",
+  "estacionamento",
+] as const;
+export type FaqCategory = (typeof faqCategories)[number];
+
+// FAQ / Knowledge Base table
+export const faqs = pgTable("faqs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  question: text("question").notNull(),
+  answer: text("answer").notNull(),
+  category: text("category").notNull().default("geral"),
+  isPublished: boolean("is_published").notNull().default(true),
+  viewCount: integer("view_count").notNull().default(0),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFaqSchema = createInsertSchema(faqs).omit({
+  id: true,
+  viewCount: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertFaq = z.infer<typeof insertFaqSchema>;
+export type Faq = typeof faqs.$inferSelect;
