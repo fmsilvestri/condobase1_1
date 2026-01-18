@@ -37,6 +37,8 @@ import {
   insertMaintenanceExecutionSchema,
   insertExecutionChecklistItemSchema,
   insertMaintenanceDocumentSchema,
+  insertFaqSchema,
+  faqCategories,
 } from "../../shared/schema";
 
 import { z } from "zod";
@@ -2006,6 +2008,91 @@ router.delete("/maintenance-documents/:id", async (req, res) => {
     res.status(204).send();
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ===========================
+// FAQ / KNOWLEDGE BASE
+// ===========================
+router.get("/faqs", async (req, res) => {
+  try {
+    const condominiumId = req.condominiumContext?.condominiumId || undefined;
+    const faqs = await storage.getFaqs(condominiumId);
+    res.json(faqs);
+  } catch (error: any) {
+    res.status(500).json({ error: "Erro ao buscar FAQs" });
+  }
+});
+
+router.get("/faqs/categories", async (req, res) => {
+  res.json(faqCategories);
+});
+
+router.get("/faqs/:id", async (req, res) => {
+  try {
+    const faq = await storage.getFaqById(req.params.id);
+    if (!faq) {
+      return res.status(404).json({ error: "FAQ não encontrada" });
+    }
+    await storage.incrementFaqViewCount(req.params.id);
+    res.json(faq);
+  } catch (error: any) {
+    res.status(500).json({ error: "Erro ao buscar FAQ" });
+  }
+});
+
+router.post("/faqs", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const { question, answer, category, condominiumId, isPublished, createdBy } = req.body;
+    
+    if (!question || typeof question !== 'string' || question.trim() === '') {
+      return res.status(400).json({ error: "Pergunta é obrigatória" });
+    }
+    if (!answer || typeof answer !== 'string' || answer.trim() === '') {
+      return res.status(400).json({ error: "Resposta é obrigatória" });
+    }
+    if (!condominiumId || typeof condominiumId !== 'string') {
+      return res.status(400).json({ error: "Condomínio é obrigatório" });
+    }
+    
+    const faqData = {
+      question: question.trim(),
+      answer: answer.trim(),
+      category: category || "geral",
+      condominiumId,
+      isPublished: isPublished !== false,
+      createdBy: createdBy || null,
+    };
+    
+    const faq = await storage.createFaq(faqData);
+    res.status(201).json(faq);
+  } catch (error: any) {
+    console.error("[FAQ POST] Error:", error.message);
+    res.status(500).json({ error: "Erro ao criar FAQ", details: error.message });
+  }
+});
+
+router.patch("/faqs/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const faq = await storage.updateFaq(req.params.id, req.body);
+    if (!faq) {
+      return res.status(404).json({ error: "FAQ não encontrada" });
+    }
+    res.json(faq);
+  } catch (error: any) {
+    res.status(400).json({ error: "Erro ao atualizar FAQ" });
+  }
+});
+
+router.delete("/faqs/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const deleted = await storage.deleteFaq(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ error: "FAQ não encontrada" });
+    }
+    res.status(204).send();
+  } catch (error: any) {
+    res.status(500).json({ error: "Erro ao remover FAQ" });
   }
 });
 

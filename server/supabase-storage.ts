@@ -84,6 +84,8 @@ import {
   type InsertExecutionChecklistItem,
   type MaintenanceDocument,
   type InsertMaintenanceDocument,
+  type Faq,
+  type InsertFaq,
 } from "@shared/schema";
 
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
@@ -1081,6 +1083,48 @@ export class SupabaseStorage implements IStorage {
     await db.delete(maintenanceDocumentsTable)
       .where(eq(maintenanceDocumentsTable.id, id));
     return true;
+  }
+
+  // ===========================
+  // FAQ / KNOWLEDGE BASE
+  // ===========================
+  async getFaqs(condominiumId?: string): Promise<Faq[]> {
+    const { data, error } = condominiumId
+      ? await this.sb.from("faqs").select("*").eq("condominium_id", condominiumId).order("created_at", { ascending: false })
+      : await this.sb.from("faqs").select("*").order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data || []).map(item => toCamelCase(item) as Faq);
+  }
+
+  async getFaqById(id: string): Promise<Faq | undefined> {
+    const { data, error } = await this.sb.from("faqs").select("*").eq("id", id).single();
+    if (error) return undefined;
+    return toCamelCase(data) as Faq;
+  }
+
+  async createFaq(faq: InsertFaq): Promise<Faq> {
+    const { data, error } = await this.sb.from("faqs").insert(toSnakeCase(faq)).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data) as Faq;
+  }
+
+  async updateFaq(id: string, faq: Partial<InsertFaq>): Promise<Faq | undefined> {
+    const { data, error } = await this.sb.from("faqs").update({ ...toSnakeCase(faq), updated_at: new Date().toISOString() }).eq("id", id).select().single();
+    if (error) return undefined;
+    return toCamelCase(data) as Faq;
+  }
+
+  async deleteFaq(id: string): Promise<boolean> {
+    const { error } = await this.sb.from("faqs").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    return true;
+  }
+
+  async incrementFaqViewCount(id: string): Promise<void> {
+    const { data } = await this.sb.from("faqs").select("view_count").eq("id", id).single();
+    if (data) {
+      await this.sb.from("faqs").update({ view_count: (data.view_count || 0) + 1 }).eq("id", id);
+    }
   }
 }
 

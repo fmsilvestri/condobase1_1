@@ -53,6 +53,8 @@ import {
   type InsertExecutionChecklistItem,
   type MaintenanceDocument,
   type InsertMaintenanceDocument,
+  type Faq,
+  type InsertFaq,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -204,6 +206,14 @@ export interface IStorage {
   getMaintenanceDocuments(executionId: string): Promise<MaintenanceDocument[]>;
   createMaintenanceDocument(doc: InsertMaintenanceDocument): Promise<MaintenanceDocument>;
   deleteMaintenanceDocument(id: string): Promise<boolean>;
+
+  // FAQ / Knowledge Base
+  getFaqs(condominiumId?: string): Promise<Faq[]>;
+  getFaqById(id: string): Promise<Faq | undefined>;
+  createFaq(faq: InsertFaq): Promise<Faq>;
+  updateFaq(id: string, faq: Partial<InsertFaq>): Promise<Faq | undefined>;
+  deleteFaq(id: string): Promise<boolean>;
+  incrementFaqViewCount(id: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
