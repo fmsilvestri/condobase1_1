@@ -1137,16 +1137,20 @@ export async function registerRoutes(
 
   app.post("/api/suppliers", async (req, res) => {
     try {
+      console.log("[SUPPLIER_CREATE_V2] Body received:", JSON.stringify(req.body));
       const { name, category, condominiumId, icon, phone, whatsapp, email, address, notes } = req.body;
       
       // Basic validation - only name and category are required
       if (!name || typeof name !== 'string' || name.trim() === '') {
+        console.log("[SUPPLIER_CREATE_V2] Missing name");
         return res.status(400).json({ error: "Nome é obrigatório" });
       }
       if (!category || typeof category !== 'string' || category.trim() === '') {
+        console.log("[SUPPLIER_CREATE_V2] Missing category");
         return res.status(400).json({ error: "Categoria é obrigatória" });
       }
       if (!condominiumId || typeof condominiumId !== 'string') {
+        console.log("[SUPPLIER_CREATE_V2] Missing condominiumId");
         return res.status(400).json({ error: "Condomínio é obrigatório" });
       }
       
