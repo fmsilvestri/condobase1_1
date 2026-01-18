@@ -1451,8 +1451,12 @@ router.post("/announcements", async (req, res) => {
     }
     
     res.status(201).json(announcement);
-  } catch (error) {
-    res.status(400).json({ error: "Invalid announcement data" });
+  } catch (error: any) {
+    console.error("[Announcements POST] Error:", error?.message || error);
+    if (error?.errors) {
+      console.error("[Announcements POST] Zod errors:", JSON.stringify(error.errors, null, 2));
+    }
+    res.status(400).json({ error: "Invalid announcement data", details: error?.message });
   }
 });
 
