@@ -415,7 +415,7 @@ export default function Maintenance() {
 
   const handleWhatsAppContact = (equipmentName: string, description: string) => {
     const message = encodeURIComponent(
-      `Olá! Gostaria de solicitar manutenção para:\n\nEquipamento: ${equipmentName}\nDescrição: ${description}`
+      `Olá Fornecedor do equipamento ${equipmentName}! Gostaria de solicitar manutenção do equipamento ${equipmentName}.`
     );
     window.open(`https://wa.me/?text=${message}`, "_blank");
   };
