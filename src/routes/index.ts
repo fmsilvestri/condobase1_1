@@ -1424,7 +1424,7 @@ router.post("/announcements", async (req, res) => {
     const dataWithCondominium = {
       ...req.body,
       condominiumId,
-      expiresAt: req.body.expiresAt || null,
+      expiresAt: req.body.expiresAt ? new Date(req.body.expiresAt) : null,
       photos: req.body.photos || [],
     };
     
