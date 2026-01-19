@@ -1421,17 +1421,13 @@ router.post("/announcements", async (req, res) => {
       return res.status(400).json({ error: "Condomínio não selecionado" });
     }
     
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { photos, ...bodyWithoutPhotos } = req.body;
     const dataWithCondominium: any = {
-      ...req.body,
+      ...bodyWithoutPhotos,
       condominiumId,
       expiresAt: req.body.expiresAt ? new Date(req.body.expiresAt) : null,
     };
-    // Only include photos if there are any
-    if (req.body.photos && req.body.photos.length > 0) {
-      dataWithCondominium.photos = req.body.photos;
-    } else {
-      delete dataWithCondominium.photos;
-    }
     
     console.log("[Announcements POST] dataWithCondominium:", JSON.stringify(dataWithCondominium, null, 2));
     
