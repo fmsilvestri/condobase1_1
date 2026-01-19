@@ -1421,12 +1421,17 @@ router.post("/announcements", async (req, res) => {
       return res.status(400).json({ error: "Condomínio não selecionado" });
     }
     
-    const dataWithCondominium = {
+    const dataWithCondominium: any = {
       ...req.body,
       condominiumId,
       expiresAt: req.body.expiresAt ? new Date(req.body.expiresAt) : null,
-      photos: req.body.photos || [],
     };
+    // Only include photos if there are any
+    if (req.body.photos && req.body.photos.length > 0) {
+      dataWithCondominium.photos = req.body.photos;
+    } else {
+      delete dataWithCondominium.photos;
+    }
     
     console.log("[Announcements POST] dataWithCondominium:", JSON.stringify(dataWithCondominium, null, 2));
     
