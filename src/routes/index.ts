@@ -1698,11 +1698,20 @@ router.get("/security-devices/:id", async (req, res) => {
 
 router.post("/security-devices", async (req, res) => {
   try {
-    const validatedData = insertSecurityDeviceSchema.parse(req.body);
+    const condominiumId = req.condominiumContext?.condominiumId;
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não selecionado" });
+    }
+    const dataWithCondominium = {
+      ...req.body,
+      condominiumId,
+    };
+    const validatedData = insertSecurityDeviceSchema.parse(dataWithCondominium);
     const device = await storage.createSecurityDevice(validatedData);
     res.status(201).json(device);
-  } catch (error) {
-    res.status(400).json({ error: "Invalid security device data" });
+  } catch (error: any) {
+    console.error("[Security Devices POST] Error:", error?.message || error);
+    res.status(400).json({ error: "Invalid security device data", details: error?.message });
   }
 });
 
@@ -1750,11 +1759,20 @@ router.get("/security-events/device/:deviceId", async (req, res) => {
 
 router.post("/security-events", async (req, res) => {
   try {
-    const validatedData = insertSecurityEventSchema.parse(req.body);
+    const condominiumId = req.condominiumContext?.condominiumId;
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não selecionado" });
+    }
+    const dataWithCondominium = {
+      ...req.body,
+      condominiumId,
+    };
+    const validatedData = insertSecurityEventSchema.parse(dataWithCondominium);
     const event = await storage.createSecurityEvent(validatedData);
     res.status(201).json(event);
-  } catch (error) {
-    res.status(400).json({ error: "Invalid security event data" });
+  } catch (error: any) {
+    console.error("[Security Events POST] Error:", error?.message || error);
+    res.status(400).json({ error: "Invalid security event data", details: error?.message });
   }
 });
 
