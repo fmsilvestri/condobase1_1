@@ -123,6 +123,7 @@ export const equipment = pgTable("equipment", {
   description: text("description"),
   icon: text("icon"),
   photos: text("photos").array(),
+  documents: text("documents").array(),
   status: text("status").notNull().default("operacional"),
   manufacturer: text("manufacturer"),
   installationDate: timestamp("installation_date"),

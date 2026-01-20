@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -40,8 +40,12 @@ import {
   Flame,
   Fan,
   Cog,
+  Upload,
+  FileText,
+  Paperclip,
   type LucideIcon,
 } from "lucide-react";
+import { useUpload } from "@/hooks/use-upload";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/empty-state";
@@ -146,12 +150,36 @@ export default function Maintenance() {
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [viewingRequest, setViewingRequest] = useState<MaintenanceRequest | null>(null);
-  const [equipmentPhoto, setEquipmentPhoto] = useState<string | null>(null);
+  const [equipmentPhotos, setEquipmentPhotos] = useState<string[]>([]);
+  const [equipmentDocuments, setEquipmentDocuments] = useState<string[]>([]);
   const [isNewCompletionOpen, setIsNewCompletionOpen] = useState(false);
   const [completionPhotos, setCompletionPhotos] = useState<string[]>([]);
   const { toast } = useToast();
   const { canEdit, userId, dbUserId, isSindico, isAdmin } = useAuth();
   const { selectedCondominium } = useCondominium();
+  
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
+  
+  const { uploadFile: uploadPhoto, isUploading: isUploadingPhoto, uploadedUrl: uploadedPhotoUrl } = useUpload({
+    onSuccess: (url) => {
+      setEquipmentPhotos(prev => [...prev, url]);
+      toast({ title: "Foto enviada com sucesso" });
+    },
+    onError: (error) => {
+      toast({ title: "Erro ao enviar foto", description: error.message, variant: "destructive" });
+    },
+  });
+  
+  const { uploadFile: uploadDocument, isUploading: isUploadingDoc, uploadedUrl: uploadedDocUrl } = useUpload({
+    onSuccess: (url) => {
+      setEquipmentDocuments(prev => [...prev, url]);
+      toast({ title: "Documento enviado com sucesso" });
+    },
+    onError: (error) => {
+      toast({ title: "Erro ao enviar documento", description: error.message, variant: "destructive" });
+    },
+  });
   
   // Only síndicos and admins can update status
   const canUpdateStatus = isSindico || isAdmin;
@@ -181,20 +209,34 @@ export default function Maintenance() {
     },
   });
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast({ title: "Arquivo muito grande", description: "Máximo 5MB", variant: "destructive" });
+      if (file.size > 10 * 1024 * 1024) {
+        toast({ title: "Arquivo muito grande", description: "Máximo 10MB", variant: "destructive" });
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        setEquipmentPhoto(base64);
-      };
-      reader.readAsDataURL(file);
+      await uploadPhoto(file);
     }
+  };
+
+  const handleDocumentChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast({ title: "Arquivo muito grande", description: "Máximo 10MB", variant: "destructive" });
+        return;
+      }
+      await uploadDocument(file);
+    }
+  };
+
+  const removeEquipmentPhoto = (index: number) => {
+    setEquipmentPhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeEquipmentDocument = (index: number) => {
+    setEquipmentDocuments(prev => prev.filter((_, i) => i !== index));
   };
 
   const requestForm = useForm<z.infer<typeof requestFormSchema>>({
@@ -268,19 +310,21 @@ export default function Maintenance() {
 
   const createEquipmentMutation = useMutation({
     mutationFn: (data: z.infer<typeof equipmentFormSchema>) => {
-      const dataWithPhoto = {
+      const dataWithFiles = {
         ...data,
-        photos: equipmentPhoto ? [equipmentPhoto] : [],
+        photos: equipmentPhotos.length > 0 ? equipmentPhotos : [],
+        documents: equipmentDocuments.length > 0 ? equipmentDocuments : [],
         condominiumId: selectedCondominium?.id,
       };
-      return apiRequest("POST", "/api/equipment", dataWithPhoto);
+      return apiRequest("POST", "/api/equipment", dataWithFiles);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       toast({ title: "Equipamento cadastrado com sucesso!" });
       setIsNewEquipmentOpen(false);
-      setEquipmentPhoto(null);
+      setEquipmentPhotos([]);
+      setEquipmentDocuments([]);
       equipmentForm.reset();
     },
     onError: () => {
@@ -289,13 +333,21 @@ export default function Maintenance() {
   });
 
   const updateEquipmentMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: z.infer<typeof equipmentFormSchema> }) =>
-      apiRequest("PATCH", `/api/equipment/${id}`, data),
+    mutationFn: ({ id, data }: { id: string; data: z.infer<typeof equipmentFormSchema> }) => {
+      const dataWithFiles = {
+        ...data,
+        photos: equipmentPhotos.length > 0 ? equipmentPhotos : [],
+        documents: equipmentDocuments.length > 0 ? equipmentDocuments : [],
+      };
+      return apiRequest("PATCH", `/api/equipment/${id}`, dataWithFiles);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       toast({ title: "Equipamento atualizado com sucesso!" });
       setEditingEquipment(null);
+      setEquipmentPhotos([]);
+      setEquipmentDocuments([]);
       equipmentForm.reset();
     },
     onError: () => {
@@ -305,6 +357,8 @@ export default function Maintenance() {
 
   const handleEditEquipment = (eq: Equipment) => {
     setEditingEquipment(eq);
+    setEquipmentPhotos(eq.photos || []);
+    setEquipmentDocuments(eq.documents || []);
     equipmentForm.reset({
       name: eq.name,
       category: eq.category,
