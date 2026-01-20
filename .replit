@@ -42,6 +42,9 @@ waitForPort = 5000
 
 [userenv.shared]
 JWT_SECRET = "WW+LfK7wcM1sIDIJFNbwBYR2Ns5GTgiZfvYH2ew385/FzH2u4m93cGs+hIBOmAT8"
+VAPID_PUBLIC_KEY = "BMrSF9SLc93vbRXnszb-NymLDD0VyYL7SGxyluvigVDDYMiR4M3Cy9_1rrfKwnHlAteDsrEr1-46_cP0VrQzuQA"
+VAPID_PRIVATE_KEY = "hZG62FQqtE3QrPbM_P4D31f9r-be2SZ3WXqHaelz53k"
+VAPID_SUBJECT = "mailto:admin@condobase.com"
 
 [agent]
 integrations = ["javascript_object_storage:2.0.0"]

@@ -3,6 +3,13 @@ import { createServer, type Server } from "http";
 import { createStorage } from "./supabase-storage";
 import { sendNotificationToUser, broadcastNotification } from "./websocket";
 import { optionalJWT, requireAuth } from "./auth-middleware";
+import { 
+  initializePushNotifications, 
+  isPushConfigured, 
+  getVapidPublicKey,
+  notifyNewAnnouncement,
+  notifyMaintenanceUpdate
+} from "./push-notifications";
 import jwt from "jsonwebtoken";
 import { 
   condominiumContextMiddleware, 
@@ -30,6 +37,8 @@ import {
   insertAnnouncementSchema,
   insertUserSchema,
   updateUserSchema,
+  insertPushSubscriptionSchema,
+  insertNotificationPreferenceSchema,
   insertSecurityDeviceSchema,
   insertSecurityEventSchema,
   insertPreventiveAssetSchema,
@@ -1241,6 +1250,13 @@ export async function registerRoutes(
         notifications.forEach((notif) => {
           sendNotificationToUser(notif.userId, notif);
         });
+        
+        // Send push notifications
+        notifyNewAnnouncement(
+          { id: announcement.id, title: announcement.title, content: announcement.content, priority: announcement.priority },
+          announcement.condominiumId,
+          validatedData.createdBy || undefined
+        ).catch(e => console.error("Push notification error:", e));
       } catch (notifError) {
         console.error("Error creating notifications:", notifError);
       }
@@ -1333,6 +1349,119 @@ export async function registerRoutes(
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to mark all notifications as read" });
+    }
+  });
+
+  // Push notification routes
+  initializePushNotifications();
+
+  app.get("/api/push/vapid-public-key", (req, res) => {
+    if (!isPushConfigured()) {
+      return res.status(503).json({ error: "Push notifications not configured" });
+    }
+    res.json({ publicKey: getVapidPublicKey() });
+  });
+
+  app.get("/api/push/subscriptions", async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const subscriptions = await storage.getPushSubscriptions(userId);
+      res.json(subscriptions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch push subscriptions" });
+    }
+  });
+
+  app.post("/api/push/subscribe", async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { subscription, condominiumId } = req.body;
+      if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
+        return res.status(400).json({ error: "Invalid subscription data" });
+      }
+
+      const existing = await storage.getPushSubscriptionByEndpoint(subscription.endpoint);
+      if (existing) {
+        const updated = await storage.updatePushSubscription(existing.id, {
+          userId,
+          condominiumId: condominiumId || null,
+          isEnabled: true,
+        });
+        return res.json(updated);
+      }
+
+      const newSubscription = await storage.createPushSubscription({
+        userId,
+        condominiumId: condominiumId || null,
+        endpoint: subscription.endpoint,
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth,
+        userAgent: req.headers["user-agent"] || null,
+        isEnabled: true,
+      });
+      res.status(201).json(newSubscription);
+    } catch (error) {
+      console.error("Error creating push subscription:", error);
+      res.status(500).json({ error: "Failed to create push subscription" });
+    }
+  });
+
+  app.delete("/api/push/unsubscribe", async (req, res) => {
+    try {
+      const { endpoint } = req.body;
+      if (!endpoint) {
+        return res.status(400).json({ error: "Endpoint is required" });
+      }
+      await storage.deletePushSubscriptionByEndpoint(endpoint);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete push subscription" });
+    }
+  });
+
+  // Notification preferences routes
+  app.get("/api/notification-preferences", async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const condominiumId = getCondominiumId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const preferences = await storage.getNotificationPreferences(userId, condominiumId);
+      if (!preferences) {
+        return res.json({
+          announcements: true,
+          maintenanceUpdates: true,
+          urgentMessages: true,
+          quietHoursStart: null,
+          quietHoursEnd: null,
+        });
+      }
+      res.json(preferences);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch notification preferences" });
+    }
+  });
+
+  app.put("/api/notification-preferences", async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const condominiumId = getCondominiumId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const preferences = await storage.upsertNotificationPreference(userId, condominiumId, req.body);
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error updating notification preferences:", error);
+      res.status(500).json({ error: "Failed to update notification preferences" });
     }
   });
 

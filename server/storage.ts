@@ -55,6 +55,10 @@ import {
   type InsertMaintenanceDocument,
   type Faq,
   type InsertFaq,
+  type PushSubscription,
+  type InsertPushSubscription,
+  type NotificationPreference,
+  type InsertNotificationPreference,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -214,6 +218,21 @@ export interface IStorage {
   updateFaq(id: string, faq: Partial<InsertFaq>): Promise<Faq | undefined>;
   deleteFaq(id: string): Promise<boolean>;
   incrementFaqViewCount(id: string): Promise<void>;
+
+  // Push subscription methods
+  getPushSubscriptions(userId: string): Promise<PushSubscription[]>;
+  getPushSubscriptionByEndpoint(endpoint: string): Promise<PushSubscription | undefined>;
+  getAllActivePushSubscriptions(condominiumId?: string): Promise<PushSubscription[]>;
+  createPushSubscription(subscription: InsertPushSubscription): Promise<PushSubscription>;
+  updatePushSubscription(id: string, subscription: Partial<InsertPushSubscription>): Promise<PushSubscription | undefined>;
+  deletePushSubscription(id: string): Promise<boolean>;
+  deletePushSubscriptionByEndpoint(endpoint: string): Promise<boolean>;
+
+  // Notification preferences methods
+  getNotificationPreferences(userId: string, condominiumId?: string): Promise<NotificationPreference | undefined>;
+  createNotificationPreference(preference: InsertNotificationPreference): Promise<NotificationPreference>;
+  updateNotificationPreference(id: string, preference: Partial<InsertNotificationPreference>): Promise<NotificationPreference | undefined>;
+  upsertNotificationPreference(userId: string, condominiumId: string | undefined, preference: Partial<InsertNotificationPreference>): Promise<NotificationPreference>;
 }
 
 export class MemStorage implements IStorage {
@@ -877,6 +896,105 @@ export class MemStorage implements IStorage {
   async updateWasteConfig(config: Partial<InsertWasteConfig>): Promise<WasteConfig | undefined> {
     this.wasteConfig = { ...this.wasteConfig, ...config, updatedAt: new Date() };
     return this.wasteConfig;
+  }
+
+  // Push subscriptions (stub implementation for MemStorage)
+  private pushSubscriptions: Map<string, PushSubscription> = new Map();
+  private notificationPreferences: Map<string, NotificationPreference> = new Map();
+
+  async getPushSubscriptions(userId: string): Promise<PushSubscription[]> {
+    return Array.from(this.pushSubscriptions.values()).filter(s => s.userId === userId);
+  }
+
+  async getPushSubscriptionByEndpoint(endpoint: string): Promise<PushSubscription | undefined> {
+    return Array.from(this.pushSubscriptions.values()).find(s => s.endpoint === endpoint);
+  }
+
+  async getAllActivePushSubscriptions(condominiumId?: string): Promise<PushSubscription[]> {
+    return Array.from(this.pushSubscriptions.values()).filter(s => 
+      s.isEnabled && (!condominiumId || s.condominiumId === condominiumId)
+    );
+  }
+
+  async createPushSubscription(subscription: InsertPushSubscription): Promise<PushSubscription> {
+    const id = randomUUID();
+    const newSub: PushSubscription = {
+      ...subscription,
+      id,
+      isEnabled: subscription.isEnabled ?? true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.pushSubscriptions.set(id, newSub);
+    return newSub;
+  }
+
+  async updatePushSubscription(id: string, subscription: Partial<InsertPushSubscription>): Promise<PushSubscription | undefined> {
+    const existing = this.pushSubscriptions.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...subscription, updatedAt: new Date() };
+    this.pushSubscriptions.set(id, updated);
+    return updated;
+  }
+
+  async deletePushSubscription(id: string): Promise<boolean> {
+    return this.pushSubscriptions.delete(id);
+  }
+
+  async deletePushSubscriptionByEndpoint(endpoint: string): Promise<boolean> {
+    for (const [id, sub] of this.pushSubscriptions) {
+      if (sub.endpoint === endpoint) {
+        this.pushSubscriptions.delete(id);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  async getNotificationPreferences(userId: string, condominiumId?: string): Promise<NotificationPreference | undefined> {
+    return Array.from(this.notificationPreferences.values()).find(p => 
+      p.userId === userId && (!condominiumId || p.condominiumId === condominiumId)
+    );
+  }
+
+  async createNotificationPreference(preference: InsertNotificationPreference): Promise<NotificationPreference> {
+    const id = randomUUID();
+    const newPref: NotificationPreference = {
+      ...preference,
+      id,
+      announcements: preference.announcements ?? true,
+      maintenanceUpdates: preference.maintenanceUpdates ?? true,
+      urgentMessages: preference.urgentMessages ?? true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.notificationPreferences.set(id, newPref);
+    return newPref;
+  }
+
+  async updateNotificationPreference(id: string, preference: Partial<InsertNotificationPreference>): Promise<NotificationPreference | undefined> {
+    const existing = this.notificationPreferences.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...preference, updatedAt: new Date() };
+    this.notificationPreferences.set(id, updated);
+    return updated;
+  }
+
+  async upsertNotificationPreference(userId: string, condominiumId: string | undefined, preference: Partial<InsertNotificationPreference>): Promise<NotificationPreference> {
+    const existing = await this.getNotificationPreferences(userId, condominiumId);
+    if (existing) {
+      const updated = await this.updateNotificationPreference(existing.id, preference);
+      return updated!;
+    }
+    return this.createNotificationPreference({
+      userId,
+      condominiumId: condominiumId || null,
+      announcements: preference.announcements ?? true,
+      maintenanceUpdates: preference.maintenanceUpdates ?? true,
+      urgentMessages: preference.urgentMessages ?? true,
+      quietHoursStart: preference.quietHoursStart || null,
+      quietHoursEnd: preference.quietHoursEnd || null,
+    });
   }
 }
 

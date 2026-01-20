@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Bell, Check, Megaphone, Wrench, X } from "lucide-react";
+import { Bell, Check, Megaphone, Wrench, X, Settings } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -249,6 +249,14 @@ function NotificationBellContent({ userId, accessToken }: { userId: string; acce
             </div>
           )}
         </ScrollArea>
+        <div className="border-t p-2">
+          <Link href="/configuracoes-notificacao">
+            <Button variant="ghost" size="sm" className="w-full justify-start text-xs" data-testid="link-notification-settings">
+              <Settings className="h-3 w-3 mr-2" />
+              Configurações de notificação
+            </Button>
+          </Link>
+        </div>
       </PopoverContent>
     </Popover>
   );

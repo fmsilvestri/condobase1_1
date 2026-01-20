@@ -86,6 +86,12 @@ import {
   type InsertMaintenanceDocument,
   type Faq,
   type InsertFaq,
+  type PushSubscription,
+  type InsertPushSubscription,
+  type NotificationPreference,
+  type InsertNotificationPreference,
+  pushSubscriptions as pushSubscriptionsTable,
+  notificationPreferences as notificationPreferencesTable,
 } from "@shared/schema";
 
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
@@ -1136,6 +1142,117 @@ export class SupabaseStorage implements IStorage {
     if (data) {
       await this.sb.from("faqs").update({ view_count: (data.view_count || 0) + 1 }).eq("id", id);
     }
+  }
+
+  // ===========================
+  // PUSH SUBSCRIPTIONS
+  // ===========================
+  async getPushSubscriptions(userId: string): Promise<PushSubscription[]> {
+    const data = await db.select()
+      .from(pushSubscriptionsTable)
+      .where(eq(pushSubscriptionsTable.userId, userId));
+    return data;
+  }
+
+  async getPushSubscriptionByEndpoint(endpoint: string): Promise<PushSubscription | undefined> {
+    const [data] = await db.select()
+      .from(pushSubscriptionsTable)
+      .where(eq(pushSubscriptionsTable.endpoint, endpoint));
+    return data;
+  }
+
+  async getAllActivePushSubscriptions(condominiumId?: string): Promise<PushSubscription[]> {
+    if (condominiumId) {
+      const data = await db.select()
+        .from(pushSubscriptionsTable)
+        .where(and(
+          eq(pushSubscriptionsTable.isEnabled, true),
+          eq(pushSubscriptionsTable.condominiumId, condominiumId)
+        ));
+      return data;
+    }
+    const data = await db.select()
+      .from(pushSubscriptionsTable)
+      .where(eq(pushSubscriptionsTable.isEnabled, true));
+    return data;
+  }
+
+  async createPushSubscription(subscription: InsertPushSubscription): Promise<PushSubscription> {
+    const [data] = await db.insert(pushSubscriptionsTable)
+      .values(subscription)
+      .returning();
+    return data;
+  }
+
+  async updatePushSubscription(id: string, subscription: Partial<InsertPushSubscription>): Promise<PushSubscription | undefined> {
+    const [data] = await db.update(pushSubscriptionsTable)
+      .set({ ...subscription, updatedAt: new Date() })
+      .where(eq(pushSubscriptionsTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deletePushSubscription(id: string): Promise<boolean> {
+    await db.delete(pushSubscriptionsTable)
+      .where(eq(pushSubscriptionsTable.id, id));
+    return true;
+  }
+
+  async deletePushSubscriptionByEndpoint(endpoint: string): Promise<boolean> {
+    await db.delete(pushSubscriptionsTable)
+      .where(eq(pushSubscriptionsTable.endpoint, endpoint));
+    return true;
+  }
+
+  // ===========================
+  // NOTIFICATION PREFERENCES
+  // ===========================
+  async getNotificationPreferences(userId: string, condominiumId?: string): Promise<NotificationPreference | undefined> {
+    if (condominiumId) {
+      const [data] = await db.select()
+        .from(notificationPreferencesTable)
+        .where(and(
+          eq(notificationPreferencesTable.userId, userId),
+          eq(notificationPreferencesTable.condominiumId, condominiumId)
+        ));
+      return data;
+    }
+    const [data] = await db.select()
+      .from(notificationPreferencesTable)
+      .where(eq(notificationPreferencesTable.userId, userId));
+    return data;
+  }
+
+  async createNotificationPreference(preference: InsertNotificationPreference): Promise<NotificationPreference> {
+    const [data] = await db.insert(notificationPreferencesTable)
+      .values(preference)
+      .returning();
+    return data;
+  }
+
+  async updateNotificationPreference(id: string, preference: Partial<InsertNotificationPreference>): Promise<NotificationPreference | undefined> {
+    const [data] = await db.update(notificationPreferencesTable)
+      .set({ ...preference, updatedAt: new Date() })
+      .where(eq(notificationPreferencesTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async upsertNotificationPreference(userId: string, condominiumId: string | undefined, preference: Partial<InsertNotificationPreference>): Promise<NotificationPreference> {
+    const existing = await this.getNotificationPreferences(userId, condominiumId);
+    if (existing) {
+      const updated = await this.updateNotificationPreference(existing.id, preference);
+      return updated!;
+    }
+    return this.createNotificationPreference({
+      userId,
+      condominiumId: condominiumId || null,
+      announcements: preference.announcements ?? true,
+      maintenanceUpdates: preference.maintenanceUpdates ?? true,
+      urgentMessages: preference.urgentMessages ?? true,
+      quietHoursStart: preference.quietHoursStart || null,
+      quietHoursEnd: preference.quietHoursEnd || null,
+    });
   }
 }
 
