@@ -124,6 +124,7 @@ const equipmentFormSchema = z.object({
   icon: z.string().optional(),
   status: z.string().default("operacional"),
   photos: z.array(z.string()).optional(),
+  documents: z.array(z.string()).optional(),
 });
 
 const requestFormSchema = z.object({
@@ -161,9 +162,9 @@ export default function Maintenance() {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   
-  const { uploadFile: uploadPhoto, isUploading: isUploadingPhoto, uploadedUrl: uploadedPhotoUrl } = useUpload({
-    onSuccess: (url) => {
-      setEquipmentPhotos(prev => [...prev, url]);
+  const { uploadFile: uploadPhoto, isUploading: isUploadingPhoto } = useUpload({
+    onSuccess: (response) => {
+      setEquipmentPhotos(prev => [...prev, response.objectPath]);
       toast({ title: "Foto enviada com sucesso" });
     },
     onError: (error) => {
@@ -171,9 +172,9 @@ export default function Maintenance() {
     },
   });
   
-  const { uploadFile: uploadDocument, isUploading: isUploadingDoc, uploadedUrl: uploadedDocUrl } = useUpload({
-    onSuccess: (url) => {
-      setEquipmentDocuments(prev => [...prev, url]);
+  const { uploadFile: uploadDocument, isUploading: isUploadingDoc } = useUpload({
+    onSuccess: (response) => {
+      setEquipmentDocuments(prev => [...prev, response.objectPath]);
       toast({ title: "Documento enviado com sucesso" });
     },
     onError: (error) => {
@@ -206,6 +207,7 @@ export default function Maintenance() {
       icon: "",
       status: "operacional",
       photos: [],
+      documents: [],
     },
   });
 
@@ -355,6 +357,22 @@ export default function Maintenance() {
     },
   });
 
+  const handleOpenNewEquipment = () => {
+    setEquipmentPhotos([]);
+    setEquipmentDocuments([]);
+    equipmentForm.reset({
+      name: "",
+      category: "",
+      location: "",
+      description: "",
+      icon: "",
+      status: "operacional",
+      photos: [],
+      documents: [],
+    });
+    setIsNewEquipmentOpen(true);
+  };
+
   const handleEditEquipment = (eq: Equipment) => {
     setEditingEquipment(eq);
     setEquipmentPhotos(eq.photos || []);
@@ -500,9 +518,9 @@ export default function Maintenance() {
         actions={
           <div className="flex gap-2">
             {canEdit && (
-              <Dialog open={isNewEquipmentOpen} onOpenChange={setIsNewEquipmentOpen}>
+              <Dialog open={isNewEquipmentOpen} onOpenChange={(open) => { if (!open) { setIsNewEquipmentOpen(false); setEquipmentPhotos([]); setEquipmentDocuments([]); } }}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" data-testid="button-new-equipment">
+                  <Button variant="outline" onClick={handleOpenNewEquipment} data-testid="button-new-equipment">
                     <Plus className="mr-2 h-4 w-4" />
                     Novo Equipamento
                   </Button>
@@ -609,43 +627,111 @@ export default function Maintenance() {
                       )}
                     />
                     <div className="space-y-2">
-                      <Label>Foto do Equipamento</Label>
-                      <div className="flex items-center gap-4">
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          onChange={handlePhotoChange}
-                          className="flex-1"
-                          data-testid="input-equipment-photo"
-                        />
-                        {equipmentPhoto && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setEquipmentPhoto(null)}
-                          >
-                            Remover
-                          </Button>
+                      <Label>Fotos do Equipamento</Label>
+                      <input
+                        type="file"
+                        ref={photoInputRef}
+                        accept="image/*"
+                        onChange={handlePhotoChange}
+                        className="hidden"
+                        data-testid="input-equipment-photo"
+                      />
+                      <div
+                        className="flex items-center justify-center rounded-lg border-2 border-dashed p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => photoInputRef.current?.click()}
+                      >
+                        {isUploadingPhoto ? (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            <span>Enviando foto...</span>
+                          </div>
+                        ) : (
+                          <div className="text-center">
+                            <Camera className="mx-auto h-8 w-8 text-muted-foreground" />
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              Clique para adicionar fotos
+                            </p>
+                          </div>
                         )}
                       </div>
-                      {equipmentPhoto && (
-                        <div className="mt-2 rounded-lg border overflow-hidden">
-                          <img
-                            src={equipmentPhoto}
-                            alt="Preview"
-                            className="w-full h-32 object-cover"
-                          />
+                      {equipmentPhotos.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {equipmentPhotos.map((photo, idx) => (
+                            <div key={idx} className="relative group">
+                              <div className="w-16 h-16 rounded-lg border overflow-hidden bg-muted flex items-center justify-center">
+                                <Image className="h-6 w-6 text-muted-foreground" />
+                              </div>
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="icon"
+                                className="absolute -top-2 -right-2 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => removeEquipmentPhoto(idx)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Documentos do Equipamento</Label>
+                      <input
+                        type="file"
+                        ref={docInputRef}
+                        accept=".pdf,.doc,.docx"
+                        onChange={handleDocumentChange}
+                        className="hidden"
+                        data-testid="input-equipment-document"
+                      />
+                      <div
+                        className="flex items-center justify-center rounded-lg border-2 border-dashed p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => docInputRef.current?.click()}
+                      >
+                        {isUploadingDoc ? (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            <span>Enviando documento...</span>
+                          </div>
+                        ) : (
+                          <div className="text-center">
+                            <FileText className="mx-auto h-8 w-8 text-muted-foreground" />
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              Clique para adicionar documentos
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              PDF ou DOC (máx. 10MB)
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      {equipmentDocuments.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {equipmentDocuments.map((doc, idx) => (
+                            <div key={idx} className="relative group flex items-center gap-2 p-2 rounded-lg border bg-muted/30">
+                              <Paperclip className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm truncate max-w-[100px]">Documento {idx + 1}</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5"
+                                onClick={() => removeEquipmentDocument(idx)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
                     <DialogFooter>
-                      <Button type="button" variant="outline" onClick={() => { setIsNewEquipmentOpen(false); setEquipmentPhoto(null); }}>
+                      <Button type="button" variant="outline" onClick={() => { setIsNewEquipmentOpen(false); setEquipmentPhotos([]); setEquipmentDocuments([]); }}>
                         Cancelar
                       </Button>
-                      <Button type="submit" disabled={createEquipmentMutation.isPending} data-testid="button-save-equipment">
-                        {createEquipmentMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      <Button type="submit" disabled={createEquipmentMutation.isPending || isUploadingPhoto || isUploadingDoc} data-testid="button-save-equipment">
+                        {(createEquipmentMutation.isPending || isUploadingPhoto || isUploadingDoc) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Salvar
                       </Button>
                     </DialogFooter>
@@ -657,7 +743,7 @@ export default function Maintenance() {
             }
 
             {/* Edit Equipment Dialog */}
-            <Dialog open={!!editingEquipment} onOpenChange={(open) => !open && setEditingEquipment(null)}>
+            <Dialog open={!!editingEquipment} onOpenChange={(open) => { if (!open) { setEditingEquipment(null); setEquipmentPhotos([]); setEquipmentDocuments([]); } }}>
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                   <DialogTitle>Editar Equipamento</DialogTitle>
@@ -781,12 +867,89 @@ export default function Maintenance() {
                         </FormItem>
                       )}
                     />
+                    <div className="space-y-2">
+                      <Label>Fotos do Equipamento</Label>
+                      <div
+                        className="flex items-center justify-center rounded-lg border-2 border-dashed p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => photoInputRef.current?.click()}
+                      >
+                        {isUploadingPhoto ? (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-sm">Enviando...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Camera className="h-4 w-4" />
+                            <span className="text-sm">Adicionar fotos</span>
+                          </div>
+                        )}
+                      </div>
+                      {equipmentPhotos.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {equipmentPhotos.map((photo, idx) => (
+                            <div key={idx} className="relative group">
+                              <div className="w-12 h-12 rounded border overflow-hidden bg-muted flex items-center justify-center">
+                                <Image className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="icon"
+                                className="absolute -top-1 -right-1 h-4 w-4 opacity-0 group-hover:opacity-100"
+                                onClick={() => removeEquipmentPhoto(idx)}
+                              >
+                                <X className="h-2 w-2" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Documentos do Equipamento</Label>
+                      <div
+                        className="flex items-center justify-center rounded-lg border-2 border-dashed p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => docInputRef.current?.click()}
+                      >
+                        {isUploadingDoc ? (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-sm">Enviando...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <FileText className="h-4 w-4" />
+                            <span className="text-sm">Adicionar documentos</span>
+                          </div>
+                        )}
+                      </div>
+                      {equipmentDocuments.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {equipmentDocuments.map((doc, idx) => (
+                            <div key={idx} className="flex items-center gap-1 p-1 px-2 rounded border bg-muted/30">
+                              <Paperclip className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-xs">Doc {idx + 1}</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-4 w-4"
+                                onClick={() => removeEquipmentDocument(idx)}
+                              >
+                                <X className="h-2 w-2" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <DialogFooter>
-                      <Button type="button" variant="outline" onClick={() => setEditingEquipment(null)}>
+                      <Button type="button" variant="outline" onClick={() => { setEditingEquipment(null); setEquipmentPhotos([]); setEquipmentDocuments([]); }}>
                         Cancelar
                       </Button>
-                      <Button type="submit" disabled={updateEquipmentMutation.isPending} data-testid="button-update-equipment">
-                        {updateEquipmentMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      <Button type="submit" disabled={updateEquipmentMutation.isPending || isUploadingPhoto || isUploadingDoc} data-testid="button-update-equipment">
+                        {(updateEquipmentMutation.isPending || isUploadingPhoto || isUploadingDoc) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Atualizar
                       </Button>
                     </DialogFooter>
@@ -961,7 +1124,7 @@ export default function Maintenance() {
               description="Cadastre equipamentos para gerenciar manutenções."
               action={{
                 label: "Cadastrar Equipamento",
-                onClick: () => setIsNewEquipmentOpen(true),
+                onClick: handleOpenNewEquipment,
               }}
             />
           ) : (
