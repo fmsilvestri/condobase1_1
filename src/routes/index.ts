@@ -1201,11 +1201,20 @@ router.get("/energy", async (req, res) => {
 
 router.post("/energy", async (req, res) => {
   try {
-    const validatedData = insertEnergyEventSchema.parse(req.body);
+    const condominiumId = req.condominiumContext?.condominiumId;
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não selecionado" });
+    }
+    const dataWithCondominium = {
+      ...req.body,
+      condominiumId,
+    };
+    const validatedData = insertEnergyEventSchema.parse(dataWithCondominium);
     const event = await storage.createEnergyEvent(validatedData);
     res.status(201).json(event);
-  } catch (error) {
-    res.status(400).json({ error: "Invalid energy event data" });
+  } catch (error: any) {
+    console.error("[Energy POST] Error:", error?.message || error);
+    res.status(400).json({ error: "Invalid energy event data", details: error?.message });
   }
 });
 
