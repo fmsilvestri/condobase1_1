@@ -1285,11 +1285,20 @@ router.get("/documents/:id", async (req, res) => {
 
 router.post("/documents", async (req, res) => {
   try {
-    const validatedData = insertDocumentSchema.parse(req.body);
+    const condominiumId = req.condominiumContext?.condominiumId;
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não selecionado" });
+    }
+    const dataWithCondominium = {
+      ...req.body,
+      condominiumId,
+    };
+    const validatedData = insertDocumentSchema.parse(dataWithCondominium);
     const document = await storage.createDocument(validatedData);
     res.status(201).json(document);
-  } catch (error) {
-    res.status(400).json({ error: "Invalid document data" });
+  } catch (error: any) {
+    console.error("[Documents POST] Error:", error?.message || error);
+    res.status(400).json({ error: "Invalid document data", details: error?.message });
   }
 });
 
