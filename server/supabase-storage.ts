@@ -810,10 +810,12 @@ export class SupabaseStorage implements IStorage {
     return created;
   }
 
-  async getSecurityDevices(): Promise<SecurityDevice[]> {
-    const data = await db.select()
-      .from(securityDevicesTable)
-      .orderBy(desc(securityDevicesTable.createdAt));
+  async getSecurityDevices(condominiumId?: string): Promise<SecurityDevice[]> {
+    let query = db.select().from(securityDevicesTable);
+    if (condominiumId) {
+      query = query.where(eq(securityDevicesTable.condominiumId, condominiumId)) as typeof query;
+    }
+    const data = await query.orderBy(desc(securityDevicesTable.createdAt));
     return data;
   }
 
@@ -845,10 +847,12 @@ export class SupabaseStorage implements IStorage {
     return true;
   }
 
-  async getSecurityEvents(): Promise<SecurityEvent[]> {
-    const data = await db.select()
-      .from(securityEventsTable)
-      .orderBy(desc(securityEventsTable.createdAt));
+  async getSecurityEvents(condominiumId?: string): Promise<SecurityEvent[]> {
+    let query = db.select().from(securityEventsTable);
+    if (condominiumId) {
+      query = query.where(eq(securityEventsTable.condominiumId, condominiumId)) as typeof query;
+    }
+    const data = await query.orderBy(desc(securityEventsTable.createdAt));
     return data;
   }
 

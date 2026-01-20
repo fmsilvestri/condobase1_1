@@ -1686,7 +1686,8 @@ router.patch("/waste-config", async (req, res) => {
 
 router.get("/security-devices", async (req, res) => {
   try {
-    const devices = await storage.getSecurityDevices();
+    const condominiumId = req.condominiumContext?.condominiumId;
+    const devices = await storage.getSecurityDevices(condominiumId);
     res.json(devices);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch security devices" });
@@ -1750,7 +1751,8 @@ router.delete("/security-devices/:id", async (req, res) => {
 
 router.get("/security-events", async (req, res) => {
   try {
-    const events = await storage.getSecurityEvents();
+    const condominiumId = req.condominiumContext?.condominiumId;
+    const events = await storage.getSecurityEvents(condominiumId);
     res.json(events);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch security events" });
