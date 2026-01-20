@@ -3,6 +3,7 @@ import router from "../src/routes/index";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { setupWebSocket } from "./websocket";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 const app = express();
 const httpServer = createServer(app);
@@ -64,6 +65,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  registerObjectStorageRoutes(app);
   app.use("/api", router);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

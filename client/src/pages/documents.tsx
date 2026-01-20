@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   FileText,
@@ -11,6 +11,8 @@ import {
   Filter,
   Pencil,
   Trash2,
+  Loader2,
+  Paperclip,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -51,6 +53,7 @@ import { documentTypes, type Document } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUpload } from "@/hooks/use-upload";
 
 const getTypeIcon = (type: string) => {
   const colors: Record<string, string> = {
@@ -84,8 +87,20 @@ export default function Documents() {
   const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
+  const [uploadedFileName, setUploadedFileName] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { canEdit } = useAuth();
   const { toast } = useToast();
+
+  const { uploadFile, isUploading } = useUpload({
+    onSuccess: (response) => {
+      setFormData(prev => ({ ...prev, fileUrl: response.objectPath }));
+      toast({ title: "Arquivo enviado com sucesso" });
+    },
+    onError: (error) => {
+      toast({ title: "Erro ao enviar arquivo", description: error.message, variant: "destructive" });
+    },
+  });
 
   const [formData, setFormData] = useState({
     name: "",
@@ -146,6 +161,7 @@ export default function Documents() {
     setIsDialogOpen(false);
     setEditingDocument(null);
     setFormData({ name: "", type: "", expirationDate: "", notes: "", fileUrl: "" });
+    setUploadedFileName("");
   };
 
   const openEditDialog = (doc: Document) => {
@@ -162,7 +178,16 @@ export default function Documents() {
       notes: doc.notes || "",
       fileUrl: doc.fileUrl || "",
     });
+    setUploadedFileName(doc.fileUrl ? "Arquivo existente" : "");
     setIsDialogOpen(true);
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadedFileName(file.name);
+      await uploadFile(file);
+    }
   };
 
   const openDeleteDialog = (doc: Document) => {
@@ -298,14 +323,41 @@ export default function Documents() {
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="file-url">URL do Arquivo</Label>
-                    <Input
-                      id="file-url"
-                      placeholder="https://..."
-                      value={formData.fileUrl}
-                      onChange={(e) => setFormData({ ...formData, fileUrl: e.target.value })}
-                      data-testid="input-document-url"
+                    <Label>Arquivo</Label>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      className="hidden"
+                      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                      data-testid="input-document-file"
                     />
+                    <div
+                      className="flex items-center justify-center rounded-lg border-2 border-dashed p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      {isUploading ? (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          <span>Enviando arquivo...</span>
+                        </div>
+                      ) : uploadedFileName || formData.fileUrl ? (
+                        <div className="flex items-center gap-2 text-primary">
+                          <Paperclip className="h-5 w-5" />
+                          <span className="truncate max-w-[250px]">{uploadedFileName || "Arquivo anexado"}</span>
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            Clique para anexar arquivo
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            PDF, JPG, PNG ou DOC (máx. 10MB)
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="notes">Observações</Label>
@@ -324,10 +376,10 @@ export default function Documents() {
                   </Button>
                   <Button
                     onClick={handleSubmit}
-                    disabled={!formData.name || !formData.type || createMutation.isPending || updateMutation.isPending}
+                    disabled={!formData.name || !formData.type || createMutation.isPending || updateMutation.isPending || isUploading}
                     data-testid="button-save-document"
                   >
-                    {createMutation.isPending || updateMutation.isPending ? "Salvando..." : editingDocument ? "Salvar" : "Enviar"}
+                    {isUploading ? "Enviando arquivo..." : createMutation.isPending || updateMutation.isPending ? "Salvando..." : editingDocument ? "Salvar" : "Enviar"}
                   </Button>
                 </DialogFooter>
               </DialogContent>

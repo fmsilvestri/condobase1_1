@@ -42,3 +42,6 @@ waitForPort = 5000
 
 [userenv.shared]
 JWT_SECRET = "WW+LfK7wcM1sIDIJFNbwBYR2Ns5GTgiZfvYH2ew385/FzH2u4m93cGs+hIBOmAT8"
+
+[agent]
+integrations = ["javascript_object_storage:2.0.0"]
