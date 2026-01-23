@@ -2,22 +2,12 @@
  * eWeLink Service - Integration with Sonoff Cloud API
  * 
  * This service handles authentication and device control via the eWeLink Cloud API.
- * The eWeLink API is a private API used by Sonoff devices.
+ * Uses the official ewelink-api-next library for reliable authentication.
  * 
  * API Documentation reference: https://coolkit-technologies.github.io/eWeLink-API/
  */
 
 import crypto from 'crypto';
-
-// eWeLink API regions and their base URLs
-const REGION_URLS: Record<string, string> = {
-  cn: 'https://cn-apia.coolkit.cn',
-  as: 'https://as-apia.coolkit.cc',
-  us: 'https://us-apia.coolkit.cc',
-  eu: 'https://eu-apia.coolkit.cc',
-  br: 'https://us-apia.coolkit.cc', // Brazil uses US region
-  sa: 'https://us-apia.coolkit.cc', // South America uses US region
-};
 
 // eWeLink App credentials from environment variables
 const APP_ID = process.env.EWELINK_APP_ID || 'YzfeftUVcZ6twZw1OoVKPRFYTrGEg01Q';
@@ -30,6 +20,7 @@ interface UserSession {
   region: string;
   userId: string;
   expiresAt: number;
+  client?: any;
 }
 
 // Store sessions by a session key (could be user email or session ID)
@@ -45,98 +36,94 @@ export interface EwelinkDevice {
   productModel?: string;
 }
 
-/**
- * Generate HMAC-SHA256 signature for API requests
- */
-function generateSignature(data: string): string {
-  return crypto
-    .createHmac('sha256', APP_SECRET)
-    .update(data)
-    .digest('base64');
-}
+// Region mapping for eWeLink
+const REGION_MAP: Record<string, string> = {
+  us: 'us',
+  eu: 'eu',
+  as: 'as',
+  cn: 'cn',
+  br: 'us', // Brazil uses US region
+  sa: 'us', // South America uses US region
+};
 
 /**
- * Get API base URL for a region
- */
-function getApiUrl(region: string): string {
-  return REGION_URLS[region] || REGION_URLS.us;
-}
-
-/**
- * Login to eWeLink and obtain access token
+ * Login to eWeLink using official library
  */
 export async function ewelinkLogin(
   email: string,
   password: string,
   region: string = 'us'
 ): Promise<{ success: boolean; message: string; sessionKey?: string }> {
-  const apiUrl = getApiUrl(region);
-  const timestamp = Date.now();
+  const mappedRegion = REGION_MAP[region] || 'us';
   
-  // Create login payload
-  const payload = {
-    email,
-    password,
-    countryCode: '+1', // Default country code
-  };
-
-  const payloadStr = JSON.stringify(payload);
-  const signature = generateSignature(payloadStr);
-
+  console.log(`[eWeLink] Attempting login for ${email} to region ${mappedRegion}`);
+  
   try {
-    console.log(`[eWeLink] Attempting login for ${email} to region ${region}`);
-    console.log(`[eWeLink] API URL: ${apiUrl}/v2/user/login`);
+    // Dynamic import of ewelink-api-next
+    const eWeLink = await import('ewelink-api-next');
     
-    const response = await fetch(`${apiUrl}/v2/user/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CK-Appid': APP_ID,
-        'X-CK-Nonce': crypto.randomBytes(8).toString('hex'),
-        'Authorization': `Sign ${signature}`,
-      },
-      body: payloadStr,
+    // Create client
+    const client = new eWeLink.WebAPI({
+      appId: APP_ID,
+      appSecret: APP_SECRET,
+      region: mappedRegion as 'us' | 'eu' | 'as' | 'cn',
     });
 
-    const data = await response.json();
-    console.log(`[eWeLink] Login response:`, JSON.stringify(data, null, 2));
+    // Perform login
+    const response = await client.user.login({
+      account: email,
+      password: password,
+      areaCode: '+55', // Brazil country code
+    });
 
-    if (data.error !== 0) {
+    console.log(`[eWeLink] Login response:`, JSON.stringify(response, null, 2));
+
+    if (response.error !== 0) {
       // Map common error codes to user-friendly messages
       const errorMessages: Record<number, string> = {
         400: 'Parâmetros inválidos',
         401: 'Email ou senha incorretos',
         402: 'Email não encontrado',
         406: 'Acesso negado - conta bloqueada',
+        407: 'Muitas tentativas - aguarde alguns minutos',
         500: 'Erro interno do servidor eWeLink',
+        10001: 'AppID inválido',
+        10002: 'AppID não encontrado',
       };
       
       return {
         success: false,
-        message: errorMessages[data.error] || `Erro eWeLink: ${data.msg || data.error}`,
+        message: errorMessages[response.error] || `Erro eWeLink: ${response.msg || response.error}`,
       };
     }
 
-    // Store session
+    // Store session with client instance
     const sessionKey = crypto.randomBytes(16).toString('hex');
+    
+    // Set the token on the client for future requests
+    client.at = response.data.at;
+    
     sessions.set(sessionKey, {
-      accessToken: data.data.at,
-      refreshToken: data.data.rt,
-      region,
-      userId: data.data.user.apikey,
-      expiresAt: Date.now() + (data.data.atExpiredTime || 86400) * 1000,
+      accessToken: response.data.at,
+      refreshToken: response.data.rt,
+      region: mappedRegion,
+      userId: response.data.user?.apikey || '',
+      expiresAt: Date.now() + (response.data.atExpiredTime || 86400) * 1000,
+      client: client,
     });
+
+    console.log(`[eWeLink] Login successful, session created: ${sessionKey.substring(0, 8)}...`);
 
     return {
       success: true,
       message: 'Login realizado com sucesso',
       sessionKey,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('[eWeLink] Login error:', error);
     return {
       success: false,
-      message: 'Erro de conexão com o servidor eWeLink',
+      message: `Erro de conexão: ${error.message || 'Erro desconhecido'}`,
     };
   }
 }
@@ -158,72 +145,88 @@ function getSession(sessionKey: string): UserSession | null {
 }
 
 /**
- * List all devices for authenticated user
+ * Logout and clear session
  */
-export async function ewelinkGetDevices(
-  sessionKey: string
-): Promise<{ success: boolean; devices?: EwelinkDevice[]; message?: string }> {
+export function ewelinkLogout(sessionKey: string): boolean {
+  return sessions.delete(sessionKey);
+}
+
+/**
+ * Get devices from eWeLink account
+ */
+export async function ewelinkGetDevices(sessionKey: string): Promise<{
+  success: boolean;
+  message: string;
+  devices?: EwelinkDevice[];
+}> {
   const session = getSession(sessionKey);
+  
   if (!session) {
-    return { success: false, message: 'Sessão expirada. Faça login novamente.' };
+    return {
+      success: false,
+      message: 'Sessão expirada ou inválida. Faça login novamente.',
+    };
   }
 
-  const apiUrl = getApiUrl(session.region);
-
   try {
-    const response = await fetch(`${apiUrl}/v2/device/thing`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CK-Appid': APP_ID,
-        'X-CK-Nonce': crypto.randomBytes(8).toString('hex'),
-        'Authorization': `Bearer ${session.accessToken}`,
-      },
-    });
+    const client = session.client;
+    if (!client) {
+      return {
+        success: false,
+        message: 'Cliente não inicializado. Faça login novamente.',
+      };
+    }
+    
+    // Get devices
+    const response = await client.device.getAllThings();
+    
+    console.log(`[eWeLink] Get devices response:`, JSON.stringify(response, null, 2));
 
-    const data = await response.json();
-
-    if (data.error !== 0) {
-      if (data.error === 401) {
-        sessions.delete(sessionKey);
-        return { success: false, message: 'Token expirado. Faça login novamente.' };
-      }
-      return { success: false, message: `Erro ao listar dispositivos: ${data.msg}` };
+    if (response.error !== 0) {
+      return {
+        success: false,
+        message: `Erro ao obter dispositivos: ${response.msg || response.error}`,
+      };
     }
 
-    // Map device data to our interface
-    const devices: EwelinkDevice[] = (data.data?.thingList || []).map((thing: any) => {
-      const device = thing.itemData;
-      const params = device.params || {};
-      
-      // Determine device state (handle different device types)
+    // Map devices to our format
+    const devices: EwelinkDevice[] = (response.data?.thingList || []).map((thing: any) => {
+      const item = thing.itemData || thing;
       let state: 'on' | 'off' | 'unknown' = 'unknown';
-      if (params.switch !== undefined) {
-        state = params.switch === 'on' ? 'on' : 'off';
-      } else if (params.switches && Array.isArray(params.switches)) {
-        // Multi-channel device - check if any channel is on
-        state = params.switches.some((s: any) => s.switch === 'on') ? 'on' : 'off';
+      
+      // Try to get switch state from different possible locations
+      if (item.params?.switch) {
+        state = item.params.switch;
+      } else if (item.params?.switches?.[0]?.switch) {
+        state = item.params.switches[0].switch;
       }
-
+      
       return {
-        deviceid: device.deviceid,
-        name: device.name || 'Dispositivo sem nome',
+        deviceid: item.deviceid || '',
+        name: item.name || 'Dispositivo sem nome',
         state,
-        online: device.online === true,
-        brandName: device.brandName,
-        productModel: device.productModel,
+        online: item.online ?? true,
+        brandName: item.brandName || item.extra?.brandName || '',
+        productModel: item.productModel || item.extra?.productModel || '',
       };
     });
 
-    return { success: true, devices };
-  } catch (error) {
+    return {
+      success: true,
+      message: 'Dispositivos carregados com sucesso',
+      devices,
+    };
+  } catch (error: any) {
     console.error('[eWeLink] Get devices error:', error);
-    return { success: false, message: 'Erro de conexão com o servidor eWeLink' };
+    return {
+      success: false,
+      message: `Erro ao carregar dispositivos: ${error.message || 'Erro desconhecido'}`,
+    };
   }
 }
 
 /**
- * Control device state (turn on/off)
+ * Control device (turn on/off)
  */
 export async function ewelinkControlDevice(
   sessionKey: string,
@@ -231,66 +234,57 @@ export async function ewelinkControlDevice(
   action: 'on' | 'off'
 ): Promise<{ success: boolean; message: string }> {
   const session = getSession(sessionKey);
+  
   if (!session) {
-    return { success: false, message: 'Sessão expirada. Faça login novamente.' };
+    return {
+      success: false,
+      message: 'Sessão expirada ou inválida. Faça login novamente.',
+    };
   }
 
-  const apiUrl = getApiUrl(session.region);
-
-  const payload = {
-    type: 1, // Device type
-    id: deviceId,
-    params: {
-      switch: action,
-    },
-  };
-
   try {
-    const response = await fetch(`${apiUrl}/v2/device/thing/status`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CK-Appid': APP_ID,
-        'X-CK-Nonce': crypto.randomBytes(8).toString('hex'),
-        'Authorization': `Bearer ${session.accessToken}`,
+    const client = session.client;
+    if (!client) {
+      return {
+        success: false,
+        message: 'Cliente não inicializado. Faça login novamente.',
+      };
+    }
+    
+    // Control device
+    const response = await client.device.setThingStatus({
+      id: deviceId,
+      type: 1,
+      params: {
+        switch: action,
       },
-      body: JSON.stringify(payload),
     });
 
-    const data = await response.json();
+    console.log(`[eWeLink] Control device response:`, JSON.stringify(response, null, 2));
 
-    if (data.error !== 0) {
-      if (data.error === 401) {
-        sessions.delete(sessionKey);
-        return { success: false, message: 'Token expirado. Faça login novamente.' };
-      }
-      return { success: false, message: `Erro ao controlar dispositivo: ${data.msg}` };
+    if (response.error !== 0) {
+      return {
+        success: false,
+        message: `Erro ao controlar dispositivo: ${response.msg || response.error}`,
+      };
     }
 
     return {
       success: true,
       message: `Dispositivo ${action === 'on' ? 'ligado' : 'desligado'} com sucesso`,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('[eWeLink] Control device error:', error);
-    return { success: false, message: 'Erro de conexão com o servidor eWeLink' };
+    return {
+      success: false,
+      message: `Erro ao controlar dispositivo: ${error.message || 'Erro desconhecido'}`,
+    };
   }
 }
 
 /**
- * Logout and invalidate session
+ * Check session status
  */
-export function ewelinkLogout(sessionKey: string): { success: boolean; message: string } {
-  if (sessions.has(sessionKey)) {
-    sessions.delete(sessionKey);
-    return { success: true, message: 'Logout realizado com sucesso' };
-  }
-  return { success: false, message: 'Sessão não encontrada' };
-}
-
-/**
- * Check if session is valid
- */
-export function ewelinkCheckSession(sessionKey: string): boolean {
+export function isSessionValid(sessionKey: string): boolean {
   return getSession(sessionKey) !== null;
 }
