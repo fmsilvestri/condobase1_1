@@ -82,6 +82,9 @@ export async function ewelinkLogin(
   const signature = generateSignature(payloadStr);
 
   try {
+    console.log(`[eWeLink] Attempting login for ${email} to region ${region}`);
+    console.log(`[eWeLink] API URL: ${apiUrl}/v2/user/login`);
+    
     const response = await fetch(`${apiUrl}/v2/user/login`, {
       method: 'POST',
       headers: {
@@ -94,6 +97,7 @@ export async function ewelinkLogin(
     });
 
     const data = await response.json();
+    console.log(`[eWeLink] Login response:`, JSON.stringify(data, null, 2));
 
     if (data.error !== 0) {
       // Map common error codes to user-friendly messages
