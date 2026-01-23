@@ -15,6 +15,8 @@ const REGION_URLS: Record<string, string> = {
   as: 'https://as-apia.coolkit.cc',
   us: 'https://us-apia.coolkit.cc',
   eu: 'https://eu-apia.coolkit.cc',
+  br: 'https://us-apia.coolkit.cc', // Brazil uses US region
+  sa: 'https://us-apia.coolkit.cc', // South America uses US region
 };
 
 // eWeLink App credentials from environment variables

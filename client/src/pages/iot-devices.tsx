@@ -46,7 +46,7 @@ export default function IotDevices() {
   const [loginForm, setLoginForm] = useState({
     email: "",
     password: "",
-    region: "us",
+    region: "br",
   });
 
   useEffect(() => {
@@ -288,6 +288,7 @@ export default function IotDevices() {
                     <SelectValue placeholder="Selecione a região" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="br">Brasil</SelectItem>
                     <SelectItem value="us">Américas (US)</SelectItem>
                     <SelectItem value="eu">Europa (EU)</SelectItem>
                     <SelectItem value="as">Ásia (AS)</SelectItem>
