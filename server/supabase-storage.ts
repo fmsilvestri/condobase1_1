@@ -90,8 +90,14 @@ import {
   type InsertPushSubscription,
   type NotificationPreference,
   type InsertNotificationPreference,
+  type IotSession,
+  type InsertIotSession,
+  type IotDevice,
+  type InsertIotDevice,
   pushSubscriptions as pushSubscriptionsTable,
   notificationPreferences as notificationPreferencesTable,
+  iotSessions as iotSessionsTable,
+  iotDevices as iotDevicesTable,
 } from "@shared/schema";
 
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
@@ -1253,6 +1259,71 @@ export class SupabaseStorage implements IStorage {
       quietHoursStart: preference.quietHoursStart || null,
       quietHoursEnd: preference.quietHoursEnd || null,
     });
+  }
+
+  // IoT Session methods
+  async getIotSessions(userId: string, condominiumId: string): Promise<IotSession[]> {
+    const data = await db.select()
+      .from(iotSessionsTable)
+      .where(and(
+        eq(iotSessionsTable.userId, userId),
+        eq(iotSessionsTable.condominiumId, condominiumId),
+        eq(iotSessionsTable.isActive, true)
+      ));
+    return data;
+  }
+
+  async createIotSession(session: InsertIotSession): Promise<IotSession> {
+    const [data] = await db.insert(iotSessionsTable)
+      .values(session)
+      .returning();
+    return data;
+  }
+
+  async deleteIotSession(userId: string, condominiumId: string, platform: string): Promise<boolean> {
+    const result = await db.delete(iotSessionsTable)
+      .where(and(
+        eq(iotSessionsTable.userId, userId),
+        eq(iotSessionsTable.condominiumId, condominiumId),
+        eq(iotSessionsTable.platform, platform)
+      ));
+    return true;
+  }
+
+  // IoT Device methods
+  async getIotDevices(condominiumId: string): Promise<IotDevice[]> {
+    const data = await db.select()
+      .from(iotDevicesTable)
+      .where(eq(iotDevicesTable.condominiumId, condominiumId));
+    return data;
+  }
+
+  async getIotDeviceById(id: string): Promise<IotDevice | undefined> {
+    const [data] = await db.select()
+      .from(iotDevicesTable)
+      .where(eq(iotDevicesTable.id, id));
+    return data;
+  }
+
+  async createIotDevice(device: InsertIotDevice): Promise<IotDevice> {
+    const [data] = await db.insert(iotDevicesTable)
+      .values(device)
+      .returning();
+    return data;
+  }
+
+  async updateIotDevice(id: string, device: Partial<InsertIotDevice>): Promise<IotDevice | undefined> {
+    const [data] = await db.update(iotDevicesTable)
+      .set({ ...device, updatedAt: new Date() })
+      .where(eq(iotDevicesTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteIotDevice(id: string): Promise<boolean> {
+    await db.delete(iotDevicesTable)
+      .where(eq(iotDevicesTable.id, id));
+    return true;
   }
 }
 

@@ -17,9 +17,9 @@ const REGION_URLS: Record<string, string> = {
   eu: 'https://eu-apia.coolkit.cc',
 };
 
-// eWeLink App credentials (public app ID for third-party integration)
-const APP_ID = 'YzfeftUVcZ6twZw1OoVKPRFYTrGEg01Q';
-const APP_SECRET = '4G91qSoboqYO4Y0XJ0LPPKIsq8reHdfa';
+// eWeLink App credentials from environment variables
+const APP_ID = process.env.EWELINK_APP_ID || 'YzfeftUVcZ6twZw1OoVKPRFYTrGEg01Q';
+const APP_SECRET = process.env.EWELINK_APP_SECRET || '4G91qSoboqYO4Y0XJ0LPPKIsq8reHdfa';
 
 // In-memory token storage per user session
 interface UserSession {
