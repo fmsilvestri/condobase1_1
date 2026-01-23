@@ -2007,6 +2007,7 @@ export async function registerRoutes(
   app.post("/api/ewelink/login", async (req, res) => {
     try {
       const { email, password, region = "us" } = req.body;
+      console.log(`[eWeLink Route] Login attempt: email=${email}, region=${region}`);
       
       if (!email || !password) {
         return res.status(400).json({ 
@@ -2017,6 +2018,7 @@ export async function registerRoutes(
 
       const { ewelinkLogin } = await import("./ewelink.service.js");
       const result = await ewelinkLogin(email, password, region);
+      console.log(`[eWeLink Route] Login result:`, JSON.stringify(result));
       
       if (result.success && result.sessionKey) {
         const condominiumId = req.condominiumContext?.condominiumId;
