@@ -20,6 +20,7 @@ import {
   ChevronDown,
   CalendarCheck,
   HelpCircle,
+  Router,
 } from "lucide-react";
 import {
   Sidebar,
@@ -85,6 +86,11 @@ const mainModules = [
     title: "Segurança & Acessos",
     url: "/seguranca",
     icon: Shield,
+  },
+  {
+    title: "Dispositivos IoT",
+    url: "/dispositivos-iot",
+    icon: Router,
   },
 ];
 

@@ -34,6 +34,7 @@ import PreventiveMaintenance from "@/pages/preventive-maintenance";
 import PlatformAdmin from "@/pages/platform-admin";
 import Faq from "@/pages/faq";
 import NotificationSettings from "@/pages/notification-settings";
+import IotDevices from "@/pages/iot-devices";
 
 function Router() {
   return (
@@ -58,6 +59,7 @@ function Router() {
       <Route path="/condominios" component={Condominiums} />
       <Route path="/faq" component={Faq} />
       <Route path="/configuracoes-notificacao" component={NotificationSettings} />
+      <Route path="/dispositivos-iot" component={IotDevices} />
       <Route component={NotFound} />
     </Switch>
   );

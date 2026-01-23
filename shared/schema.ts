@@ -835,3 +835,49 @@ export const insertNotificationPreferenceSchema = createInsertSchema(notificatio
 
 export type InsertNotificationPreference = z.infer<typeof insertNotificationPreferenceSchema>;
 export type NotificationPreference = typeof notificationPreferences.$inferSelect;
+
+// IoT Device Sessions - stores eWeLink session tokens per user/condominium
+export const iotSessions = pgTable("iot_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  sessionKey: text("session_key").notNull(),
+  platform: text("platform").notNull().default("ewelink"), // ewelink, tuya, etc
+  email: text("email").notNull(),
+  region: text("region").notNull().default("us"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at"),
+});
+
+export const insertIotSessionSchema = createInsertSchema(iotSessions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertIotSession = z.infer<typeof insertIotSessionSchema>;
+export type IotSession = typeof iotSessions.$inferSelect;
+
+// IoT Device registry for saved devices per condominium
+export const iotDevices = pgTable("iot_devices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  deviceId: text("device_id").notNull(), // External device ID from platform
+  platform: text("platform").notNull().default("ewelink"),
+  name: text("name").notNull(),
+  location: text("location"), // Where in the condo (garage, lobby, etc)
+  category: text("category"), // lighting, security, access, etc
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertIotDeviceSchema = createInsertSchema(iotDevices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertIotDevice = z.infer<typeof insertIotDeviceSchema>;
+export type IotDevice = typeof iotDevices.$inferSelect;

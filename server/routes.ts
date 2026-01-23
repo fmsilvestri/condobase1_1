@@ -1999,5 +1999,268 @@ export async function registerRoutes(
     }
   });
 
+  // ===========================
+  // IOT DEVICES - EWELINK INTEGRATION
+  // ===========================
+  
+  // Login to eWeLink and get session
+  app.post("/api/ewelink/login", async (req, res) => {
+    try {
+      const { email, password, region = "us" } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Email e senha são obrigatórios" 
+        });
+      }
+
+      const { ewelinkLogin } = await import("./ewelink.service.js");
+      const result = await ewelinkLogin(email, password, region);
+      
+      if (result.success && result.sessionKey) {
+        const condominiumId = req.condominiumContext?.condominiumId;
+        const userId = req.condominiumContext?.userId;
+        
+        if (condominiumId && userId) {
+          try {
+            await storage.createIotSession({
+              userId,
+              condominiumId,
+              sessionKey: result.sessionKey,
+              platform: "ewelink",
+              email,
+              region,
+              isActive: true,
+              expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            });
+          } catch (dbError) {
+            console.error("[eWeLink] Error saving session:", dbError);
+          }
+        }
+      }
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("[eWeLink] Login error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Erro interno do servidor" 
+      });
+    }
+  });
+
+  // List eWeLink devices
+  app.get("/api/ewelink/devices", async (req, res) => {
+    try {
+      const sessionKey = req.headers["x-ewelink-session"] as string;
+      
+      if (!sessionKey) {
+        return res.status(401).json({ 
+          success: false, 
+          message: "Sessão eWeLink não fornecida" 
+        });
+      }
+
+      const { ewelinkGetDevices } = await import("./ewelink.service.js");
+      const result = await ewelinkGetDevices(sessionKey);
+      res.json(result);
+    } catch (error: any) {
+      console.error("[eWeLink] Get devices error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Erro ao listar dispositivos" 
+      });
+    }
+  });
+
+  // Turn device ON
+  app.post("/api/ewelink/device/on", async (req, res) => {
+    try {
+      const sessionKey = req.headers["x-ewelink-session"] as string;
+      const { deviceid } = req.body;
+      
+      if (!sessionKey) {
+        return res.status(401).json({ 
+          success: false, 
+          message: "Sessão eWeLink não fornecida" 
+        });
+      }
+      
+      if (!deviceid) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "ID do dispositivo é obrigatório" 
+        });
+      }
+
+      const { ewelinkControlDevice } = await import("./ewelink.service.js");
+      const result = await ewelinkControlDevice(sessionKey, deviceid, "on");
+      res.json(result);
+    } catch (error: any) {
+      console.error("[eWeLink] Device on error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Erro ao ligar dispositivo" 
+      });
+    }
+  });
+
+  // Turn device OFF
+  app.post("/api/ewelink/device/off", async (req, res) => {
+    try {
+      const sessionKey = req.headers["x-ewelink-session"] as string;
+      const { deviceid } = req.body;
+      
+      if (!sessionKey) {
+        return res.status(401).json({ 
+          success: false, 
+          message: "Sessão eWeLink não fornecida" 
+        });
+      }
+      
+      if (!deviceid) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "ID do dispositivo é obrigatório" 
+        });
+      }
+
+      const { ewelinkControlDevice } = await import("./ewelink.service.js");
+      const result = await ewelinkControlDevice(sessionKey, deviceid, "off");
+      res.json(result);
+    } catch (error: any) {
+      console.error("[eWeLink] Device off error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Erro ao desligar dispositivo" 
+      });
+    }
+  });
+
+  // Logout from eWeLink
+  app.post("/api/ewelink/logout", async (req, res) => {
+    try {
+      const sessionKey = req.headers["x-ewelink-session"] as string;
+      
+      if (!sessionKey) {
+        return res.json({ success: true, message: "Nenhuma sessão ativa" });
+      }
+
+      const { ewelinkLogout } = await import("./ewelink.service.js");
+      const result = ewelinkLogout(sessionKey);
+      
+      const condominiumId = req.condominiumContext?.condominiumId;
+      const userId = req.condominiumContext?.userId;
+      
+      if (condominiumId && userId) {
+        try {
+          await storage.deleteIotSession(userId, condominiumId, "ewelink");
+        } catch (dbError) {
+          console.error("[eWeLink] Error removing session:", dbError);
+        }
+      }
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("[eWeLink] Logout error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Erro ao fazer logout" 
+      });
+    }
+  });
+
+  // Check eWeLink session status
+  app.get("/api/ewelink/session", async (req, res) => {
+    try {
+      const sessionKey = req.headers["x-ewelink-session"] as string;
+      
+      if (!sessionKey) {
+        return res.json({ valid: false });
+      }
+
+      const { ewelinkCheckSession } = await import("./ewelink.service.js");
+      const valid = ewelinkCheckSession(sessionKey);
+      res.json({ valid });
+    } catch (error: any) {
+      res.json({ valid: false });
+    }
+  });
+
+  // Get saved IoT sessions for current user/condominium
+  app.get("/api/iot/sessions", async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      const userId = req.condominiumContext?.userId;
+      
+      if (!condominiumId || !userId) {
+        return res.status(401).json({ error: "Autenticação necessária" });
+      }
+
+      const sessions = await storage.getIotSessions(userId, condominiumId);
+      res.json(sessions);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get registered IoT devices for condominium
+  app.get("/api/iot/devices", async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      
+      if (!condominiumId) {
+        return res.status(401).json({ error: "Condomínio não selecionado" });
+      }
+
+      const devices = await storage.getIotDevices(condominiumId);
+      res.json(devices);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Register/save a device to condominium
+  app.post("/api/iot/devices", async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      const userId = req.condominiumContext?.userId;
+      
+      if (!condominiumId) {
+        return res.status(401).json({ error: "Condomínio não selecionado" });
+      }
+
+      const device = await storage.createIotDevice({
+        ...req.body,
+        condominiumId,
+        createdBy: userId,
+      });
+      res.status(201).json(device);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Update registered device
+  app.patch("/api/iot/devices/:id", async (req, res) => {
+    try {
+      const device = await storage.updateIotDevice(req.params.id, req.body);
+      res.json(device);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Delete registered device
+  app.delete("/api/iot/devices/:id", async (req, res) => {
+    try {
+      await storage.deleteIotDevice(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return httpServer;
 }

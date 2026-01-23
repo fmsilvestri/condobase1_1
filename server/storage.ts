@@ -59,6 +59,10 @@ import {
   type InsertPushSubscription,
   type NotificationPreference,
   type InsertNotificationPreference,
+  type IotSession,
+  type InsertIotSession,
+  type IotDevice,
+  type InsertIotDevice,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -233,6 +237,18 @@ export interface IStorage {
   createNotificationPreference(preference: InsertNotificationPreference): Promise<NotificationPreference>;
   updateNotificationPreference(id: string, preference: Partial<InsertNotificationPreference>): Promise<NotificationPreference | undefined>;
   upsertNotificationPreference(userId: string, condominiumId: string | undefined, preference: Partial<InsertNotificationPreference>): Promise<NotificationPreference>;
+
+  // IoT Session methods
+  getIotSessions(userId: string, condominiumId: string): Promise<IotSession[]>;
+  createIotSession(session: InsertIotSession): Promise<IotSession>;
+  deleteIotSession(userId: string, condominiumId: string, platform: string): Promise<boolean>;
+
+  // IoT Device methods
+  getIotDevices(condominiumId: string): Promise<IotDevice[]>;
+  getIotDeviceById(id: string): Promise<IotDevice | undefined>;
+  createIotDevice(device: InsertIotDevice): Promise<IotDevice>;
+  updateIotDevice(id: string, device: Partial<InsertIotDevice>): Promise<IotDevice | undefined>;
+  deleteIotDevice(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -995,6 +1011,72 @@ export class MemStorage implements IStorage {
       quietHoursStart: preference.quietHoursStart || null,
       quietHoursEnd: preference.quietHoursEnd || null,
     });
+  }
+
+  // IoT Session methods
+  private iotSessions: Map<string, IotSession> = new Map();
+  private iotDevices: Map<string, IotDevice> = new Map();
+
+  async getIotSessions(userId: string, condominiumId: string): Promise<IotSession[]> {
+    return Array.from(this.iotSessions.values()).filter(
+      s => s.userId === userId && s.condominiumId === condominiumId && s.isActive
+    );
+  }
+
+  async createIotSession(session: InsertIotSession): Promise<IotSession> {
+    const id = randomUUID();
+    const newSession: IotSession = {
+      ...session,
+      id,
+      isActive: session.isActive ?? true,
+      createdAt: new Date(),
+      expiresAt: session.expiresAt || null,
+    };
+    this.iotSessions.set(id, newSession);
+    return newSession;
+  }
+
+  async deleteIotSession(userId: string, condominiumId: string, platform: string): Promise<boolean> {
+    for (const [id, session] of this.iotSessions) {
+      if (session.userId === userId && session.condominiumId === condominiumId && session.platform === platform) {
+        this.iotSessions.delete(id);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  async getIotDevices(condominiumId: string): Promise<IotDevice[]> {
+    return Array.from(this.iotDevices.values()).filter(d => d.condominiumId === condominiumId);
+  }
+
+  async getIotDeviceById(id: string): Promise<IotDevice | undefined> {
+    return this.iotDevices.get(id);
+  }
+
+  async createIotDevice(device: InsertIotDevice): Promise<IotDevice> {
+    const id = randomUUID();
+    const newDevice: IotDevice = {
+      ...device,
+      id,
+      isEnabled: device.isEnabled ?? true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.iotDevices.set(id, newDevice);
+    return newDevice;
+  }
+
+  async updateIotDevice(id: string, device: Partial<InsertIotDevice>): Promise<IotDevice | undefined> {
+    const existing = this.iotDevices.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...device, updatedAt: new Date() };
+    this.iotDevices.set(id, updated);
+    return updated;
+  }
+
+  async deleteIotDevice(id: string): Promise<boolean> {
+    return this.iotDevices.delete(id);
   }
 }
 
