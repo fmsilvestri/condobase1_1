@@ -480,70 +480,225 @@ export async function registerRoutes(
     try {
       const condominiumId = getCondominiumId(req) || (req.query.condominiumId as string) || undefined;
 
-      // Get data from storage for pillar calculations
-      const [equipment, requests, documents, suppliers, announcements] = await Promise.all([
+      const now = new Date();
+      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const currentYear = now.getFullYear();
+
+      // Get all data from storage for pillar calculations
+      const [
+        equipment, 
+        requests, 
+        documents, 
+        suppliers, 
+        announcements,
+        transactions,
+        budgets,
+        decisions,
+        minutes,
+        contracts,
+        checklistItems,
+        policies
+      ] = await Promise.all([
         storage.getEquipment(condominiumId),
         storage.getMaintenanceRequests(condominiumId),
         storage.getDocuments(condominiumId),
         storage.getSuppliers(condominiumId),
         storage.getAnnouncements(condominiumId),
+        storage.getFinancialTransactions(condominiumId),
+        storage.getBudgets(condominiumId, currentYear),
+        storage.getGovernanceDecisions(condominiumId),
+        storage.getMeetingMinutes(condominiumId),
+        storage.getContracts(condominiumId),
+        storage.getLegalChecklist(condominiumId),
+        storage.getInsurancePolicies(condominiumId),
       ]);
 
-      // Calculate pillar scores based on available data
-      const now = new Date();
-      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-      
-      // Manutenção score
-      const openRequests = requests.filter(r => r.status !== "concluído").length;
-      const totalRequests = requests.length || 1;
-      const manutencaoScore = Math.max(20, 100 - (openRequests / totalRequests) * 100);
+      const alerts: any[] = [];
 
-      // Conformidade score
+      // ===========================
+      // PILAR 1: GOVERNANÇA E SUCESSÃO (20%)
+      // ===========================
+      let governancaScore = 50;
+      const recentDecisions = decisions.filter(d => new Date(d.createdAt!) >= thirtyDaysAgo);
+      const approvedDecisions = decisions.filter(d => d.status === "aprovada");
+      const publishedMinutes = minutes.filter(m => m.status === "publicada");
+      
+      if (decisions.length > 0) {
+        const approvalRate = (approvedDecisions.length / decisions.length) * 100;
+        governancaScore = Math.min(100, 40 + approvalRate * 0.3 + publishedMinutes.length * 5 + recentDecisions.length * 10);
+      } else if (publishedMinutes.length > 0) {
+        governancaScore = 60 + publishedMinutes.length * 5;
+      }
+      governancaScore = Math.round(Math.min(100, Math.max(20, governancaScore)));
+
+      if (recentDecisions.length === 0 && decisions.length > 0) {
+        alerts.push({
+          id: "gov-inactive",
+          pillar: "governanca",
+          category: "governanca_inativa",
+          severity: "baixo",
+          title: "Sem decisões registradas nos últimos 30 dias",
+          description: "Recomenda-se manter registro ativo das decisões do condomínio.",
+          suggestedAction: "Registrar decisões e atas de reuniões",
+          financialImpact: 0,
+          createdAt: now.toISOString(),
+        });
+      }
+
+      // ===========================
+      // PILAR 2: FINANCEIRO E ORÇAMENTÁRIO (20%)
+      // ===========================
+      let financeiroScore = 50;
+      const currentMonthTransactions = transactions.filter(t => {
+        const date = new Date(t.transactionDate);
+        return date.getMonth() === now.getMonth() && date.getFullYear() === currentYear;
+      });
+      const totalReceitas = transactions.filter(t => t.type === "receita").reduce((sum, t) => sum + (t.amount || 0), 0);
+      const totalDespesas = transactions.filter(t => t.type === "despesa").reduce((sum, t) => sum + (t.amount || 0), 0);
+      const pendingPayments = transactions.filter(t => t.status === "pendente" && t.type === "despesa");
+      const overduePayments = pendingPayments.filter(t => t.dueDate && new Date(t.dueDate) < now);
+      const totalPlanned = budgets.reduce((sum, b) => sum + (b.plannedAmount || 0), 0);
+      const totalActual = budgets.reduce((sum, b) => sum + (b.actualAmount || 0), 0);
+
+      if (transactions.length > 0 || budgets.length > 0) {
+        const budgetAdherence = totalPlanned > 0 ? Math.max(0, 100 - Math.abs((totalActual - totalPlanned) / totalPlanned * 100)) : 50;
+        const paymentHealthScore = pendingPayments.length > 0 ? Math.max(0, 100 - (overduePayments.length / pendingPayments.length) * 100) : 100;
+        const cashFlowBalance = totalReceitas >= totalDespesas ? 100 : Math.max(0, (totalReceitas / Math.max(1, totalDespesas)) * 100);
+        financeiroScore = Math.round((budgetAdherence * 0.4 + paymentHealthScore * 0.3 + cashFlowBalance * 0.3));
+      }
+      financeiroScore = Math.round(Math.min(100, Math.max(20, financeiroScore)));
+
+      if (overduePayments.length > 0) {
+        const overdueAmount = overduePayments.reduce((sum, t) => sum + (t.amount || 0), 0);
+        alerts.push({
+          id: "finance-overdue",
+          pillar: "financeiro",
+          category: "inadimplencia",
+          severity: overduePayments.length > 5 ? "alto" : "medio",
+          title: `${overduePayments.length} pagamento(s) em atraso`,
+          description: `Valor total em atraso: R$ ${overdueAmount.toLocaleString('pt-BR')}`,
+          suggestedAction: "Regularizar pagamentos pendentes",
+          financialImpact: overdueAmount,
+          createdAt: now.toISOString(),
+        });
+      }
+
+      // ===========================
+      // PILAR 3: MANUTENÇÃO E ATIVOS (20%)
+      // ===========================
+      const openRequests = requests.filter(r => r.status !== "concluído").length;
+      const urgentRequests = requests.filter(r => r.priority === "urgente" && r.status !== "concluído");
+      const totalRequests = requests.length || 1;
+      const completedRequests = requests.filter(r => r.status === "concluído");
+      const completionRate = (completedRequests.length / totalRequests) * 100;
+      let manutencaoScore = Math.max(20, completionRate - (urgentRequests.length * 5));
+      manutencaoScore = Math.round(Math.min(100, Math.max(20, manutencaoScore)));
+
+      if (openRequests > 5) {
+        alerts.push({
+          id: "maintenance-backlog",
+          pillar: "manutencao",
+          category: "acumulo_solicitacoes",
+          severity: openRequests > 15 ? "alto" : "medio",
+          title: `${openRequests} solicitações de manutenção pendentes`,
+          description: "Acúmulo de solicitações pode indicar problemas operacionais.",
+          suggestedAction: "Revisar e priorizar solicitações pendentes",
+          financialImpact: openRequests * 200,
+          createdAt: now.toISOString(),
+        });
+      }
+
+      if (urgentRequests.length > 0) {
+        alerts.push({
+          id: "maintenance-urgent",
+          pillar: "manutencao",
+          category: "manutencao_urgente",
+          severity: "alto",
+          title: `${urgentRequests.length} manutenção(ões) urgente(s) pendente(s)`,
+          description: "Manutenções urgentes requerem atenção imediata.",
+          suggestedAction: "Priorizar atendimento das manutenções urgentes",
+          financialImpact: urgentRequests.length * 1000,
+          createdAt: now.toISOString(),
+        });
+      }
+
+      // ===========================
+      // PILAR 4: CONTRATOS E FORNECEDORES (15%)
+      // ===========================
+      let contratosScore = 50;
+      const activeContracts = contracts.filter(c => c.status === "ativo");
+      const expiringContracts = contracts.filter(c => 
+        c.status === "ativo" && c.endDate && new Date(c.endDate) <= thirtyDaysFromNow
+      );
+      const expiredContracts = contracts.filter(c => 
+        c.endDate && new Date(c.endDate) < now && c.status === "ativo"
+      );
+
+      if (contracts.length > 0) {
+        const activeRate = (activeContracts.length / contracts.length) * 100;
+        const expiryPenalty = (expiringContracts.length * 10) + (expiredContracts.length * 20);
+        contratosScore = Math.max(20, activeRate - expiryPenalty);
+      } else {
+        contratosScore = 30;
+      }
+      contratosScore = Math.round(Math.min(100, Math.max(20, contratosScore)));
+
+      if (expiredContracts.length > 0) {
+        alerts.push({
+          id: "contract-expired",
+          pillar: "contratos",
+          category: "vencimento_contrato",
+          severity: "alto",
+          title: `${expiredContracts.length} contrato(s) vencido(s)`,
+          description: "Contratos vencidos precisam ser renovados ou encerrados.",
+          suggestedAction: "Revisar e renovar contratos vencidos",
+          financialImpact: expiredContracts.length * 2000,
+          createdAt: now.toISOString(),
+        });
+      }
+
+      if (expiringContracts.length > 0) {
+        alerts.push({
+          id: "contract-expiring",
+          pillar: "contratos",
+          category: "vencimento_contrato",
+          severity: "medio",
+          title: `${expiringContracts.length} contrato(s) vencendo em 30 dias`,
+          description: "Contratos próximos do vencimento precisam de atenção.",
+          suggestedAction: "Iniciar processo de renovação",
+          financialImpact: expiringContracts.length * 1000,
+          createdAt: now.toISOString(),
+        });
+      }
+
+      // ===========================
+      // PILAR 5: CONFORMIDADE LEGAL E SEGUROS (15%)
+      // ===========================
+      let conformidadeScore = 50;
+      const pendingChecklist = checklistItems.filter(c => c.status === "pendente" || c.status === "vencido");
+      const overdueChecklist = checklistItems.filter(c => c.status === "vencido");
+      const activePolicies = policies.filter(p => p.status === "ativo");
+      const expiringPolicies = policies.filter(p => 
+        p.status === "ativo" && p.endDate && new Date(p.endDate) <= thirtyDaysFromNow
+      );
+      const expiredPolicies = policies.filter(p => 
+        p.endDate && new Date(p.endDate) < now && p.status !== "cancelado"
+      );
+      
       const expiringDocs = documents.filter(d => 
         d.expirationDate && new Date(d.expirationDate) <= thirtyDaysFromNow
       ).length;
       const expiredDocs = documents.filter(d => 
         d.expirationDate && new Date(d.expirationDate) < now
       ).length;
-      const totalDocs = documents.length || 1;
-      const conformidadeScore = Math.max(20, 100 - ((expiringDocs * 10 + expiredDocs * 20) / totalDocs));
 
-      // Transparência score
-      const recentAnnouncements = announcements.filter(a => {
-        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        return new Date(a.createdAt) >= thirtyDaysAgo;
-      }).length;
-      const transparenciaScore = Math.min(100, 50 + recentAnnouncements * 10);
+      const complianceItems = checklistItems.length + policies.length + documents.length || 1;
+      const problemItems = overdueChecklist.length + expiredPolicies.length + expiredDocs;
+      const warningItems = pendingChecklist.length + expiringPolicies.length + expiringDocs;
+      conformidadeScore = Math.max(20, 100 - (problemItems * 15 + warningItems * 5));
+      conformidadeScore = Math.round(Math.min(100, Math.max(20, conformidadeScore)));
 
-      // Default scores for pillars without real data yet
-      const pillarScores = [
-        { pillar: "governanca", score: 72, riskLevel: "baixo", maturityLevel: "estruturado", weight: 20 },
-        { pillar: "financeiro", score: 58, riskLevel: "medio", maturityLevel: "em_evolucao", weight: 20 },
-        { pillar: "manutencao", score: Math.round(manutencaoScore), riskLevel: manutencaoScore >= 70 ? "baixo" : manutencaoScore >= 40 ? "medio" : "alto", maturityLevel: manutencaoScore >= 80 ? "inteligente" : manutencaoScore >= 60 ? "estruturado" : "em_evolucao", weight: 20 },
-        { pillar: "contratos", score: 45, riskLevel: "alto", maturityLevel: "iniciante", weight: 15 },
-        { pillar: "conformidade", score: Math.round(conformidadeScore), riskLevel: conformidadeScore >= 70 ? "baixo" : conformidadeScore >= 40 ? "medio" : "alto", maturityLevel: conformidadeScore >= 80 ? "inteligente" : conformidadeScore >= 60 ? "estruturado" : "em_evolucao", weight: 15 },
-        { pillar: "operacao", score: 78, riskLevel: "baixo", maturityLevel: "estruturado", weight: 5 },
-        { pillar: "transparencia", score: Math.round(transparenciaScore), riskLevel: transparenciaScore >= 70 ? "baixo" : transparenciaScore >= 40 ? "medio" : "alto", maturityLevel: transparenciaScore >= 80 ? "inteligente" : transparenciaScore >= 60 ? "estruturado" : "em_evolucao", weight: 5 },
-      ];
-
-      // Calculate overall score (weighted average)
-      const overallScore = Math.round(
-        pillarScores.reduce((sum, p) => sum + (p.score * p.weight), 0) / 100
-      );
-
-      // Determine maturity level
-      const maturityLevel = overallScore >= 80 ? "inteligente" : overallScore >= 60 ? "estruturado" : overallScore >= 40 ? "em_evolucao" : "iniciante";
-
-      // Calculate risk distribution
-      const riskDistribution = {
-        high: pillarScores.filter(p => p.riskLevel === "alto").length,
-        medium: pillarScores.filter(p => p.riskLevel === "medio").length,
-        low: pillarScores.filter(p => p.riskLevel === "baixo").length,
-      };
-
-      // Generate sample alerts based on real data
-      const alerts: any[] = [];
-      
       if (expiredDocs > 0) {
         alerts.push({
           id: "doc-expired",
@@ -554,7 +709,7 @@ export async function registerRoutes(
           description: "Existem documentos com prazo de validade expirado.",
           suggestedAction: "Renovar documentação vencida",
           financialImpact: expiredDocs * 1000,
-          createdAt: new Date().toISOString(),
+          createdAt: now.toISOString(),
         });
       }
 
@@ -568,23 +723,73 @@ export async function registerRoutes(
           description: "Documentos próximos do vencimento precisam de atenção.",
           suggestedAction: "Iniciar processo de renovação",
           financialImpact: expiringDocs * 500,
-          createdAt: new Date().toISOString(),
+          createdAt: now.toISOString(),
         });
       }
 
-      if (openRequests > 5) {
+      if (expiredPolicies.length > 0) {
         alerts.push({
-          id: "maintenance-backlog",
-          pillar: "manutencao",
-          category: "acumulo_solicitacoes",
-          severity: "medio",
-          title: `${openRequests} solicitações de manutenção pendentes`,
-          description: "Acúmulo de solicitações pode indicar problemas operacionais.",
-          suggestedAction: "Revisar e priorizar solicitações pendentes",
-          financialImpact: openRequests * 200,
-          createdAt: new Date().toISOString(),
+          id: "insurance-expired",
+          pillar: "conformidade",
+          category: "vencimento_seguro",
+          severity: "critico",
+          title: `${expiredPolicies.length} apólice(s) de seguro vencida(s)`,
+          description: "O condomínio pode estar sem cobertura de seguro!",
+          suggestedAction: "Renovar apólices imediatamente",
+          financialImpact: expiredPolicies.reduce((sum, p) => sum + (p.coverageAmount || 0), 0),
+          createdAt: now.toISOString(),
         });
       }
+
+      // ===========================
+      // PILAR 6: OPERAÇÃO E AUTOMAÇÃO (5%)
+      // ===========================
+      let operacaoScore = 60;
+      const hasEquipment = equipment.length > 0;
+      const hasDocumentation = documents.length > 5;
+      const hasSuppliers = suppliers.length > 0;
+      operacaoScore = 40 + (hasEquipment ? 20 : 0) + (hasDocumentation ? 20 : 0) + (hasSuppliers ? 20 : 0);
+      operacaoScore = Math.round(Math.min(100, Math.max(20, operacaoScore)));
+
+      // ===========================
+      // PILAR 7: TRANSPARÊNCIA E COMUNICAÇÃO (5%)
+      // ===========================
+      const recentAnnouncements = announcements.filter(a => new Date(a.createdAt) >= thirtyDaysAgo).length;
+      let transparenciaScore = Math.min(100, 30 + recentAnnouncements * 15 + publishedMinutes.length * 10);
+      transparenciaScore = Math.round(Math.min(100, Math.max(20, transparenciaScore)));
+
+      // Helper function to determine risk level and maturity
+      const getRiskLevel = (score: number) => score >= 70 ? "baixo" : score >= 40 ? "medio" : "alto";
+      const getMaturityLevel = (score: number) => score >= 80 ? "inteligente" : score >= 60 ? "estruturado" : score >= 40 ? "em_evolucao" : "iniciante";
+
+      const pillarScores = [
+        { pillar: "governanca", score: governancaScore, riskLevel: getRiskLevel(governancaScore), maturityLevel: getMaturityLevel(governancaScore), weight: 20 },
+        { pillar: "financeiro", score: financeiroScore, riskLevel: getRiskLevel(financeiroScore), maturityLevel: getMaturityLevel(financeiroScore), weight: 20 },
+        { pillar: "manutencao", score: manutencaoScore, riskLevel: getRiskLevel(manutencaoScore), maturityLevel: getMaturityLevel(manutencaoScore), weight: 20 },
+        { pillar: "contratos", score: contratosScore, riskLevel: getRiskLevel(contratosScore), maturityLevel: getMaturityLevel(contratosScore), weight: 15 },
+        { pillar: "conformidade", score: conformidadeScore, riskLevel: getRiskLevel(conformidadeScore), maturityLevel: getMaturityLevel(conformidadeScore), weight: 15 },
+        { pillar: "operacao", score: operacaoScore, riskLevel: getRiskLevel(operacaoScore), maturityLevel: getMaturityLevel(operacaoScore), weight: 5 },
+        { pillar: "transparencia", score: transparenciaScore, riskLevel: getRiskLevel(transparenciaScore), maturityLevel: getMaturityLevel(transparenciaScore), weight: 5 },
+      ];
+
+      // Calculate overall score (weighted average)
+      const overallScore = Math.round(
+        pillarScores.reduce((sum, p) => sum + (p.score * p.weight), 0) / 100
+      );
+
+      // Determine maturity level
+      const maturityLevel = getMaturityLevel(overallScore);
+
+      // Calculate risk distribution
+      const riskDistribution = {
+        high: pillarScores.filter(p => p.riskLevel === "alto").length,
+        medium: pillarScores.filter(p => p.riskLevel === "medio").length,
+        low: pillarScores.filter(p => p.riskLevel === "baixo").length,
+      };
+
+      // Sort alerts by severity
+      const severityOrder = { critico: 0, alto: 1, medio: 2, baixo: 3, info: 4 };
+      alerts.sort((a, b) => (severityOrder[a.severity as keyof typeof severityOrder] || 4) - (severityOrder[b.severity as keyof typeof severityOrder] || 4));
 
       const financialImpact = alerts.reduce((sum, a) => sum + (a.financialImpact || 0), 0);
 
@@ -595,6 +800,14 @@ export async function registerRoutes(
         alerts,
         financialImpact,
         riskDistribution,
+        metrics: {
+          totalTransactions: transactions.length,
+          totalContracts: contracts.length,
+          activeContracts: activeContracts.length,
+          totalDecisions: decisions.length,
+          totalPolicies: policies.length,
+          totalEquipment: equipment.length,
+        }
       });
     } catch (error: any) {
       console.error("Executive dashboard error:", error?.message || error);
