@@ -13,7 +13,7 @@ import { CondominiumProvider } from "@/hooks/use-condominium";
 import { NotificationBell } from "@/components/notification-bell";
 import { Loader2 } from "lucide-react";
 import NotFound from "@/pages/not-found";
-import Dashboard from "@/pages/dashboard";
+import ExecutiveDashboard from "@/pages/executive-dashboard";
 import Maintenance from "@/pages/maintenance";
 import Pool from "@/pages/pool";
 import Water from "@/pages/water";
@@ -35,11 +35,21 @@ import PlatformAdmin from "@/pages/platform-admin";
 import Faq from "@/pages/faq";
 import NotificationSettings from "@/pages/notification-settings";
 import IotDevices from "@/pages/iot-devices";
+import Governance from "@/pages/governance";
+import Financial from "@/pages/financial";
+import Contracts from "@/pages/contracts";
+import Compliance from "@/pages/compliance";
+import Insurance from "@/pages/insurance";
 
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
+      <Route path="/" component={ExecutiveDashboard} />
+      <Route path="/governanca" component={Governance} />
+      <Route path="/financeiro" component={Financial} />
+      <Route path="/contratos" component={Contracts} />
+      <Route path="/conformidade" component={Compliance} />
+      <Route path="/seguros" component={Insurance} />
       <Route path="/manutencoes" component={Maintenance} />
       <Route path="/manutencao-preventiva" component={PreventiveMaintenance} />
       <Route path="/piscina" component={Pool} />

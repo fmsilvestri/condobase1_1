@@ -468,6 +468,133 @@ export async function registerRoutes(
     }
   });
 
+  // Executive Dashboard - 7 Pillars Overview
+  app.get("/api/executive-dashboard", async (req, res) => {
+    try {
+      const condominiumId = getCondominiumId(req) || (req.query.condominiumId as string) || undefined;
+
+      // Get data from storage for pillar calculations
+      const [equipment, requests, documents, suppliers, announcements] = await Promise.all([
+        storage.getEquipment(condominiumId),
+        storage.getMaintenanceRequests(condominiumId),
+        storage.getDocuments(condominiumId),
+        storage.getSuppliers(condominiumId),
+        storage.getAnnouncements(condominiumId),
+      ]);
+
+      // Calculate pillar scores based on available data
+      const now = new Date();
+      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      
+      // Manutenção score
+      const openRequests = requests.filter(r => r.status !== "concluído").length;
+      const totalRequests = requests.length || 1;
+      const manutencaoScore = Math.max(20, 100 - (openRequests / totalRequests) * 100);
+
+      // Conformidade score
+      const expiringDocs = documents.filter(d => 
+        d.expirationDate && new Date(d.expirationDate) <= thirtyDaysFromNow
+      ).length;
+      const expiredDocs = documents.filter(d => 
+        d.expirationDate && new Date(d.expirationDate) < now
+      ).length;
+      const totalDocs = documents.length || 1;
+      const conformidadeScore = Math.max(20, 100 - ((expiringDocs * 10 + expiredDocs * 20) / totalDocs));
+
+      // Transparência score
+      const recentAnnouncements = announcements.filter(a => {
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        return new Date(a.createdAt) >= thirtyDaysAgo;
+      }).length;
+      const transparenciaScore = Math.min(100, 50 + recentAnnouncements * 10);
+
+      // Default scores for pillars without real data yet
+      const pillarScores = [
+        { pillar: "governanca", score: 72, riskLevel: "baixo", maturityLevel: "estruturado", weight: 20 },
+        { pillar: "financeiro", score: 58, riskLevel: "medio", maturityLevel: "em_evolucao", weight: 20 },
+        { pillar: "manutencao", score: Math.round(manutencaoScore), riskLevel: manutencaoScore >= 70 ? "baixo" : manutencaoScore >= 40 ? "medio" : "alto", maturityLevel: manutencaoScore >= 80 ? "inteligente" : manutencaoScore >= 60 ? "estruturado" : "em_evolucao", weight: 20 },
+        { pillar: "contratos", score: 45, riskLevel: "alto", maturityLevel: "iniciante", weight: 15 },
+        { pillar: "conformidade", score: Math.round(conformidadeScore), riskLevel: conformidadeScore >= 70 ? "baixo" : conformidadeScore >= 40 ? "medio" : "alto", maturityLevel: conformidadeScore >= 80 ? "inteligente" : conformidadeScore >= 60 ? "estruturado" : "em_evolucao", weight: 15 },
+        { pillar: "operacao", score: 78, riskLevel: "baixo", maturityLevel: "estruturado", weight: 5 },
+        { pillar: "transparencia", score: Math.round(transparenciaScore), riskLevel: transparenciaScore >= 70 ? "baixo" : transparenciaScore >= 40 ? "medio" : "alto", maturityLevel: transparenciaScore >= 80 ? "inteligente" : transparenciaScore >= 60 ? "estruturado" : "em_evolucao", weight: 5 },
+      ];
+
+      // Calculate overall score (weighted average)
+      const overallScore = Math.round(
+        pillarScores.reduce((sum, p) => sum + (p.score * p.weight), 0) / 100
+      );
+
+      // Determine maturity level
+      const maturityLevel = overallScore >= 80 ? "inteligente" : overallScore >= 60 ? "estruturado" : overallScore >= 40 ? "em_evolucao" : "iniciante";
+
+      // Calculate risk distribution
+      const riskDistribution = {
+        high: pillarScores.filter(p => p.riskLevel === "alto").length,
+        medium: pillarScores.filter(p => p.riskLevel === "medio").length,
+        low: pillarScores.filter(p => p.riskLevel === "baixo").length,
+      };
+
+      // Generate sample alerts based on real data
+      const alerts: any[] = [];
+      
+      if (expiredDocs > 0) {
+        alerts.push({
+          id: "doc-expired",
+          pillar: "conformidade",
+          category: "vencimento_documento",
+          severity: "alto",
+          title: `${expiredDocs} documento(s) vencido(s)`,
+          description: "Existem documentos com prazo de validade expirado.",
+          suggestedAction: "Renovar documentação vencida",
+          financialImpact: expiredDocs * 1000,
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      if (expiringDocs > 0) {
+        alerts.push({
+          id: "doc-expiring",
+          pillar: "conformidade",
+          category: "vencimento_documento",
+          severity: "medio",
+          title: `${expiringDocs} documento(s) vencendo em 30 dias`,
+          description: "Documentos próximos do vencimento precisam de atenção.",
+          suggestedAction: "Iniciar processo de renovação",
+          financialImpact: expiringDocs * 500,
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      if (openRequests > 5) {
+        alerts.push({
+          id: "maintenance-backlog",
+          pillar: "manutencao",
+          category: "acumulo_solicitacoes",
+          severity: "medio",
+          title: `${openRequests} solicitações de manutenção pendentes`,
+          description: "Acúmulo de solicitações pode indicar problemas operacionais.",
+          suggestedAction: "Revisar e priorizar solicitações pendentes",
+          financialImpact: openRequests * 200,
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      const financialImpact = alerts.reduce((sum, a) => sum + (a.financialImpact || 0), 0);
+
+      res.json({
+        overallScore,
+        maturityLevel,
+        pillarScores,
+        alerts,
+        financialImpact,
+        riskDistribution,
+      });
+    } catch (error: any) {
+      console.error("Executive dashboard error:", error?.message || error);
+      res.status(500).json({ error: "Failed to fetch executive dashboard data", details: error?.message });
+    }
+  });
+
   // Users/Admin routes
   app.get("/api/users", async (req, res) => {
     try {

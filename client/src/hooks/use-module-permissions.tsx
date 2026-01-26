@@ -68,4 +68,9 @@ export const moduleKeyMap: Record<string, string> = {
   "/fornecedores": "fornecedores",
   "/comunicados": "comunicados",
   "/seguranca": "seguranca",
+  "/governanca": "governanca",
+  "/financeiro": "financeiro",
+  "/contratos": "contratos",
+  "/conformidade": "conformidade",
+  "/seguros": "seguros",
 };

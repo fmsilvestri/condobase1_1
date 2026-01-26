@@ -21,6 +21,12 @@ import {
   CalendarCheck,
   HelpCircle,
   Router,
+  Landmark,
+  DollarSign,
+  ScrollText,
+  Scale,
+  ShieldCheck,
+  Target,
 } from "lucide-react";
 import {
   Sidebar,
@@ -46,12 +52,40 @@ import { useModulePermissions, moduleKeyMap } from "@/hooks/use-module-permissio
 import { useCondominium } from "@/hooks/use-condominium";
 import logoImage from "@assets/image_1767976092597.png";
 
-const mainModules = [
+const pillarModules = [
   {
-    title: "Dashboard",
+    title: "Painel Executivo",
     url: "/",
-    icon: LayoutDashboard,
+    icon: Target,
   },
+  {
+    title: "Governança",
+    url: "/governanca",
+    icon: Landmark,
+  },
+  {
+    title: "Financeiro",
+    url: "/financeiro",
+    icon: DollarSign,
+  },
+  {
+    title: "Contratos",
+    url: "/contratos",
+    icon: ScrollText,
+  },
+  {
+    title: "Conformidade Legal",
+    url: "/conformidade",
+    icon: Scale,
+  },
+  {
+    title: "Seguros",
+    url: "/seguros",
+    icon: ShieldCheck,
+  },
+];
+
+const mainModules = [
   {
     title: "Ativos & Manutenções",
     url: "/manutencoes",
@@ -144,6 +178,12 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
   const displayName = userName || "Usuário";
   const isAdmin = isPlatformAdmin || effectiveRole === "síndico";
 
+  const filteredPillarModules = pillarModules.filter(item => {
+    const moduleKey = moduleKeyMap[item.url];
+    if (!moduleKey) return true;
+    return canAccessModule(moduleKey);
+  });
+
   const filteredMainModules = mainModules.filter(item => {
     const moduleKey = moduleKeyMap[item.url];
     if (!moduleKey) return true;
@@ -200,7 +240,31 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
       <SidebarContent className="px-3 py-2">
         <SidebarGroup>
           <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 px-2 mb-1">
-            Módulos Principais
+            7 Pilares
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {filteredPillarModules.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === item.url}
+                    data-testid={`nav-${item.url.replace("/", "") || "painel"}`}
+                    className="rounded-lg h-9 transition-all duration-200 data-[active=true]:bg-emerald-500/15 data-[active=true]:text-emerald-600 dark:data-[active=true]:text-emerald-400 data-[active=true]:font-medium"
+                  >
+                    <Link href={item.url}>
+                      <item.icon className="h-4 w-4" />
+                      <span className="text-sm">{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 px-2 mb-1">
+            Operações
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>

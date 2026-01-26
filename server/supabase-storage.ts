@@ -94,10 +94,34 @@ import {
   type InsertIotSession,
   type IotDevice,
   type InsertIotDevice,
+  type GovernanceDecision,
+  type InsertGovernanceDecision,
+  type MeetingMinutes,
+  type InsertMeetingMinutes,
+  type Budget,
+  type InsertBudget,
+  type FinancialTransaction,
+  type InsertFinancialTransaction,
+  type Contract,
+  type InsertContract,
+  type LegalChecklist,
+  type InsertLegalChecklist,
+  type InsurancePolicy,
+  type InsertInsurancePolicy,
+  type SmartAlert,
+  type InsertSmartAlert,
   pushSubscriptions as pushSubscriptionsTable,
   notificationPreferences as notificationPreferencesTable,
   iotSessions as iotSessionsTable,
   iotDevices as iotDevicesTable,
+  governanceDecisions as governanceDecisionsTable,
+  meetingMinutes as meetingMinutesTable,
+  budgets as budgetsTable,
+  financialTransactions as financialTransactionsTable,
+  contracts as contractsTable,
+  legalChecklist as legalChecklistTable,
+  insurancePolicies as insurancePoliciesTable,
+  smartAlerts as smartAlertsTable,
 } from "@shared/schema";
 
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
@@ -1324,6 +1348,324 @@ export class SupabaseStorage implements IStorage {
     await db.delete(iotDevicesTable)
       .where(eq(iotDevicesTable.id, id));
     return true;
+  }
+
+  // ===========================
+  // 7 PILLARS MANAGEMENT
+  // ===========================
+
+  // Governance Decisions
+  async getGovernanceDecisions(condominiumId?: string): Promise<GovernanceDecision[]> {
+    if (condominiumId) {
+      return db.select().from(governanceDecisionsTable)
+        .where(eq(governanceDecisionsTable.condominiumId, condominiumId))
+        .orderBy(desc(governanceDecisionsTable.decisionDate));
+    }
+    return db.select().from(governanceDecisionsTable)
+      .orderBy(desc(governanceDecisionsTable.decisionDate));
+  }
+
+  async getGovernanceDecisionById(id: string): Promise<GovernanceDecision | undefined> {
+    const [data] = await db.select().from(governanceDecisionsTable)
+      .where(eq(governanceDecisionsTable.id, id));
+    return data;
+  }
+
+  async createGovernanceDecision(decision: InsertGovernanceDecision): Promise<GovernanceDecision> {
+    const [data] = await db.insert(governanceDecisionsTable)
+      .values(decision)
+      .returning();
+    return data;
+  }
+
+  async updateGovernanceDecision(id: string, decision: Partial<InsertGovernanceDecision>): Promise<GovernanceDecision | undefined> {
+    const [data] = await db.update(governanceDecisionsTable)
+      .set({ ...decision, updatedAt: new Date() })
+      .where(eq(governanceDecisionsTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteGovernanceDecision(id: string): Promise<boolean> {
+    await db.delete(governanceDecisionsTable)
+      .where(eq(governanceDecisionsTable.id, id));
+    return true;
+  }
+
+  // Meeting Minutes
+  async getMeetingMinutes(condominiumId?: string): Promise<MeetingMinutes[]> {
+    if (condominiumId) {
+      return db.select().from(meetingMinutesTable)
+        .where(eq(meetingMinutesTable.condominiumId, condominiumId))
+        .orderBy(desc(meetingMinutesTable.meetingDate));
+    }
+    return db.select().from(meetingMinutesTable)
+      .orderBy(desc(meetingMinutesTable.meetingDate));
+  }
+
+  async getMeetingMinutesById(id: string): Promise<MeetingMinutes | undefined> {
+    const [data] = await db.select().from(meetingMinutesTable)
+      .where(eq(meetingMinutesTable.id, id));
+    return data;
+  }
+
+  async createMeetingMinutes(minutes: InsertMeetingMinutes): Promise<MeetingMinutes> {
+    const [data] = await db.insert(meetingMinutesTable)
+      .values(minutes)
+      .returning();
+    return data;
+  }
+
+  async updateMeetingMinutes(id: string, minutes: Partial<InsertMeetingMinutes>): Promise<MeetingMinutes | undefined> {
+    const [data] = await db.update(meetingMinutesTable)
+      .set({ ...minutes, updatedAt: new Date() })
+      .where(eq(meetingMinutesTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteMeetingMinutes(id: string): Promise<boolean> {
+    await db.delete(meetingMinutesTable)
+      .where(eq(meetingMinutesTable.id, id));
+    return true;
+  }
+
+  // Budgets
+  async getBudgets(condominiumId?: string, year?: number): Promise<Budget[]> {
+    if (condominiumId && year) {
+      return db.select().from(budgetsTable)
+        .where(and(
+          eq(budgetsTable.condominiumId, condominiumId),
+          eq(budgetsTable.year, year)
+        ))
+        .orderBy(desc(budgetsTable.createdAt));
+    }
+    if (condominiumId) {
+      return db.select().from(budgetsTable)
+        .where(eq(budgetsTable.condominiumId, condominiumId))
+        .orderBy(desc(budgetsTable.createdAt));
+    }
+    return db.select().from(budgetsTable)
+      .orderBy(desc(budgetsTable.createdAt));
+  }
+
+  async getBudgetById(id: string): Promise<Budget | undefined> {
+    const [data] = await db.select().from(budgetsTable)
+      .where(eq(budgetsTable.id, id));
+    return data;
+  }
+
+  async createBudget(budget: InsertBudget): Promise<Budget> {
+    const [data] = await db.insert(budgetsTable)
+      .values(budget)
+      .returning();
+    return data;
+  }
+
+  async updateBudget(id: string, budget: Partial<InsertBudget>): Promise<Budget | undefined> {
+    const [data] = await db.update(budgetsTable)
+      .set({ ...budget, updatedAt: new Date() })
+      .where(eq(budgetsTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteBudget(id: string): Promise<boolean> {
+    await db.delete(budgetsTable)
+      .where(eq(budgetsTable.id, id));
+    return true;
+  }
+
+  // Financial Transactions
+  async getFinancialTransactions(condominiumId?: string): Promise<FinancialTransaction[]> {
+    if (condominiumId) {
+      return db.select().from(financialTransactionsTable)
+        .where(eq(financialTransactionsTable.condominiumId, condominiumId))
+        .orderBy(desc(financialTransactionsTable.transactionDate));
+    }
+    return db.select().from(financialTransactionsTable)
+      .orderBy(desc(financialTransactionsTable.transactionDate));
+  }
+
+  async getFinancialTransactionById(id: string): Promise<FinancialTransaction | undefined> {
+    const [data] = await db.select().from(financialTransactionsTable)
+      .where(eq(financialTransactionsTable.id, id));
+    return data;
+  }
+
+  async createFinancialTransaction(transaction: InsertFinancialTransaction): Promise<FinancialTransaction> {
+    const [data] = await db.insert(financialTransactionsTable)
+      .values(transaction)
+      .returning();
+    return data;
+  }
+
+  async updateFinancialTransaction(id: string, transaction: Partial<InsertFinancialTransaction>): Promise<FinancialTransaction | undefined> {
+    const [data] = await db.update(financialTransactionsTable)
+      .set({ ...transaction, updatedAt: new Date() })
+      .where(eq(financialTransactionsTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteFinancialTransaction(id: string): Promise<boolean> {
+    await db.delete(financialTransactionsTable)
+      .where(eq(financialTransactionsTable.id, id));
+    return true;
+  }
+
+  // Contracts
+  async getContracts(condominiumId?: string): Promise<Contract[]> {
+    if (condominiumId) {
+      return db.select().from(contractsTable)
+        .where(eq(contractsTable.condominiumId, condominiumId))
+        .orderBy(desc(contractsTable.createdAt));
+    }
+    return db.select().from(contractsTable)
+      .orderBy(desc(contractsTable.createdAt));
+  }
+
+  async getContractById(id: string): Promise<Contract | undefined> {
+    const [data] = await db.select().from(contractsTable)
+      .where(eq(contractsTable.id, id));
+    return data;
+  }
+
+  async createContract(contract: InsertContract): Promise<Contract> {
+    const [data] = await db.insert(contractsTable)
+      .values(contract)
+      .returning();
+    return data;
+  }
+
+  async updateContract(id: string, contract: Partial<InsertContract>): Promise<Contract | undefined> {
+    const [data] = await db.update(contractsTable)
+      .set({ ...contract, updatedAt: new Date() })
+      .where(eq(contractsTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteContract(id: string): Promise<boolean> {
+    await db.delete(contractsTable)
+      .where(eq(contractsTable.id, id));
+    return true;
+  }
+
+  // Legal Checklist
+  async getLegalChecklist(condominiumId?: string): Promise<LegalChecklist[]> {
+    if (condominiumId) {
+      return db.select().from(legalChecklistTable)
+        .where(eq(legalChecklistTable.condominiumId, condominiumId))
+        .orderBy(desc(legalChecklistTable.createdAt));
+    }
+    return db.select().from(legalChecklistTable)
+      .orderBy(desc(legalChecklistTable.createdAt));
+  }
+
+  async getLegalChecklistById(id: string): Promise<LegalChecklist | undefined> {
+    const [data] = await db.select().from(legalChecklistTable)
+      .where(eq(legalChecklistTable.id, id));
+    return data;
+  }
+
+  async createLegalChecklistItem(item: InsertLegalChecklist): Promise<LegalChecklist> {
+    const [data] = await db.insert(legalChecklistTable)
+      .values(item)
+      .returning();
+    return data;
+  }
+
+  async updateLegalChecklistItem(id: string, item: Partial<InsertLegalChecklist>): Promise<LegalChecklist | undefined> {
+    const [data] = await db.update(legalChecklistTable)
+      .set({ ...item, updatedAt: new Date() })
+      .where(eq(legalChecklistTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteLegalChecklistItem(id: string): Promise<boolean> {
+    await db.delete(legalChecklistTable)
+      .where(eq(legalChecklistTable.id, id));
+    return true;
+  }
+
+  // Insurance Policies
+  async getInsurancePolicies(condominiumId?: string): Promise<InsurancePolicy[]> {
+    if (condominiumId) {
+      return db.select().from(insurancePoliciesTable)
+        .where(eq(insurancePoliciesTable.condominiumId, condominiumId))
+        .orderBy(desc(insurancePoliciesTable.createdAt));
+    }
+    return db.select().from(insurancePoliciesTable)
+      .orderBy(desc(insurancePoliciesTable.createdAt));
+  }
+
+  async getInsurancePolicyById(id: string): Promise<InsurancePolicy | undefined> {
+    const [data] = await db.select().from(insurancePoliciesTable)
+      .where(eq(insurancePoliciesTable.id, id));
+    return data;
+  }
+
+  async createInsurancePolicy(policy: InsertInsurancePolicy): Promise<InsurancePolicy> {
+    const [data] = await db.insert(insurancePoliciesTable)
+      .values(policy)
+      .returning();
+    return data;
+  }
+
+  async updateInsurancePolicy(id: string, policy: Partial<InsertInsurancePolicy>): Promise<InsurancePolicy | undefined> {
+    const [data] = await db.update(insurancePoliciesTable)
+      .set({ ...policy, updatedAt: new Date() })
+      .where(eq(insurancePoliciesTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteInsurancePolicy(id: string): Promise<boolean> {
+    await db.delete(insurancePoliciesTable)
+      .where(eq(insurancePoliciesTable.id, id));
+    return true;
+  }
+
+  // Smart Alerts
+  async getSmartAlerts(condominiumId?: string): Promise<SmartAlert[]> {
+    if (condominiumId) {
+      return db.select().from(smartAlertsTable)
+        .where(eq(smartAlertsTable.condominiumId, condominiumId))
+        .orderBy(desc(smartAlertsTable.createdAt));
+    }
+    return db.select().from(smartAlertsTable)
+      .orderBy(desc(smartAlertsTable.createdAt));
+  }
+
+  async getSmartAlertById(id: string): Promise<SmartAlert | undefined> {
+    const [data] = await db.select().from(smartAlertsTable)
+      .where(eq(smartAlertsTable.id, id));
+    return data;
+  }
+
+  async createSmartAlert(alert: InsertSmartAlert): Promise<SmartAlert> {
+    const [data] = await db.insert(smartAlertsTable)
+      .values(alert)
+      .returning();
+    return data;
+  }
+
+  async updateSmartAlert(id: string, alert: Partial<InsertSmartAlert>): Promise<SmartAlert | undefined> {
+    const [data] = await db.update(smartAlertsTable)
+      .set(alert)
+      .where(eq(smartAlertsTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async resolveSmartAlert(id: string, resolvedBy: string): Promise<SmartAlert | undefined> {
+    const [data] = await db.update(smartAlertsTable)
+      .set({ isResolved: true, resolvedAt: new Date(), resolvedBy })
+      .where(eq(smartAlertsTable.id, id))
+      .returning();
+    return data;
   }
 }
 

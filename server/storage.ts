@@ -63,6 +63,22 @@ import {
   type InsertIotSession,
   type IotDevice,
   type InsertIotDevice,
+  type GovernanceDecision,
+  type InsertGovernanceDecision,
+  type MeetingMinutes,
+  type InsertMeetingMinutes,
+  type Budget,
+  type InsertBudget,
+  type FinancialTransaction,
+  type InsertFinancialTransaction,
+  type Contract,
+  type InsertContract,
+  type LegalChecklist,
+  type InsertLegalChecklist,
+  type InsurancePolicy,
+  type InsertInsurancePolicy,
+  type SmartAlert,
+  type InsertSmartAlert,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -249,6 +265,66 @@ export interface IStorage {
   createIotDevice(device: InsertIotDevice): Promise<IotDevice>;
   updateIotDevice(id: string, device: Partial<InsertIotDevice>): Promise<IotDevice | undefined>;
   deleteIotDevice(id: string): Promise<boolean>;
+
+  // ===========================
+  // 7 PILLARS MANAGEMENT
+  // ===========================
+
+  // Governance Decisions
+  getGovernanceDecisions(condominiumId?: string): Promise<GovernanceDecision[]>;
+  getGovernanceDecisionById(id: string): Promise<GovernanceDecision | undefined>;
+  createGovernanceDecision(decision: InsertGovernanceDecision): Promise<GovernanceDecision>;
+  updateGovernanceDecision(id: string, decision: Partial<InsertGovernanceDecision>): Promise<GovernanceDecision | undefined>;
+  deleteGovernanceDecision(id: string): Promise<boolean>;
+
+  // Meeting Minutes
+  getMeetingMinutes(condominiumId?: string): Promise<MeetingMinutes[]>;
+  getMeetingMinutesById(id: string): Promise<MeetingMinutes | undefined>;
+  createMeetingMinutes(minutes: InsertMeetingMinutes): Promise<MeetingMinutes>;
+  updateMeetingMinutes(id: string, minutes: Partial<InsertMeetingMinutes>): Promise<MeetingMinutes | undefined>;
+  deleteMeetingMinutes(id: string): Promise<boolean>;
+
+  // Budgets
+  getBudgets(condominiumId?: string, year?: number): Promise<Budget[]>;
+  getBudgetById(id: string): Promise<Budget | undefined>;
+  createBudget(budget: InsertBudget): Promise<Budget>;
+  updateBudget(id: string, budget: Partial<InsertBudget>): Promise<Budget | undefined>;
+  deleteBudget(id: string): Promise<boolean>;
+
+  // Financial Transactions
+  getFinancialTransactions(condominiumId?: string): Promise<FinancialTransaction[]>;
+  getFinancialTransactionById(id: string): Promise<FinancialTransaction | undefined>;
+  createFinancialTransaction(transaction: InsertFinancialTransaction): Promise<FinancialTransaction>;
+  updateFinancialTransaction(id: string, transaction: Partial<InsertFinancialTransaction>): Promise<FinancialTransaction | undefined>;
+  deleteFinancialTransaction(id: string): Promise<boolean>;
+
+  // Contracts
+  getContracts(condominiumId?: string): Promise<Contract[]>;
+  getContractById(id: string): Promise<Contract | undefined>;
+  createContract(contract: InsertContract): Promise<Contract>;
+  updateContract(id: string, contract: Partial<InsertContract>): Promise<Contract | undefined>;
+  deleteContract(id: string): Promise<boolean>;
+
+  // Legal Checklist
+  getLegalChecklist(condominiumId?: string): Promise<LegalChecklist[]>;
+  getLegalChecklistById(id: string): Promise<LegalChecklist | undefined>;
+  createLegalChecklistItem(item: InsertLegalChecklist): Promise<LegalChecklist>;
+  updateLegalChecklistItem(id: string, item: Partial<InsertLegalChecklist>): Promise<LegalChecklist | undefined>;
+  deleteLegalChecklistItem(id: string): Promise<boolean>;
+
+  // Insurance Policies
+  getInsurancePolicies(condominiumId?: string): Promise<InsurancePolicy[]>;
+  getInsurancePolicyById(id: string): Promise<InsurancePolicy | undefined>;
+  createInsurancePolicy(policy: InsertInsurancePolicy): Promise<InsurancePolicy>;
+  updateInsurancePolicy(id: string, policy: Partial<InsertInsurancePolicy>): Promise<InsurancePolicy | undefined>;
+  deleteInsurancePolicy(id: string): Promise<boolean>;
+
+  // Smart Alerts
+  getSmartAlerts(condominiumId?: string): Promise<SmartAlert[]>;
+  getSmartAlertById(id: string): Promise<SmartAlert | undefined>;
+  createSmartAlert(alert: InsertSmartAlert): Promise<SmartAlert>;
+  updateSmartAlert(id: string, alert: Partial<InsertSmartAlert>): Promise<SmartAlert | undefined>;
+  resolveSmartAlert(id: string, resolvedBy: string): Promise<SmartAlert | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -1078,6 +1154,74 @@ export class MemStorage implements IStorage {
   async deleteIotDevice(id: string): Promise<boolean> {
     return this.iotDevices.delete(id);
   }
+
+  // ===========================
+  // 7 PILLARS MANAGEMENT (Stubs for MemStorage - use Supabase in production)
+  // ===========================
+
+  async getGovernanceDecisions(): Promise<GovernanceDecision[]> { return []; }
+  async getGovernanceDecisionById(): Promise<GovernanceDecision | undefined> { return undefined; }
+  async createGovernanceDecision(decision: InsertGovernanceDecision): Promise<GovernanceDecision> {
+    return { ...decision, id: randomUUID(), createdAt: new Date(), updatedAt: new Date() } as GovernanceDecision;
+  }
+  async updateGovernanceDecision(): Promise<GovernanceDecision | undefined> { return undefined; }
+  async deleteGovernanceDecision(): Promise<boolean> { return true; }
+
+  async getMeetingMinutes(): Promise<MeetingMinutes[]> { return []; }
+  async getMeetingMinutesById(): Promise<MeetingMinutes | undefined> { return undefined; }
+  async createMeetingMinutes(minutes: InsertMeetingMinutes): Promise<MeetingMinutes> {
+    return { ...minutes, id: randomUUID(), createdAt: new Date(), updatedAt: new Date(), publishedAt: null } as MeetingMinutes;
+  }
+  async updateMeetingMinutes(): Promise<MeetingMinutes | undefined> { return undefined; }
+  async deleteMeetingMinutes(): Promise<boolean> { return true; }
+
+  async getBudgets(): Promise<Budget[]> { return []; }
+  async getBudgetById(): Promise<Budget | undefined> { return undefined; }
+  async createBudget(budget: InsertBudget): Promise<Budget> {
+    return { ...budget, id: randomUUID(), createdAt: new Date(), updatedAt: new Date() } as Budget;
+  }
+  async updateBudget(): Promise<Budget | undefined> { return undefined; }
+  async deleteBudget(): Promise<boolean> { return true; }
+
+  async getFinancialTransactions(): Promise<FinancialTransaction[]> { return []; }
+  async getFinancialTransactionById(): Promise<FinancialTransaction | undefined> { return undefined; }
+  async createFinancialTransaction(transaction: InsertFinancialTransaction): Promise<FinancialTransaction> {
+    return { ...transaction, id: randomUUID(), createdAt: new Date(), updatedAt: new Date() } as FinancialTransaction;
+  }
+  async updateFinancialTransaction(): Promise<FinancialTransaction | undefined> { return undefined; }
+  async deleteFinancialTransaction(): Promise<boolean> { return true; }
+
+  async getContracts(): Promise<Contract[]> { return []; }
+  async getContractById(): Promise<Contract | undefined> { return undefined; }
+  async createContract(contract: InsertContract): Promise<Contract> {
+    return { ...contract, id: randomUUID(), createdAt: new Date(), updatedAt: new Date() } as Contract;
+  }
+  async updateContract(): Promise<Contract | undefined> { return undefined; }
+  async deleteContract(): Promise<boolean> { return true; }
+
+  async getLegalChecklist(): Promise<LegalChecklist[]> { return []; }
+  async getLegalChecklistById(): Promise<LegalChecklist | undefined> { return undefined; }
+  async createLegalChecklistItem(item: InsertLegalChecklist): Promise<LegalChecklist> {
+    return { ...item, id: randomUUID(), createdAt: new Date(), updatedAt: new Date() } as LegalChecklist;
+  }
+  async updateLegalChecklistItem(): Promise<LegalChecklist | undefined> { return undefined; }
+  async deleteLegalChecklistItem(): Promise<boolean> { return true; }
+
+  async getInsurancePolicies(): Promise<InsurancePolicy[]> { return []; }
+  async getInsurancePolicyById(): Promise<InsurancePolicy | undefined> { return undefined; }
+  async createInsurancePolicy(policy: InsertInsurancePolicy): Promise<InsurancePolicy> {
+    return { ...policy, id: randomUUID(), createdAt: new Date(), updatedAt: new Date() } as InsurancePolicy;
+  }
+  async updateInsurancePolicy(): Promise<InsurancePolicy | undefined> { return undefined; }
+  async deleteInsurancePolicy(): Promise<boolean> { return true; }
+
+  async getSmartAlerts(): Promise<SmartAlert[]> { return []; }
+  async getSmartAlertById(): Promise<SmartAlert | undefined> { return undefined; }
+  async createSmartAlert(alert: InsertSmartAlert): Promise<SmartAlert> {
+    return { ...alert, id: randomUUID(), createdAt: new Date(), resolvedAt: null } as SmartAlert;
+  }
+  async updateSmartAlert(): Promise<SmartAlert | undefined> { return undefined; }
+  async resolveSmartAlert(): Promise<SmartAlert | undefined> { return undefined; }
 }
 
 export const storage = new MemStorage();

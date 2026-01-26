@@ -32,13 +32,15 @@ export type Condominium = typeof condominiums.$inferSelect;
 // User roles:
 // - admin: Platform admin with access to all condominiums
 // - síndico: Condominium administrator with full access to their condominium
+// - conselheiro: Council member with access to governance and reports
+// - administradora: Property management company with access to multiple condos
 // - condômino: Resident with access to their unit data only
 // - prestador: Service provider with limited access to work orders
-export const userRoles = ["condômino", "síndico", "admin", "prestador"] as const;
+export const userRoles = ["condômino", "síndico", "conselheiro", "administradora", "admin", "prestador"] as const;
 export type UserRole = (typeof userRoles)[number];
 
 // Roles that can be assigned per condominium (user_condominiums table)
-export const condominiumRoles = ["condômino", "síndico", "prestador"] as const;
+export const condominiumRoles = ["condômino", "síndico", "conselheiro", "administradora", "prestador"] as const;
 export type CondominiumRole = (typeof condominiumRoles)[number];
 
 export const users = pgTable("users", {
@@ -488,6 +490,11 @@ export const MODULE_KEYS = [
   "documentos",
   "fornecedores",
   "comunicados",
+  "governanca",
+  "financeiro",
+  "contratos",
+  "conformidade",
+  "seguros",
 ] as const;
 
 export type ModuleKey = typeof MODULE_KEYS[number];
@@ -881,3 +888,495 @@ export const insertIotDeviceSchema = createInsertSchema(iotDevices).omit({
 
 export type InsertIotDevice = z.infer<typeof insertIotDeviceSchema>;
 export type IotDevice = typeof iotDevices.$inferSelect;
+
+// ===========================
+// IMOBCORE 7 PILARES
+// ===========================
+
+// Os 7 pilares do sistema ImobCore
+export const pillarTypes = [
+  "governanca",      // Governança e Sucessão (20%)
+  "financeiro",      // Financeiro e Orçamentário (20%)
+  "manutencao",      // Manutenção e Ativos (20%)
+  "contratos",       // Contratos e Fornecedores (15%)
+  "conformidade",    // Conformidade Legal e Seguros (15%)
+  "operacao",        // Operação e Automação (5%)
+  "transparencia",   // Transparência e Comunicação (5%)
+] as const;
+
+export type PillarType = (typeof pillarTypes)[number];
+
+export const pillarWeights: Record<PillarType, number> = {
+  governanca: 20,
+  financeiro: 20,
+  manutencao: 20,
+  contratos: 15,
+  conformidade: 15,
+  operacao: 5,
+  transparencia: 5,
+};
+
+export const maturityLevels = ["iniciante", "em_evolucao", "estruturado", "inteligente"] as const;
+export type MaturityLevel = (typeof maturityLevels)[number];
+
+// Pillar Scores - stores calculated scores for each pillar
+export const pillarScores = pgTable("pillar_scores", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  pillar: text("pillar").notNull(),
+  score: real("score").notNull().default(0), // 0-100
+  riskLevel: text("risk_level").notNull().default("baixo"), // baixo, médio, alto
+  maturityLevel: text("maturity_level").notNull().default("iniciante"),
+  calculatedAt: timestamp("calculated_at").defaultNow(),
+  notes: text("notes"),
+});
+
+export const insertPillarScoreSchema = createInsertSchema(pillarScores).omit({
+  id: true,
+  calculatedAt: true,
+});
+
+export type InsertPillarScore = z.infer<typeof insertPillarScoreSchema>;
+export type PillarScore = typeof pillarScores.$inferSelect;
+
+// ===========================
+// PILAR 1: GOVERNANÇA E SUCESSÃO
+// ===========================
+
+export const decisionTypes = [
+  "assembleia",
+  "reuniao_conselho",
+  "decisao_sindico",
+  "votacao_online",
+] as const;
+export type DecisionType = (typeof decisionTypes)[number];
+
+// Governance Decisions - registro de decisões
+export const governanceDecisions = pgTable("governance_decisions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  decisionType: text("decision_type").notNull(),
+  decisionDate: timestamp("decision_date").notNull(),
+  participants: text("participants").array(),
+  votesFor: integer("votes_for"),
+  votesAgainst: integer("votes_against"),
+  votesAbstain: integer("votes_abstain"),
+  status: text("status").notNull().default("aprovada"), // aprovada, rejeitada, pendente
+  attachments: text("attachments").array(),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertGovernanceDecisionSchema = createInsertSchema(governanceDecisions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  decisionDate: z.coerce.date(),
+  votesFor: z.coerce.number().optional().nullable(),
+  votesAgainst: z.coerce.number().optional().nullable(),
+  votesAbstain: z.coerce.number().optional().nullable(),
+});
+
+export type InsertGovernanceDecision = z.infer<typeof insertGovernanceDecisionSchema>;
+export type GovernanceDecision = typeof governanceDecisions.$inferSelect;
+
+// Meeting Minutes - Atas digitais versionadas
+export const meetingMinutes = pgTable("meeting_minutes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  title: text("title").notNull(),
+  meetingType: text("meeting_type").notNull(), // assembleia_ordinaria, assembleia_extraordinaria, reuniao_conselho
+  meetingDate: timestamp("meeting_date").notNull(),
+  location: text("location"),
+  attendeesCount: integer("attendees_count"),
+  quorumReached: boolean("quorum_reached").default(false),
+  summary: text("summary"),
+  fullContent: text("full_content"),
+  attachments: text("attachments").array(),
+  version: integer("version").notNull().default(1),
+  status: text("status").notNull().default("rascunho"), // rascunho, publicada, arquivada
+  publishedBy: varchar("published_by"),
+  publishedAt: timestamp("published_at"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMeetingMinutesSchema = createInsertSchema(meetingMinutes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  publishedAt: true,
+}).extend({
+  meetingDate: z.coerce.date(),
+  attendeesCount: z.coerce.number().optional().nullable(),
+  version: z.coerce.number().optional(),
+});
+
+export type InsertMeetingMinutes = z.infer<typeof insertMeetingMinutesSchema>;
+export type MeetingMinutes = typeof meetingMinutes.$inferSelect;
+
+// Succession Plan - Plano de sucessão do síndico
+export const successionPlans = pgTable("succession_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  currentSindicoId: varchar("current_sindico_id"),
+  currentSindicoName: text("current_sindico_name"),
+  mandateStartDate: timestamp("mandate_start_date"),
+  mandateEndDate: timestamp("mandate_end_date"),
+  successorId: varchar("successor_id"),
+  successorName: text("successor_name"),
+  transitionPlan: text("transition_plan"),
+  keyResponsibilities: text("key_responsibilities").array(),
+  criticalContacts: text("critical_contacts").array(),
+  pendingIssues: text("pending_issues").array(),
+  status: text("status").notNull().default("ativo"), // ativo, transicao, concluido
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSuccessionPlanSchema = createInsertSchema(successionPlans).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  mandateStartDate: z.coerce.date().optional().nullable(),
+  mandateEndDate: z.coerce.date().optional().nullable(),
+});
+
+export type InsertSuccessionPlan = z.infer<typeof insertSuccessionPlanSchema>;
+export type SuccessionPlan = typeof successionPlans.$inferSelect;
+
+// ===========================
+// PILAR 2: FINANCEIRO E ORÇAMENTÁRIO
+// ===========================
+
+export const budgetCategories = [
+  "pessoal",
+  "manutencao",
+  "limpeza",
+  "seguranca",
+  "energia",
+  "agua",
+  "gas",
+  "seguros",
+  "administrativo",
+  "fundo_reserva",
+  "outros",
+] as const;
+export type BudgetCategory = (typeof budgetCategories)[number];
+
+// Budget - Orçamento anual
+export const budgets = pgTable("budgets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  year: integer("year").notNull(),
+  month: integer("month"), // null = annual, 1-12 = monthly
+  category: text("category").notNull(),
+  plannedAmount: real("planned_amount").notNull().default(0),
+  actualAmount: real("actual_amount").default(0),
+  notes: text("notes"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBudgetSchema = createInsertSchema(budgets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  year: z.coerce.number(),
+  month: z.coerce.number().optional().nullable(),
+  plannedAmount: z.coerce.number(),
+  actualAmount: z.coerce.number().optional().nullable(),
+});
+
+export type InsertBudget = z.infer<typeof insertBudgetSchema>;
+export type Budget = typeof budgets.$inferSelect;
+
+export const transactionTypes = ["receita", "despesa"] as const;
+export type TransactionType = (typeof transactionTypes)[number];
+
+// Financial Transactions - Controle de despesas e receitas
+export const financialTransactions = pgTable("financial_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  type: text("type").notNull(), // receita, despesa
+  category: text("category").notNull(),
+  description: text("description").notNull(),
+  amount: real("amount").notNull(),
+  transactionDate: timestamp("transaction_date").notNull(),
+  dueDate: timestamp("due_date"),
+  paymentDate: timestamp("payment_date"),
+  status: text("status").notNull().default("pendente"), // pendente, pago, cancelado
+  supplierId: varchar("supplier_id"),
+  documentUrl: text("document_url"),
+  invoiceNumber: text("invoice_number"),
+  notes: text("notes"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFinancialTransactionSchema = createInsertSchema(financialTransactions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  amount: z.coerce.number(),
+  transactionDate: z.coerce.date(),
+  dueDate: z.coerce.date().optional().nullable(),
+  paymentDate: z.coerce.date().optional().nullable(),
+});
+
+export type InsertFinancialTransaction = z.infer<typeof insertFinancialTransactionSchema>;
+export type FinancialTransaction = typeof financialTransactions.$inferSelect;
+
+// ===========================
+// PILAR 4: CONTRATOS E FORNECEDORES
+// ===========================
+
+export const contractStatuses = ["ativo", "vencido", "renovado", "cancelado"] as const;
+export type ContractStatus = (typeof contractStatuses)[number];
+
+// Contracts - Gestão de contratos
+export const contracts = pgTable("contracts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  supplierId: varchar("supplier_id").references(() => suppliers.id),
+  title: text("title").notNull(),
+  description: text("description"),
+  category: text("category").notNull(),
+  contractNumber: text("contract_number"),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  monthlyValue: real("monthly_value"),
+  totalValue: real("total_value"),
+  adjustmentIndex: text("adjustment_index"), // IGPM, IPCA, etc
+  adjustmentDate: timestamp("adjustment_date"),
+  slaDescription: text("sla_description"),
+  slaResponseTime: integer("sla_response_time"), // in hours
+  paymentDay: integer("payment_day"),
+  autoRenew: boolean("auto_renew").default(false),
+  notifyDaysBefore: integer("notify_days_before").default(30),
+  status: text("status").notNull().default("ativo"),
+  attachments: text("attachments").array(),
+  notes: text("notes"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertContractSchema = createInsertSchema(contracts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date(),
+  monthlyValue: z.coerce.number().optional().nullable(),
+  totalValue: z.coerce.number().optional().nullable(),
+  adjustmentDate: z.coerce.date().optional().nullable(),
+  slaResponseTime: z.coerce.number().optional().nullable(),
+  paymentDay: z.coerce.number().optional().nullable(),
+  notifyDaysBefore: z.coerce.number().optional().nullable(),
+});
+
+export type InsertContract = z.infer<typeof insertContractSchema>;
+export type Contract = typeof contracts.$inferSelect;
+
+// Supplier Evaluations - Avaliação de fornecedores
+export const supplierEvaluations = pgTable("supplier_evaluations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  supplierId: varchar("supplier_id").notNull().references(() => suppliers.id),
+  contractId: varchar("contract_id"),
+  evaluationDate: timestamp("evaluation_date").notNull(),
+  qualityScore: integer("quality_score").notNull(), // 1-5
+  punctualityScore: integer("punctuality_score").notNull(), // 1-5
+  priceScore: integer("price_score").notNull(), // 1-5
+  communicationScore: integer("communication_score").notNull(), // 1-5
+  overallScore: real("overall_score").notNull(), // calculated average
+  comments: text("comments"),
+  wouldRecommend: boolean("would_recommend"),
+  evaluatedBy: varchar("evaluated_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSupplierEvaluationSchema = createInsertSchema(supplierEvaluations).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  evaluationDate: z.coerce.date(),
+  qualityScore: z.coerce.number().min(1).max(5),
+  punctualityScore: z.coerce.number().min(1).max(5),
+  priceScore: z.coerce.number().min(1).max(5),
+  communicationScore: z.coerce.number().min(1).max(5),
+  overallScore: z.coerce.number(),
+});
+
+export type InsertSupplierEvaluation = z.infer<typeof insertSupplierEvaluationSchema>;
+export type SupplierEvaluation = typeof supplierEvaluations.$inferSelect;
+
+// ===========================
+// PILAR 5: CONFORMIDADE LEGAL E SEGUROS
+// ===========================
+
+export const legalChecklistItemTypes = [
+  "documento",
+  "certificado",
+  "licenca",
+  "seguro",
+  "inspecao",
+  "laudo",
+] as const;
+export type LegalChecklistItemType = (typeof legalChecklistItemTypes)[number];
+
+// Legal Checklist - Checklist legal automatizado
+export const legalChecklist = pgTable("legal_checklist", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  itemType: text("item_type").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  isMandatory: boolean("is_mandatory").notNull().default(true),
+  frequency: text("frequency").notNull(), // anual, semestral, mensal, unica
+  lastCompletedDate: timestamp("last_completed_date"),
+  nextDueDate: timestamp("next_due_date"),
+  documentId: varchar("document_id"),
+  responsibleName: text("responsible_name"),
+  status: text("status").notNull().default("pendente"), // pendente, em_dia, vencido, nao_aplicavel
+  notes: text("notes"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertLegalChecklistSchema = createInsertSchema(legalChecklist).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  lastCompletedDate: z.coerce.date().optional().nullable(),
+  nextDueDate: z.coerce.date().optional().nullable(),
+});
+
+export type InsertLegalChecklist = z.infer<typeof insertLegalChecklistSchema>;
+export type LegalChecklist = typeof legalChecklist.$inferSelect;
+
+// Insurance Policies - Gestão de apólices de seguro
+export const insurancePolicies = pgTable("insurance_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  policyNumber: text("policy_number").notNull(),
+  insuranceCompany: text("insurance_company").notNull(),
+  coverageType: text("coverage_type").notNull(), // incendio, responsabilidade_civil, vida, etc
+  coverageAmount: real("coverage_amount").notNull(),
+  premium: real("premium").notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  broker: text("broker"),
+  brokerPhone: text("broker_phone"),
+  brokerEmail: text("broker_email"),
+  documentUrl: text("document_url"),
+  status: text("status").notNull().default("ativo"), // ativo, vencido, cancelado
+  notifyDaysBefore: integer("notify_days_before").default(30),
+  notes: text("notes"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertInsurancePolicySchema = createInsertSchema(insurancePolicies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  coverageAmount: z.coerce.number(),
+  premium: z.coerce.number(),
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date(),
+  notifyDaysBefore: z.coerce.number().optional().nullable(),
+});
+
+export type InsertInsurancePolicy = z.infer<typeof insertInsurancePolicySchema>;
+export type InsurancePolicy = typeof insurancePolicies.$inferSelect;
+
+// ===========================
+// SISTEMA DE ALERTAS INTELIGENTES
+// ===========================
+
+export const alertSeverities = ["info", "baixo", "medio", "alto", "critico"] as const;
+export type AlertSeverity = (typeof alertSeverities)[number];
+
+export const alertCategories = [
+  "vencimento_contrato",
+  "vencimento_documento",
+  "vencimento_seguro",
+  "manutencao_pendente",
+  "orcamento_excedido",
+  "score_baixo",
+  "conformidade_legal",
+  "financeiro",
+  "governanca",
+] as const;
+export type AlertCategory = (typeof alertCategories)[number];
+
+// Smart Alerts - Alertas inteligentes da IA
+export const smartAlerts = pgTable("smart_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  pillar: text("pillar").notNull(),
+  category: text("category").notNull(),
+  severity: text("severity").notNull().default("baixo"),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  suggestedAction: text("suggested_action"),
+  relatedEntityId: varchar("related_entity_id"),
+  relatedEntityType: text("related_entity_type"),
+  financialImpact: real("financial_impact"),
+  isResolved: boolean("is_resolved").notNull().default(false),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: varchar("resolved_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSmartAlertSchema = createInsertSchema(smartAlerts).omit({
+  id: true,
+  createdAt: true,
+  resolvedAt: true,
+}).extend({
+  financialImpact: z.coerce.number().optional().nullable(),
+});
+
+export type InsertSmartAlert = z.infer<typeof insertSmartAlertSchema>;
+export type SmartAlert = typeof smartAlerts.$inferSelect;
+
+// Audit Log - Histórico de ações para preservação do legado
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  userId: varchar("user_id"),
+  userName: text("user_name"),
+  action: text("action").notNull(), // create, update, delete
+  entityType: text("entity_type").notNull(), // decision, contract, budget, etc
+  entityId: varchar("entity_id"),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  ipAddress: text("ip_address"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;
