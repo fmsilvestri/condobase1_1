@@ -47,6 +47,13 @@ import {
   insertMaintenanceExecutionSchema,
   insertExecutionChecklistItemSchema,
   insertMaintenanceDocumentSchema,
+  insertFinancialTransactionSchema,
+  insertBudgetSchema,
+  insertGovernanceDecisionSchema,
+  insertMeetingMinutesSchema,
+  insertContractSchema,
+  insertLegalChecklistSchema,
+  insertInsurancePolicySchema,
 } from "@shared/schema";
 
 import { z } from "zod";
@@ -592,6 +599,564 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Executive dashboard error:", error?.message || error);
       res.status(500).json({ error: "Failed to fetch executive dashboard data", details: error?.message });
+    }
+  });
+
+  // ===========================
+  // FINANCIAL MODULE ROUTES
+  // ===========================
+
+  // Financial Transactions
+  app.get("/api/financial/transactions", async (req, res) => {
+    try {
+      const condominiumId = getCondominiumId(req);
+      const transactions = await storage.getFinancialTransactions(condominiumId);
+      res.json(transactions);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch transactions", details: error?.message });
+    }
+  });
+
+  app.get("/api/financial/transactions/:id", async (req, res) => {
+    try {
+      const transaction = await storage.getFinancialTransactionById(req.params.id);
+      if (!transaction) {
+        return res.status(404).json({ error: "Transaction not found" });
+      }
+      res.json(transaction);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch transaction", details: error?.message });
+    }
+  });
+
+  app.post("/api/financial/transactions", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = getCondominiumId(req);
+      if (!condominiumId) {
+        return res.status(400).json({ error: "Condominium ID is required" });
+      }
+      const validation = insertFinancialTransactionSchema.safeParse({
+        ...req.body,
+        condominiumId,
+        createdBy: getUserId(req),
+      });
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const transaction = await storage.createFinancialTransaction(validation.data);
+      res.status(201).json(transaction);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to create transaction", details: error?.message });
+    }
+  });
+
+  app.patch("/api/financial/transactions/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const validation = insertFinancialTransactionSchema.partial().safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const transaction = await storage.updateFinancialTransaction(req.params.id, validation.data);
+      if (!transaction) {
+        return res.status(404).json({ error: "Transaction not found" });
+      }
+      res.json(transaction);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to update transaction", details: error?.message });
+    }
+  });
+
+  app.delete("/api/financial/transactions/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const success = await storage.deleteFinancialTransaction(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Transaction not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to delete transaction", details: error?.message });
+    }
+  });
+
+  // Budgets
+  app.get("/api/budgets", async (req, res) => {
+    try {
+      const condominiumId = getCondominiumId(req);
+      const year = req.query.year ? parseInt(req.query.year as string) : undefined;
+      const budgets = await storage.getBudgets(condominiumId, year);
+      res.json(budgets);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch budgets", details: error?.message });
+    }
+  });
+
+  app.get("/api/budgets/:id", async (req, res) => {
+    try {
+      const budget = await storage.getBudgetById(req.params.id);
+      if (!budget) {
+        return res.status(404).json({ error: "Budget not found" });
+      }
+      res.json(budget);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch budget", details: error?.message });
+    }
+  });
+
+  app.post("/api/budgets", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = getCondominiumId(req);
+      if (!condominiumId) {
+        return res.status(400).json({ error: "Condominium ID is required" });
+      }
+      const validation = insertBudgetSchema.safeParse({
+        ...req.body,
+        condominiumId,
+        createdBy: getUserId(req),
+      });
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const budget = await storage.createBudget(validation.data);
+      res.status(201).json(budget);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to create budget", details: error?.message });
+    }
+  });
+
+  app.patch("/api/budgets/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const validation = insertBudgetSchema.partial().safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const budget = await storage.updateBudget(req.params.id, validation.data);
+      if (!budget) {
+        return res.status(404).json({ error: "Budget not found" });
+      }
+      res.json(budget);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to update budget", details: error?.message });
+    }
+  });
+
+  app.delete("/api/budgets/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const success = await storage.deleteBudget(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Budget not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to delete budget", details: error?.message });
+    }
+  });
+
+  // ===========================
+  // GOVERNANCE MODULE ROUTES
+  // ===========================
+
+  // Governance Decisions
+  app.get("/api/governance/decisions", async (req, res) => {
+    try {
+      const condominiumId = getCondominiumId(req);
+      const decisions = await storage.getGovernanceDecisions(condominiumId);
+      res.json(decisions);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch decisions", details: error?.message });
+    }
+  });
+
+  app.get("/api/governance/decisions/:id", async (req, res) => {
+    try {
+      const decision = await storage.getGovernanceDecisionById(req.params.id);
+      if (!decision) {
+        return res.status(404).json({ error: "Decision not found" });
+      }
+      res.json(decision);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch decision", details: error?.message });
+    }
+  });
+
+  app.post("/api/governance/decisions", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = getCondominiumId(req);
+      if (!condominiumId) {
+        return res.status(400).json({ error: "Condominium ID is required" });
+      }
+      const validation = insertGovernanceDecisionSchema.safeParse({
+        ...req.body,
+        condominiumId,
+        createdBy: getUserId(req),
+      });
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const decision = await storage.createGovernanceDecision(validation.data);
+      res.status(201).json(decision);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to create decision", details: error?.message });
+    }
+  });
+
+  app.patch("/api/governance/decisions/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const validation = insertGovernanceDecisionSchema.partial().safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const decision = await storage.updateGovernanceDecision(req.params.id, validation.data);
+      if (!decision) {
+        return res.status(404).json({ error: "Decision not found" });
+      }
+      res.json(decision);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to update decision", details: error?.message });
+    }
+  });
+
+  app.delete("/api/governance/decisions/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const success = await storage.deleteGovernanceDecision(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Decision not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to delete decision", details: error?.message });
+    }
+  });
+
+  // Meeting Minutes
+  app.get("/api/governance/minutes", async (req, res) => {
+    try {
+      const condominiumId = getCondominiumId(req);
+      const minutes = await storage.getMeetingMinutes(condominiumId);
+      res.json(minutes);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch meeting minutes", details: error?.message });
+    }
+  });
+
+  app.post("/api/governance/minutes", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = getCondominiumId(req);
+      if (!condominiumId) {
+        return res.status(400).json({ error: "Condominium ID is required" });
+      }
+      const validation = insertMeetingMinutesSchema.safeParse({
+        ...req.body,
+        condominiumId,
+        createdBy: getUserId(req),
+      });
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const minutes = await storage.createMeetingMinutes(validation.data);
+      res.status(201).json(minutes);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to create meeting minutes", details: error?.message });
+    }
+  });
+
+  app.patch("/api/governance/minutes/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const validation = insertMeetingMinutesSchema.partial().safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const minutes = await storage.updateMeetingMinutes(req.params.id, validation.data);
+      if (!minutes) {
+        return res.status(404).json({ error: "Meeting minutes not found" });
+      }
+      res.json(minutes);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to update meeting minutes", details: error?.message });
+    }
+  });
+
+  app.delete("/api/governance/minutes/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const success = await storage.deleteMeetingMinutes(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Meeting minutes not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to delete meeting minutes", details: error?.message });
+    }
+  });
+
+  // ===========================
+  // CONTRACTS MODULE ROUTES
+  // ===========================
+
+  app.get("/api/contracts", async (req, res) => {
+    try {
+      const condominiumId = getCondominiumId(req);
+      const contracts = await storage.getContracts(condominiumId);
+      res.json(contracts);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch contracts", details: error?.message });
+    }
+  });
+
+  app.get("/api/contracts/:id", async (req, res) => {
+    try {
+      const contract = await storage.getContractById(req.params.id);
+      if (!contract) {
+        return res.status(404).json({ error: "Contract not found" });
+      }
+      res.json(contract);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch contract", details: error?.message });
+    }
+  });
+
+  app.post("/api/contracts", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = getCondominiumId(req);
+      if (!condominiumId) {
+        return res.status(400).json({ error: "Condominium ID is required" });
+      }
+      const validation = insertContractSchema.safeParse({
+        ...req.body,
+        condominiumId,
+        createdBy: getUserId(req),
+      });
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const contract = await storage.createContract(validation.data);
+      res.status(201).json(contract);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to create contract", details: error?.message });
+    }
+  });
+
+  app.patch("/api/contracts/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const validation = insertContractSchema.partial().safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const contract = await storage.updateContract(req.params.id, validation.data);
+      if (!contract) {
+        return res.status(404).json({ error: "Contract not found" });
+      }
+      res.json(contract);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to update contract", details: error?.message });
+    }
+  });
+
+  app.delete("/api/contracts/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const success = await storage.deleteContract(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Contract not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to delete contract", details: error?.message });
+    }
+  });
+
+  // ===========================
+  // COMPLIANCE MODULE ROUTES
+  // ===========================
+
+  // Legal Checklist
+  app.get("/api/compliance/checklist", async (req, res) => {
+    try {
+      const condominiumId = getCondominiumId(req);
+      const checklist = await storage.getLegalChecklist(condominiumId);
+      res.json(checklist);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch checklist", details: error?.message });
+    }
+  });
+
+  app.post("/api/compliance/checklist", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = getCondominiumId(req);
+      if (!condominiumId) {
+        return res.status(400).json({ error: "Condominium ID is required" });
+      }
+      const validation = insertLegalChecklistSchema.safeParse({
+        ...req.body,
+        condominiumId,
+        createdBy: getUserId(req),
+      });
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const item = await storage.createLegalChecklistItem(validation.data);
+      res.status(201).json(item);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to create checklist item", details: error?.message });
+    }
+  });
+
+  app.patch("/api/compliance/checklist/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const validation = insertLegalChecklistSchema.partial().safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const item = await storage.updateLegalChecklistItem(req.params.id, validation.data);
+      if (!item) {
+        return res.status(404).json({ error: "Checklist item not found" });
+      }
+      res.json(item);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to update checklist item", details: error?.message });
+    }
+  });
+
+  app.delete("/api/compliance/checklist/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const success = await storage.deleteLegalChecklistItem(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Checklist item not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to delete checklist item", details: error?.message });
+    }
+  });
+
+  // Insurance Policies
+  app.get("/api/insurance/policies", async (req, res) => {
+    try {
+      const condominiumId = getCondominiumId(req);
+      const policies = await storage.getInsurancePolicies(condominiumId);
+      res.json(policies);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch policies", details: error?.message });
+    }
+  });
+
+  app.post("/api/insurance/policies", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = getCondominiumId(req);
+      if (!condominiumId) {
+        return res.status(400).json({ error: "Condominium ID is required" });
+      }
+      const validation = insertInsurancePolicySchema.safeParse({
+        ...req.body,
+        condominiumId,
+        createdBy: getUserId(req),
+      });
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const policy = await storage.createInsurancePolicy(validation.data);
+      res.status(201).json(policy);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to create policy", details: error?.message });
+    }
+  });
+
+  app.patch("/api/insurance/policies/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const validation = insertInsurancePolicySchema.partial().safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const policy = await storage.updateInsurancePolicy(req.params.id, validation.data);
+      if (!policy) {
+        return res.status(404).json({ error: "Policy not found" });
+      }
+      res.json(policy);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to update policy", details: error?.message });
+    }
+  });
+
+  app.delete("/api/insurance/policies/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const success = await storage.deleteInsurancePolicy(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Policy not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to delete policy", details: error?.message });
+    }
+  });
+
+  // Smart Alerts
+  app.get("/api/alerts", async (req, res) => {
+    try {
+      const condominiumId = getCondominiumId(req);
+      const alerts = await storage.getSmartAlerts(condominiumId);
+      res.json(alerts);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch alerts", details: error?.message });
+    }
+  });
+
+  app.post("/api/alerts/:id/resolve", async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const alert = await storage.resolveSmartAlert(req.params.id, userId || "system");
+      if (!alert) {
+        return res.status(404).json({ error: "Alert not found" });
+      }
+      res.json(alert);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to resolve alert", details: error?.message });
+    }
+  });
+
+  // Financial Summary endpoint for dashboard
+  app.get("/api/financial/summary", async (req, res) => {
+    try {
+      const condominiumId = getCondominiumId(req);
+      const transactions = await storage.getFinancialTransactions(condominiumId);
+      const budgets = await storage.getBudgets(condominiumId, new Date().getFullYear());
+      
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      
+      const monthlyTransactions = transactions.filter(t => {
+        const date = new Date(t.transactionDate);
+        return date.getMonth() + 1 === currentMonth && date.getFullYear() === now.getFullYear();
+      });
+      
+      const totalReceitas = monthlyTransactions
+        .filter(t => t.type === "receita")
+        .reduce((sum, t) => sum + (t.amount || 0), 0);
+        
+      const totalDespesas = monthlyTransactions
+        .filter(t => t.type === "despesa")
+        .reduce((sum, t) => sum + (t.amount || 0), 0);
+      
+      const totalPlanned = budgets
+        .filter(b => !b.month || b.month === currentMonth)
+        .reduce((sum, b) => sum + (b.plannedAmount || 0), 0);
+        
+      const totalActual = budgets
+        .filter(b => !b.month || b.month === currentMonth)
+        .reduce((sum, b) => sum + (b.actualAmount || 0), 0);
+      
+      res.json({
+        currentMonth: {
+          receitas: totalReceitas,
+          despesas: totalDespesas,
+          saldo: totalReceitas - totalDespesas,
+        },
+        budget: {
+          planned: totalPlanned,
+          actual: totalActual,
+          variance: totalPlanned - totalActual,
+          variancePercent: totalPlanned > 0 ? ((totalPlanned - totalActual) / totalPlanned) * 100 : 0,
+        },
+        recentTransactions: transactions.slice(0, 10),
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch financial summary", details: error?.message });
     }
   });
 
