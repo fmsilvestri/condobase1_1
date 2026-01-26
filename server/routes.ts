@@ -17,7 +17,10 @@ import {
   getUserId, 
   isAdmin,
   requireCondominium,
-  requireSindicoOrAdmin 
+  requireSindicoOrAdmin,
+  requireGestao,
+  isGestao,
+  getCondominiumRole
 } from "./condominium-context";
 import {
   insertCondominiumSchema,
@@ -476,7 +479,7 @@ export async function registerRoutes(
   });
 
   // Executive Dashboard - 7 Pillars Overview
-  app.get("/api/executive-dashboard", async (req, res) => {
+  app.get("/api/executive-dashboard", requireGestao, async (req, res) => {
     try {
       const condominiumId = getCondominiumId(req) || (req.query.condominiumId as string) || undefined;
 
@@ -820,7 +823,7 @@ export async function registerRoutes(
   // ===========================
 
   // Financial Transactions
-  app.get("/api/financial/transactions", async (req, res) => {
+  app.get("/api/financial/transactions", requireGestao, async (req, res) => {
     try {
       const condominiumId = getCondominiumId(req);
       const transactions = await storage.getFinancialTransactions(condominiumId);
@@ -892,7 +895,7 @@ export async function registerRoutes(
   });
 
   // Budgets
-  app.get("/api/budgets", async (req, res) => {
+  app.get("/api/budgets", requireGestao, async (req, res) => {
     try {
       const condominiumId = getCondominiumId(req);
       const year = req.query.year ? parseInt(req.query.year as string) : undefined;
@@ -969,7 +972,7 @@ export async function registerRoutes(
   // ===========================
 
   // Governance Decisions
-  app.get("/api/governance/decisions", async (req, res) => {
+  app.get("/api/governance/decisions", requireGestao, async (req, res) => {
     try {
       const condominiumId = getCondominiumId(req);
       const decisions = await storage.getGovernanceDecisions(condominiumId);
@@ -1041,7 +1044,7 @@ export async function registerRoutes(
   });
 
   // Meeting Minutes
-  app.get("/api/governance/minutes", async (req, res) => {
+  app.get("/api/governance/minutes", requireGestao, async (req, res) => {
     try {
       const condominiumId = getCondominiumId(req);
       const minutes = await storage.getMeetingMinutes(condominiumId);
@@ -1104,7 +1107,7 @@ export async function registerRoutes(
   // CONTRACTS MODULE ROUTES
   // ===========================
 
-  app.get("/api/contracts", async (req, res) => {
+  app.get("/api/contracts", requireGestao, async (req, res) => {
     try {
       const condominiumId = getCondominiumId(req);
       const contracts = await storage.getContracts(condominiumId);
@@ -1180,7 +1183,7 @@ export async function registerRoutes(
   // ===========================
 
   // Legal Checklist
-  app.get("/api/compliance/checklist", async (req, res) => {
+  app.get("/api/compliance/checklist", requireGestao, async (req, res) => {
     try {
       const condominiumId = getCondominiumId(req);
       const checklist = await storage.getLegalChecklist(condominiumId);
@@ -1240,7 +1243,7 @@ export async function registerRoutes(
   });
 
   // Insurance Policies
-  app.get("/api/insurance/policies", async (req, res) => {
+  app.get("/api/insurance/policies", requireGestao, async (req, res) => {
     try {
       const condominiumId = getCondominiumId(req);
       const policies = await storage.getInsurancePolicies(condominiumId);
@@ -1324,7 +1327,7 @@ export async function registerRoutes(
   });
 
   // Financial Summary endpoint for dashboard
-  app.get("/api/financial/summary", async (req, res) => {
+  app.get("/api/financial/summary", requireGestao, async (req, res) => {
     try {
       const condominiumId = getCondominiumId(req);
       const transactions = await storage.getFinancialTransactions(condominiumId);

@@ -101,6 +101,28 @@ export function requireSindicoOrAdmin(req: Request, res: Response, next: NextFun
   next();
 }
 
+export function requireGestao(req: Request, res: Response, next: NextFunction) {
+  const ctx = req.condominiumContext;
+  const isPlatformAdmin = ctx?.isAdmin;
+  const role = ctx?.condominiumRole;
+  const gestaoRoles = ["síndico", "conselheiro", "administradora"];
+  
+  if (!isPlatformAdmin && (!role || !gestaoRoles.includes(role))) {
+    return res.status(403).json({ error: "Acesso negado: requer permissão de gestão (síndico, conselheiro ou administradora)" });
+  }
+  next();
+}
+
+export function isGestao(req: Request): boolean {
+  const ctx = req.condominiumContext;
+  const gestaoRoles = ["síndico", "conselheiro", "administradora"];
+  return ctx?.isAdmin || (ctx?.condominiumRole && gestaoRoles.includes(ctx.condominiumRole)) || false;
+}
+
+export function getCondominiumRole(req: Request): string | null {
+  return req.condominiumContext?.condominiumRole || null;
+}
+
 export function getCondominiumId(req: Request): string | null {
   return req.condominiumContext?.condominiumId || null;
 }
