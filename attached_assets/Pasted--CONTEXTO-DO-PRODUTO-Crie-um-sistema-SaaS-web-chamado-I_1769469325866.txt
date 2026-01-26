@@ -1,0 +1,243 @@
+🎯 CONTEXTO DO PRODUTO
+
+Crie um sistema SaaS web chamado ImobCore, um Sistema Operacional Inteligente para Gestão de Condomínios, baseado no conceito:
+
+Pessoas, Processos e Tecnologia
+“A inteligência que conecta a gestão”
+
+O sistema deve digitalizar, automatizar e preservar o legado operacional e decisório do condomínio, independente de troca de síndico ou administradora.
+
+🧠 FUNDAMENTO DO SISTEMA – OS 7 PILARES
+
+O sistema deve ser estruturado em 7 pilares principais, cada um como módulo independente, porém totalmente integrado:
+
+Governança e Sucessão (peso alto – 20%)
+
+Financeiro e Orçamentário (peso alto – 20%)
+
+Manutenção e Ativos (peso alto – 20%)
+
+Contratos e Fornecedores (peso médio – 15%)
+
+Conformidade Legal e Seguros (peso médio – 15%)
+
+Operação e Automação (peso baixo – 5%)
+
+Transparência e Comunicação (peso baixo – 5%)
+
+O sistema deve gerar score por pilar, score geral e indicadores de risco e maturidade.
+
+🏗️ ARQUITETURA TÉCNICA
+Stack obrigatória:
+
+Frontend: React + TypeScript + Tailwind
+
+Backend: Node.js (Express ou Fastify)
+
+Banco de dados: PostgreSQL (Supabase)
+
+Autenticação: Supabase Auth (RBAC)
+
+Hospedagem: compatível com Replit Deploy
+
+Arquitetura: modular e escalável (multi-condomínio)
+
+👥 PERFIS DE USUÁRIO (RBAC)
+
+Administrador do Sistema
+
+Síndico
+
+Conselheiro
+
+Administradora
+
+Fornecedor
+
+Condômino (leitura)
+
+Cada perfil deve ter permissões claras por módulo.
+
+📊 DASHBOARD PRINCIPAL
+
+Criar um Dashboard Executivo com:
+
+Radar Chart dos 7 pilares
+
+Score geral do condomínio
+
+Ranking de riscos (alto / médio / baixo)
+
+Indicador de impacto financeiro estimado
+
+Alertas inteligentes (IA rules-based)
+
+Histórico evolutivo mensal (linha do tempo)
+
+🧩 FUNCIONALIDADES POR PILAR
+1️⃣ Governança e Sucessão
+
+Registro de decisões
+
+Atas digitais versionadas
+
+Linha do tempo da gestão
+
+Mapa de responsabilidades
+
+Plano de sucessão do síndico
+
+Preservação do legado decisório
+
+2️⃣ Financeiro e Orçamentário
+
+Orçamento anual e previsões
+
+Controle de despesas e receitas
+
+Comparativo orçado x realizado
+
+Indicadores financeiros
+
+Simulação de cenários
+
+Exportação contábil
+
+3️⃣ Manutenção e Ativos
+
+Cadastro de ativos do condomínio
+
+Plano de manutenção preventiva
+
+Ordens de serviço
+
+Histórico técnico dos ativos
+
+Vida útil estimada
+
+Alertas automáticos
+
+4️⃣ Contratos e Fornecedores
+
+Cadastro de contratos
+
+Prazos, reajustes e vencimentos
+
+Avaliação de fornecedores
+
+SLA e histórico de desempenho
+
+Alertas de renovação
+
+5️⃣ Conformidade Legal e Seguros
+
+Checklist legal automatizado
+
+Gestão de apólices de seguro
+
+Alertas de vencimentos
+
+Gestão de riscos jurídicos
+
+Upload e versionamento de documentos
+
+6️⃣ Operação e Automação
+
+Checklists operacionais
+
+Rotinas automatizadas
+
+Integração futura com IoT
+
+Logs operacionais
+
+Indicadores de eficiência
+
+7️⃣ Transparência e Comunicação
+
+Central de comunicados
+
+Publicação de documentos
+
+Prestação de contas visual
+
+Canal de avisos ao condômino
+
+Histórico público (read-only)
+
+🤖 CAMADA DE INTELIGÊNCIA (IA)
+
+Criar uma camada de Inteligência Analítica, que:
+
+Calcula scores por pilar
+
+Detecta riscos operacionais e financeiros
+
+Gera alertas inteligentes
+
+Sugere ações corretivas
+
+Classifica maturidade do condomínio:
+
+Iniciante
+
+Em evolução
+
+Estruturado
+
+Inteligente
+
+🧾 BANCO DE DADOS (SUPABASE)
+
+Criar schemas para:
+
+users
+
+condominiums
+
+roles
+
+pillars_scores
+
+assets
+
+maintenance_plans
+
+contracts
+
+suppliers
+
+financial_records
+
+governance_logs
+
+legal_documents
+
+communications
+
+audit_logs
+
+Usar foreign keys, RLS e histórico (audit trail).
+
+🎨 UI / UX
+
+Visual corporativo, moderno e clean
+
+Tons de verde, azul e cinza
+
+Interface orientada a dados
+
+Ícones claros por pilar
+
+Navegação por módulos
+
+Experiência simples para síndicos não técnicos
+
+🚀 OBJETIVO FINAL
+
+O sistema deve se posicionar como:
+
+O sistema operacional do condomínio
+Onde gestões passam, mas a inteligência fica
+
+Gerar um MVP funcional, organizado, escalável e pronto para evolução comercial.
