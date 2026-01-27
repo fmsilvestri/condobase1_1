@@ -382,10 +382,21 @@ export default function TeamManagement() {
   };
 
   const handleProcessSubmit = (data: ProcessFormValues) => {
+    const submitData = {
+      ...data,
+      blocks: data.blocks && data.blocks.length > 0 ? data.blocks : undefined,
+      floors: data.floors && data.floors.length > 0 ? data.floors : undefined,
+      equipmentIds: data.equipmentIds && data.equipmentIds.length > 0 ? data.equipmentIds : undefined,
+      checklistItems: data.checklistItems && data.checklistItems.length > 0 ? data.checklistItems : undefined,
+      executionScript: data.executionScript || undefined,
+      description: data.description || undefined,
+      notes: data.notes || undefined,
+      assignedToId: data.assignedToId || undefined,
+    };
     if (editingProcess) {
-      updateProcessMutation.mutate({ id: editingProcess.id, data });
+      updateProcessMutation.mutate({ id: editingProcess.id, data: submitData });
     } else {
-      createProcessMutation.mutate(data);
+      createProcessMutation.mutate(submitData);
     }
   };
 
