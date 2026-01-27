@@ -131,6 +131,8 @@ export const equipment = pgTable("equipment", {
   manufacturer: text("manufacturer"),
   installationDate: timestamp("installation_date"),
   estimatedLifespan: integer("estimated_lifespan"),
+  powerConsumption: real("power_consumption"),
+  estimatedUsageHours: real("estimated_usage_hours"),
   supplierId: varchar("supplier_id"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -144,6 +146,8 @@ export const insertEquipmentSchema = createInsertSchema(equipment).omit({
 }).extend({
   installationDate: z.coerce.date().optional().nullable(),
   estimatedLifespan: z.coerce.number().optional().nullable(),
+  powerConsumption: z.coerce.number().optional().nullable(),
+  estimatedUsageHours: z.coerce.number().optional().nullable(),
 });
 
 export type InsertEquipment = z.infer<typeof insertEquipmentSchema>;

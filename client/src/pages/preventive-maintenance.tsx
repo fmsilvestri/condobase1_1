@@ -30,6 +30,7 @@ import {
   Edit,
   Eye,
   Camera,
+  Zap,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -249,6 +250,8 @@ export default function PreventiveMaintenance() {
       manufacturer: formData.get("manufacturer") as string || null,
       installationDate: formData.get("installationDate") ? new Date(formData.get("installationDate") as string).toISOString() : null,
       estimatedLifespan: formData.get("estimatedLifespan") ? parseInt(formData.get("estimatedLifespan") as string) : null,
+      powerConsumption: formData.get("powerConsumption") ? parseFloat(formData.get("powerConsumption") as string) : null,
+      estimatedUsageHours: formData.get("estimatedUsageHours") ? parseFloat(formData.get("estimatedUsageHours") as string) : null,
       status: formData.get("status") as string || "ativo",
       supplierId: supplierIdValue && supplierIdValue !== "none" ? supplierIdValue : null,
       notes: formData.get("notes") as string || null,
@@ -533,6 +536,32 @@ export default function PreventiveMaintenance() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
+                      <Label htmlFor="powerConsumption">Consumo Elétrico (kWh)</Label>
+                      <Input
+                        id="powerConsumption"
+                        name="powerConsumption"
+                        type="number"
+                        step="0.01"
+                        defaultValue={selectedAsset?.powerConsumption || ""}
+                        placeholder="Ex: 2.5"
+                        data-testid="input-asset-power-consumption"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="estimatedUsageHours">Horas de Uso Estimadas/Dia</Label>
+                      <Input
+                        id="estimatedUsageHours"
+                        name="estimatedUsageHours"
+                        type="number"
+                        step="0.5"
+                        defaultValue={selectedAsset?.estimatedUsageHours || ""}
+                        placeholder="Ex: 8"
+                        data-testid="input-asset-usage-hours"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
                       <Label htmlFor="status">Status</Label>
                       <Select name="status" defaultValue={selectedAsset?.status || "ativo"}>
                         <SelectTrigger data-testid="select-asset-status">
@@ -659,6 +688,27 @@ export default function PreventiveMaintenance() {
                         <p className="text-sm text-muted-foreground">
                           Fabricante: {asset.manufacturer}
                         </p>
+                      )}
+                      {(asset.powerConsumption || asset.estimatedUsageHours) && (
+                        <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+                          {asset.powerConsumption && (
+                            <span className="flex items-center gap-1">
+                              <Zap className="h-3 w-3" />
+                              {asset.powerConsumption} kWh
+                            </span>
+                          )}
+                          {asset.estimatedUsageHours && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {asset.estimatedUsageHours}h/dia
+                            </span>
+                          )}
+                          {asset.powerConsumption && asset.estimatedUsageHours && (
+                            <span className="text-xs">
+                              (~{(asset.powerConsumption * asset.estimatedUsageHours * 30).toFixed(0)} kWh/mês)
+                            </span>
+                          )}
+                        </div>
                       )}
                       <Separator />
                       <div className="flex items-center justify-between">
