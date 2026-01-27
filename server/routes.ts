@@ -1330,6 +1330,8 @@ export async function registerRoutes(
   app.post("/api/insurance/policies", requireSindicoOrAdmin, async (req, res) => {
     try {
       const condominiumId = getCondominiumId(req);
+      console.log("[insurance] Creating policy, condominiumId:", condominiumId);
+      console.log("[insurance] Request body:", JSON.stringify(req.body));
       if (!condominiumId) {
         return res.status(400).json({ error: "Condominium ID is required" });
       }
@@ -1339,11 +1341,15 @@ export async function registerRoutes(
         createdBy: getUserId(req),
       });
       if (!validation.success) {
+        console.log("[insurance] Validation failed:", JSON.stringify(validation.error.errors));
         return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
       }
+      console.log("[insurance] Validated data:", JSON.stringify(validation.data));
       const policy = await storage.createInsurancePolicy(validation.data);
+      console.log("[insurance] Created policy:", JSON.stringify(policy));
       res.status(201).json(policy);
     } catch (error: any) {
+      console.error("[insurance] Error creating policy:", error);
       res.status(500).json({ error: "Failed to create policy", details: error?.message });
     }
   });
