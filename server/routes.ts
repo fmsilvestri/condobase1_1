@@ -3748,6 +3748,8 @@ export async function registerRoutes(
   app.post("/api/moradores", requireSindicoOrAdmin, async (req, res) => {
     try {
       const condominiumId = req.condominiumContext?.condominiumId;
+      console.log("[Moradores POST] condominiumId:", condominiumId);
+      console.log("[Moradores POST] body:", JSON.stringify(req.body));
       if (!condominiumId) {
         return res.status(401).json({ error: "Condomínio não selecionado" });
       }
@@ -3755,7 +3757,9 @@ export async function registerRoutes(
         ...req.body,
         condominiumId,
       });
+      console.log("[Moradores POST] validation success:", validation.success);
       if (!validation.success) {
+        console.log("[Moradores POST] validation errors:", validation.error.errors);
         return res.status(400).json({ error: validation.error.errors });
       }
       // Check for duplicate CPF
@@ -3763,9 +3767,12 @@ export async function registerRoutes(
       if (existingMorador) {
         return res.status(400).json({ error: "CPF já cadastrado neste condomínio" });
       }
+      console.log("[Moradores POST] creating morador:", JSON.stringify(validation.data));
       const morador = await storage.createMorador(validation.data);
+      console.log("[Moradores POST] created morador:", JSON.stringify(morador));
       res.status(201).json(morador);
     } catch (error: any) {
+      console.error("[Moradores POST] error:", error);
       res.status(500).json({ error: "Falha ao criar morador" });
     }
   });
