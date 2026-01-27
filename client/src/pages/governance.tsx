@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,6 +16,8 @@ import {
   Loader2,
   Search,
   Filter,
+  Edit,
+  Save,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -64,6 +66,36 @@ const decisionSchema = z.object({
 
 type DecisionFormData = z.infer<typeof decisionSchema>;
 
+const successionSchema = z.object({
+  currentSindicoName: z.string().min(1, "Nome do síndico é obrigatório"),
+  mandateStartDate: z.string().optional(),
+  mandateEndDate: z.string().optional(),
+  successorName: z.string().optional(),
+  transitionPlan: z.string().optional(),
+  keyResponsibilities: z.string().optional(),
+  criticalContacts: z.string().optional(),
+  pendingIssues: z.string().optional(),
+});
+
+type SuccessionFormData = z.infer<typeof successionSchema>;
+
+interface SuccessionPlan {
+  id: string;
+  currentSindicoId: string | null;
+  currentSindicoName: string | null;
+  mandateStartDate: string | null;
+  mandateEndDate: string | null;
+  successorId: string | null;
+  successorName: string | null;
+  transitionPlan: string | null;
+  keyResponsibilities: string[] | null;
+  criticalContacts: string[] | null;
+  pendingIssues: string[] | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface GovernanceDecision {
   id: string;
   title: string;
@@ -104,6 +136,7 @@ const statusLabels: Record<string, { label: string; color: string; icon: any }> 
 export default function Governance() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isEditingSuccession, setIsEditingSuccession] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<DecisionFormData>({
@@ -117,6 +150,20 @@ export default function Governance() {
     },
   });
 
+  const successionForm = useForm<SuccessionFormData>({
+    resolver: zodResolver(successionSchema),
+    defaultValues: {
+      currentSindicoName: "",
+      mandateStartDate: "",
+      mandateEndDate: "",
+      successorName: "",
+      transitionPlan: "",
+      keyResponsibilities: "",
+      criticalContacts: "",
+      pendingIssues: "",
+    },
+  });
+
   const { data: decisions, isLoading: isLoadingDecisions } = useQuery<GovernanceDecision[]>({
     queryKey: ["/api/governance/decisions"],
   });
@@ -125,12 +172,61 @@ export default function Governance() {
     queryKey: ["/api/governance/minutes"],
   });
 
+  const { data: successionPlan, isLoading: isLoadingSuccession } = useQuery<SuccessionPlan | null>({
+    queryKey: ["/api/governance/succession-plan"],
+  });
+
+  useEffect(() => {
+    if (successionPlan) {
+      successionForm.reset({
+        currentSindicoName: successionPlan.currentSindicoName || "",
+        mandateStartDate: successionPlan.mandateStartDate ? new Date(successionPlan.mandateStartDate).toISOString().split("T")[0] : "",
+        mandateEndDate: successionPlan.mandateEndDate ? new Date(successionPlan.mandateEndDate).toISOString().split("T")[0] : "",
+        successorName: successionPlan.successorName || "",
+        transitionPlan: successionPlan.transitionPlan || "",
+        keyResponsibilities: successionPlan.keyResponsibilities?.join("\n") || "",
+        criticalContacts: successionPlan.criticalContacts?.join("\n") || "",
+        pendingIssues: successionPlan.pendingIssues?.join("\n") || "",
+      });
+    }
+  }, [successionPlan]);
+
+  const saveSuccession = useMutation({
+    mutationFn: async (data: SuccessionFormData) => {
+      const payload = {
+        currentSindicoName: data.currentSindicoName,
+        mandateStartDate: data.mandateStartDate || null,
+        mandateEndDate: data.mandateEndDate || null,
+        successorName: data.successorName || null,
+        transitionPlan: data.transitionPlan || null,
+        keyResponsibilities: data.keyResponsibilities?.split("\n").filter(Boolean) || null,
+        criticalContacts: data.criticalContacts?.split("\n").filter(Boolean) || null,
+        pendingIssues: data.pendingIssues?.split("\n").filter(Boolean) || null,
+      };
+
+      if (successionPlan?.id) {
+        return apiRequest("PATCH", `/api/governance/succession-plan/${successionPlan.id}`, payload);
+      } else {
+        return apiRequest("POST", "/api/governance/succession-plan", payload);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/governance/succession-plan"] });
+      setIsEditingSuccession(false);
+      toast({ title: "Plano de sucessão salvo com sucesso" });
+    },
+    onError: () => {
+      toast({ title: "Erro ao salvar plano de sucessão", variant: "destructive" });
+    },
+  });
+
+  const onSubmitSuccession = (data: SuccessionFormData) => {
+    saveSuccession.mutate(data);
+  };
+
   const createDecision = useMutation({
     mutationFn: async (data: DecisionFormData) => {
-      return apiRequest("/api/governance/decisions", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", "/api/governance/decisions", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/governance/decisions"] });
@@ -561,31 +657,211 @@ export default function Governance() {
 
         <TabsContent value="succession" className="space-y-4">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
               <CardTitle className="text-base">Plano de Sucessão</CardTitle>
+              {!isEditingSuccession && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditingSuccession(true)}
+                  data-testid="button-edit-succession"
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Editar
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-lg border p-4">
-                  <p className="text-sm text-muted-foreground mb-1">Síndico Atual</p>
-                  <p className="font-medium">João Silva</p>
-                  <p className="text-xs text-muted-foreground mt-1">Mandato: Jan 2024 - Dez 2025</p>
+              {isLoadingSuccession ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-24 w-full" />
+                  <Skeleton className="h-24 w-full" />
                 </div>
-                <div className="rounded-lg border p-4">
-                  <p className="text-sm text-muted-foreground mb-1">Sucessor Designado</p>
-                  <p className="font-medium">Maria Santos</p>
-                  <p className="text-xs text-muted-foreground mt-1">Conselheira desde 2022</p>
-                </div>
-              </div>
-              <div className="rounded-lg border p-4">
-                <p className="text-sm font-medium mb-2">Responsabilidades Críticas</p>
-                <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>- Gestão de contratos principais</li>
-                  <li>- Acompanhamento de manutenção preventiva</li>
-                  <li>- Relacionamento com administradora</li>
-                  <li>- Prestação de contas mensal</li>
-                </ul>
-              </div>
+              ) : isEditingSuccession ? (
+                <Form {...successionForm}>
+                  <form onSubmit={successionForm.handleSubmit(onSubmitSuccession)} className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <FormField
+                        control={successionForm.control}
+                        name="currentSindicoName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Nome do Síndico</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Nome completo do síndico" data-testid="input-sindico-name" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={successionForm.control}
+                        name="successorName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Sucessor Designado</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Nome do sucessor" data-testid="input-successor-name" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <FormField
+                        control={successionForm.control}
+                        name="mandateStartDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Início do Mandato</FormLabel>
+                            <FormControl>
+                              <Input type="date" {...field} data-testid="input-mandate-start" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={successionForm.control}
+                        name="mandateEndDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Fim do Mandato</FormLabel>
+                            <FormControl>
+                              <Input type="date" {...field} data-testid="input-mandate-end" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <FormField
+                      control={successionForm.control}
+                      name="transitionPlan"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Plano de Transição</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="Descreva o plano de transição..." data-testid="input-transition-plan" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={successionForm.control}
+                      name="keyResponsibilities"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Responsabilidades Críticas (uma por linha)</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="Gestão de contratos&#10;Manutenção preventiva&#10;Prestação de contas" data-testid="input-responsibilities" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={successionForm.control}
+                      name="criticalContacts"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Contatos Críticos (um por linha)</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="Administradora: (11) 99999-9999&#10;Síndico profissional: (11) 88888-8888" data-testid="input-contacts" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={successionForm.control}
+                      name="pendingIssues"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Pendências (uma por linha)</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="Renovação de contrato de segurança&#10;Aprovação do orçamento anual" data-testid="input-pending" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="flex justify-end gap-2 pt-4">
+                      <Button type="button" variant="outline" onClick={() => setIsEditingSuccession(false)}>
+                        Cancelar
+                      </Button>
+                      <Button type="submit" disabled={saveSuccession.isPending} data-testid="button-save-succession">
+                        {saveSuccession.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        <Save className="h-4 w-4 mr-2" />
+                        Salvar
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              ) : (
+                <>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="rounded-lg border p-4">
+                      <p className="text-sm text-muted-foreground mb-1">Síndico Atual</p>
+                      <p className="font-medium">{successionPlan?.currentSindicoName || "Não definido"}</p>
+                      {successionPlan?.mandateStartDate && successionPlan?.mandateEndDate && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Mandato: {new Date(successionPlan.mandateStartDate).toLocaleDateString("pt-BR", { month: "short", year: "numeric" })} - {new Date(successionPlan.mandateEndDate).toLocaleDateString("pt-BR", { month: "short", year: "numeric" })}
+                        </p>
+                      )}
+                    </div>
+                    <div className="rounded-lg border p-4">
+                      <p className="text-sm text-muted-foreground mb-1">Sucessor Designado</p>
+                      <p className="font-medium">{successionPlan?.successorName || "Não definido"}</p>
+                    </div>
+                  </div>
+                  {successionPlan?.transitionPlan && (
+                    <div className="rounded-lg border p-4">
+                      <p className="text-sm font-medium mb-2">Plano de Transição</p>
+                      <p className="text-sm text-muted-foreground">{successionPlan.transitionPlan}</p>
+                    </div>
+                  )}
+                  {successionPlan?.keyResponsibilities && successionPlan.keyResponsibilities.length > 0 && (
+                    <div className="rounded-lg border p-4">
+                      <p className="text-sm font-medium mb-2">Responsabilidades Críticas</p>
+                      <ul className="text-sm text-muted-foreground space-y-1">
+                        {successionPlan.keyResponsibilities.map((item, idx) => (
+                          <li key={idx}>- {item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {successionPlan?.criticalContacts && successionPlan.criticalContacts.length > 0 && (
+                    <div className="rounded-lg border p-4">
+                      <p className="text-sm font-medium mb-2">Contatos Críticos</p>
+                      <ul className="text-sm text-muted-foreground space-y-1">
+                        {successionPlan.criticalContacts.map((item, idx) => (
+                          <li key={idx}>- {item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {successionPlan?.pendingIssues && successionPlan.pendingIssues.length > 0 && (
+                    <div className="rounded-lg border p-4">
+                      <p className="text-sm font-medium mb-2">Pendências</p>
+                      <ul className="text-sm text-muted-foreground space-y-1">
+                        {successionPlan.pendingIssues.map((item, idx) => (
+                          <li key={idx}>- {item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {!successionPlan && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>Nenhum plano de sucessão cadastrado.</p>
+                      <p className="text-sm mt-1">Clique em "Editar" para adicionar as informações.</p>
+                    </div>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
