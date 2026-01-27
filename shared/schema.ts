@@ -1675,7 +1675,7 @@ export type CanalPreferido = (typeof canalPreferidoOptions)[number];
 
 export const moradores = pgTable("moradores", {
   id: uuid("id").primaryKey().defaultRandom(),
-  condominiumId: uuid("condominium_id").notNull().references(() => condominiums.id),
+  condominiumId: varchar("condominium_id").notNull(),
   nomeCompleto: text("nome_completo").notNull(),
   cpf: text("cpf").notNull(),
   dataNascimento: text("data_nascimento"),
