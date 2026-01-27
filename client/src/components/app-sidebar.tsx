@@ -30,6 +30,7 @@ import {
   CreditCard,
   UserCog,
   Package,
+  Store,
 } from "lucide-react";
 import {
   Sidebar,
@@ -148,6 +149,11 @@ const mainModules = [
     title: "Moradores",
     url: "/moradores",
     icon: Users,
+  },
+  {
+    title: "Marketplace",
+    url: "/marketplace",
+    icon: Store,
   },
 ];
 
@@ -381,6 +387,19 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
                     <Link href="/relatorios">
                       <ClipboardList className="h-4 w-4" />
                       <span className="text-sm">Relatórios</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/marketplace-admin"}
+                    data-testid="nav-marketplace-admin"
+                    className="rounded-lg h-9 transition-all duration-200 data-[active=true]:bg-cyan-500/15 data-[active=true]:text-cyan-600 dark:data-[active=true]:text-cyan-400 data-[active=true]:font-medium"
+                  >
+                    <Link href="/marketplace-admin">
+                      <Store className="h-4 w-4" />
+                      <span className="text-sm">Marketplace Admin</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

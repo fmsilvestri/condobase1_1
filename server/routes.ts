@@ -66,6 +66,11 @@ import {
   insertProcessExecutionSchema,
   insertParcelSchema,
   insertMoradorSchema,
+  insertCategoriaServicoSchema,
+  insertServicoSchema,
+  insertFornecedorMarketplaceSchema,
+  insertOfertaSchema,
+  insertContratacaoSchema,
 } from "@shared/schema";
 
 import { z } from "zod";
@@ -3793,12 +3798,16 @@ export async function registerRoutes(
 
   app.post("/api/categorias-servicos", requireSindicoOrAdmin, async (req, res) => {
     try {
-      const categoria = await storage.createCategoriaServico({
+      const validatedData = insertCategoriaServicoSchema.parse({
         ...req.body,
         condominiumId: req.condominiumId,
       });
+      const categoria = await storage.createCategoriaServico(validatedData);
       res.status(201).json(categoria);
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados invalidos", details: error.errors });
+      }
       res.status(500).json({ error: "Falha ao criar categoria" });
     }
   });
@@ -3857,12 +3866,16 @@ export async function registerRoutes(
 
   app.post("/api/servicos", requireSindicoOrAdmin, async (req, res) => {
     try {
-      const servico = await storage.createServico({
+      const validatedData = insertServicoSchema.parse({
         ...req.body,
         condominiumId: req.condominiumId,
       });
+      const servico = await storage.createServico(validatedData);
       res.status(201).json(servico);
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados invalidos", details: error.errors });
+      }
       res.status(500).json({ error: "Falha ao criar servico" });
     }
   });
@@ -3912,12 +3925,16 @@ export async function registerRoutes(
 
   app.post("/api/fornecedores-marketplace", requireSindicoOrAdmin, async (req, res) => {
     try {
-      const fornecedor = await storage.createFornecedorMarketplace({
+      const validatedData = insertFornecedorMarketplaceSchema.parse({
         ...req.body,
         condominiumId: req.condominiumId,
       });
+      const fornecedor = await storage.createFornecedorMarketplace(validatedData);
       res.status(201).json(fornecedor);
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados invalidos", details: error.errors });
+      }
       res.status(500).json({ error: "Falha ao criar fornecedor" });
     }
   });
@@ -3985,12 +4002,16 @@ export async function registerRoutes(
 
   app.post("/api/ofertas", requireSindicoOrAdmin, async (req, res) => {
     try {
-      const oferta = await storage.createOferta({
+      const validatedData = insertOfertaSchema.parse({
         ...req.body,
         condominiumId: req.condominiumId,
       });
+      const oferta = await storage.createOferta(validatedData);
       res.status(201).json(oferta);
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados invalidos", details: error.errors });
+      }
       res.status(500).json({ error: "Falha ao criar oferta" });
     }
   });
@@ -4049,12 +4070,17 @@ export async function registerRoutes(
 
   app.post("/api/contratacoes", requireGestao, async (req, res) => {
     try {
-      const contratacao = await storage.createContratacao({
+      const validatedData = insertContratacaoSchema.parse({
         ...req.body,
         condominiumId: req.condominiumId,
+        dataSolicitacao: new Date(),
       });
+      const contratacao = await storage.createContratacao(validatedData);
       res.status(201).json(contratacao);
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados invalidos", details: error.errors });
+      }
       res.status(500).json({ error: "Falha ao criar contratacao" });
     }
   });

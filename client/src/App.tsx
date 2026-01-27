@@ -45,6 +45,8 @@ import Payments from "@/pages/payments";
 import TeamManagement from "@/pages/team-management";
 import Parcels from "@/pages/parcels";
 import Moradores from "@/pages/moradores";
+import MarketplaceAdmin from "@/pages/marketplace-admin";
+import Marketplace from "@/pages/marketplace";
 
 function Router() {
   return (
@@ -80,6 +82,8 @@ function Router() {
       <Route path="/equipe" component={TeamManagement} />
       <Route path="/encomendas" component={Parcels} />
       <Route path="/moradores" component={Moradores} />
+      <Route path="/marketplace-admin" component={MarketplaceAdmin} />
+      <Route path="/marketplace" component={Marketplace} />
       <Route component={NotFound} />
     </Switch>
   );
