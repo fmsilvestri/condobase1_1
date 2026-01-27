@@ -28,6 +28,7 @@ import {
   ShieldCheck,
   Target,
   CreditCard,
+  UserCog,
 } from "lucide-react";
 import {
   Sidebar,
@@ -131,6 +132,11 @@ const mainModules = [
     title: "Operação e Automação",
     url: "/automacao",
     icon: Settings,
+  },
+  {
+    title: "Equipe e Processos",
+    url: "/equipe",
+    icon: UserCog,
   },
 ];
 
