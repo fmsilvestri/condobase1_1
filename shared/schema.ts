@@ -1647,9 +1647,11 @@ export const parcels = pgTable("parcels", {
 
 export const insertParcelSchema = createInsertSchema(parcels).omit({
   id: true,
+  condominiumId: true,
   createdAt: true,
   updatedAt: true,
 }).extend({
+  condominiumId: z.string().optional(),
   receivedAt: z.coerce.date().optional(),
   notifiedAt: z.coerce.date().optional().nullable(),
   pickedUpAt: z.coerce.date().optional().nullable(),
