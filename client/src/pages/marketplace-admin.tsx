@@ -19,6 +19,10 @@ import {
   MessageCircle,
   DollarSign,
   RefreshCw,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Ban,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -311,6 +315,37 @@ export default function MarketplaceAdmin() {
     onError: () => toast({ title: "Erro ao excluir", variant: "destructive" }),
   });
 
+  const aproveFornecedorMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("PATCH", `/api/fornecedores-marketplace/${id}/aprovar`, undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fornecedores-marketplace"] });
+      toast({ title: "Fornecedor aprovado com sucesso!" });
+    },
+    onError: () => toast({ title: "Erro ao aprovar fornecedor", variant: "destructive" }),
+  });
+
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [fornecedorToBlock, setFornecedorToBlock] = useState<{ id: string; name: string } | null>(null);
+  const [blockMotivo, setBlockMotivo] = useState("");
+
+  const bloquearFornecedorMutation = useMutation({
+    mutationFn: ({ id, motivo }: { id: string; motivo: string }) => 
+      apiRequest("PATCH", `/api/fornecedores-marketplace/${id}/bloquear`, { motivo }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fornecedores-marketplace"] });
+      toast({ title: "Fornecedor bloqueado." });
+      setBlockDialogOpen(false);
+      setFornecedorToBlock(null);
+      setBlockMotivo("");
+    },
+    onError: () => toast({ title: "Erro ao bloquear fornecedor", variant: "destructive" }),
+  });
+
+  const handleBlockFornecedor = (fornecedor: FornecedorMarketplace) => {
+    setFornecedorToBlock({ id: fornecedor.id, name: fornecedor.nomeFantasia });
+    setBlockDialogOpen(true);
+  };
+
   const handleEditCategoria = (categoria: CategoriaServico) => {
     setEditingCategoria(categoria);
     categoriaForm.reset({
@@ -581,13 +616,42 @@ export default function MarketplaceAdmin() {
               {filteredFornecedores.map(fornecedor => (
                 <Card key={fornecedor.id} data-testid={`card-fornecedor-${fornecedor.id}`}>
                   <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
                       <CardTitle className="text-lg">{fornecedor.nomeFantasia}</CardTitle>
-                      <Badge variant={fornecedor.ativo ? "default" : "secondary"}>
-                        {fornecedor.ativo ? "Ativo" : "Inativo"}
-                      </Badge>
+                      <div className="flex gap-1 flex-wrap">
+                        {fornecedor.statusAprovacao === "aprovado" && (
+                          <Badge variant="default" className="bg-green-600">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Aprovado
+                          </Badge>
+                        )}
+                        {fornecedor.statusAprovacao === "pendente" && (
+                          <Badge variant="secondary" className="bg-yellow-500 text-white">
+                            <Clock className="h-3 w-3 mr-1" />
+                            Pendente
+                          </Badge>
+                        )}
+                        {fornecedor.statusAprovacao === "bloqueado" && (
+                          <Badge variant="destructive">
+                            <Ban className="h-3 w-3 mr-1" />
+                            Bloqueado
+                          </Badge>
+                        )}
+                        {!fornecedor.statusAprovacao && (
+                          <Badge variant="secondary">
+                            <Clock className="h-3 w-3 mr-1" />
+                            Pendente
+                          </Badge>
+                        )}
+                        <Badge variant={fornecedor.ativo ? "outline" : "secondary"}>
+                          {fornecedor.ativo ? "Ativo" : "Inativo"}
+                        </Badge>
+                      </div>
                     </div>
                     {fornecedor.razaoSocial && <CardDescription>{fornecedor.razaoSocial}</CardDescription>}
+                    {fornecedor.motivoBloqueio && (
+                      <p className="text-xs text-destructive mt-1">Motivo: {fornecedor.motivoBloqueio}</p>
+                    )}
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2 text-sm mb-4">
@@ -616,7 +680,44 @@ export default function MarketplaceAdmin() {
                         </div>
                       )}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
+                      {(fornecedor.statusAprovacao === "pendente" || !fornecedor.statusAprovacao) && (
+                        <Button 
+                          size="sm" 
+                          variant="default" 
+                          className="bg-green-600"
+                          onClick={() => aproveFornecedorMutation.mutate(fornecedor.id)}
+                          disabled={aproveFornecedorMutation.isPending}
+                          data-testid={`button-aprovar-fornecedor-${fornecedor.id}`}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Aprovar
+                        </Button>
+                      )}
+                      {fornecedor.statusAprovacao !== "bloqueado" && (
+                        <Button 
+                          size="sm" 
+                          variant="destructive" 
+                          onClick={() => handleBlockFornecedor(fornecedor)}
+                          data-testid={`button-bloquear-fornecedor-${fornecedor.id}`}
+                        >
+                          <Ban className="h-4 w-4 mr-1" />
+                          Bloquear
+                        </Button>
+                      )}
+                      {fornecedor.statusAprovacao === "bloqueado" && (
+                        <Button 
+                          size="sm" 
+                          variant="default" 
+                          className="bg-green-600"
+                          onClick={() => aproveFornecedorMutation.mutate(fornecedor.id)}
+                          disabled={aproveFornecedorMutation.isPending}
+                          data-testid={`button-desbloquear-fornecedor-${fornecedor.id}`}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Desbloquear
+                        </Button>
+                      )}
                       <Button size="sm" variant="outline" onClick={() => handleEditFornecedor(fornecedor)} data-testid={`button-edit-fornecedor-${fornecedor.id}`}>
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -994,6 +1095,44 @@ export default function MarketplaceAdmin() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Bloquear Fornecedor</DialogTitle>
+            <DialogDescription>
+              Informe o motivo para bloquear "{fornecedorToBlock?.name}".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Textarea
+              placeholder="Motivo do bloqueio..."
+              value={blockMotivo}
+              onChange={(e) => setBlockMotivo(e.target.value)}
+              data-testid="input-motivo-bloqueio"
+            />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setBlockDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={bloquearFornecedorMutation.isPending || !blockMotivo.trim()}
+                onClick={() => {
+                  if (fornecedorToBlock) {
+                    bloquearFornecedorMutation.mutate({ id: fornecedorToBlock.id, motivo: blockMotivo });
+                  }
+                }}
+                data-testid="button-confirm-bloquear"
+              >
+                {bloquearFornecedorMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Bloquear
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
