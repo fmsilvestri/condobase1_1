@@ -1511,3 +1511,103 @@ export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
 
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type AuditLog = typeof auditLogs.$inferSelect;
+
+// Team Members - Equipe do condomínio
+export const teamMemberRoles = ["zelador", "porteiro", "faxineiro", "jardineiro", "técnico", "administrativo", "segurança", "outro"] as const;
+export type TeamMemberRole = (typeof teamMemberRoles)[number];
+
+export const teamMemberStatuses = ["ativo", "inativo", "férias", "afastado"] as const;
+export type TeamMemberStatus = (typeof teamMemberStatuses)[number];
+
+export const teamMembers = pgTable("team_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  name: text("name").notNull(),
+  role: text("role").notNull(),
+  department: text("department"),
+  phone: text("phone"),
+  email: text("email"),
+  photo: text("photo"),
+  workSchedule: text("work_schedule"),
+  hireDate: timestamp("hire_date"),
+  status: text("status").notNull().default("ativo"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  hireDate: z.coerce.date().optional().nullable(),
+});
+
+export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
+export type TeamMember = typeof teamMembers.$inferSelect;
+
+// Processes - Processos e rotinas do condomínio
+export const processCategories = ["limpeza", "segurança", "manutenção", "administrativo", "jardinagem", "piscina", "portaria", "outro"] as const;
+export type ProcessCategory = (typeof processCategories)[number];
+
+export const processFrequencies = ["diário", "semanal", "quinzenal", "mensal", "trimestral", "semestral", "anual", "sob demanda"] as const;
+export type ProcessFrequency = (typeof processFrequencies)[number];
+
+export const processes = pgTable("processes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  category: text("category").notNull(),
+  frequency: text("frequency").notNull(),
+  assignedToId: varchar("assigned_to_id").references(() => teamMembers.id),
+  checklistItems: text("checklist_items").array(),
+  estimatedDuration: integer("estimated_duration"),
+  isActive: boolean("is_active").notNull().default(true),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertProcessSchema = createInsertSchema(processes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  estimatedDuration: z.coerce.number().optional().nullable(),
+});
+
+export type InsertProcess = z.infer<typeof insertProcessSchema>;
+export type Process = typeof processes.$inferSelect;
+
+// Process Executions - Execuções de processos
+export const processExecutionStatuses = ["pendente", "em andamento", "concluído", "cancelado"] as const;
+export type ProcessExecutionStatus = (typeof processExecutionStatuses)[number];
+
+export const processExecutions = pgTable("process_executions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  processId: varchar("process_id").notNull().references(() => processes.id),
+  executedById: varchar("executed_by_id").references(() => teamMembers.id),
+  scheduledDate: timestamp("scheduled_date").notNull(),
+  executedDate: timestamp("executed_date"),
+  status: text("status").notNull().default("pendente"),
+  checklistCompleted: text("checklist_completed").array(),
+  duration: integer("duration"),
+  photos: text("photos").array(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertProcessExecutionSchema = createInsertSchema(processExecutions).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  scheduledDate: z.coerce.date(),
+  executedDate: z.coerce.date().optional().nullable(),
+  duration: z.coerce.number().optional().nullable(),
+});
+
+export type InsertProcessExecution = z.infer<typeof insertProcessExecutionSchema>;
+export type ProcessExecution = typeof processExecutions.$inferSelect;
