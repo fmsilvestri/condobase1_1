@@ -1964,42 +1964,91 @@ export class SupabaseStorage implements IStorage {
     return true;
   }
 
-  // Moradores
+  // Moradores - usando Supabase client diretamente
   async getMoradores(condominiumId?: string): Promise<Morador[]> {
+    if (!supabase) throw new Error("Supabase not configured");
+    let query = supabase.from("moradores").select("*").order("nome_completo");
     if (condominiumId) {
-      return db.select().from(moradoresTable)
-        .where(eq(moradoresTable.condominiumId, condominiumId))
-        .orderBy(moradoresTable.nomeCompleto);
+      query = query.eq("condominium_id", condominiumId);
     }
-    return db.select().from(moradoresTable).orderBy(moradoresTable.nomeCompleto);
+    const { data, error } = await query;
+    if (error) {
+      console.error("[getMoradores] Error:", error);
+      throw error;
+    }
+    return (data || []).map(toCamelCase) as Morador[];
   }
 
   async getMoradorById(id: string): Promise<Morador | undefined> {
-    const [data] = await db.select().from(moradoresTable).where(eq(moradoresTable.id, id));
-    return data;
+    if (!supabase) throw new Error("Supabase not configured");
+    const { data, error } = await supabase
+      .from("moradores")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (error) {
+      if (error.code === "PGRST116") return undefined;
+      console.error("[getMoradorById] Error:", error);
+      throw error;
+    }
+    return data ? toCamelCase(data) as Morador : undefined;
   }
 
   async getMoradorByCpf(condominiumId: string, cpf: string): Promise<Morador | undefined> {
-    const [data] = await db.select().from(moradoresTable)
-      .where(and(eq(moradoresTable.condominiumId, condominiumId), eq(moradoresTable.cpf, cpf)));
-    return data;
+    if (!supabase) throw new Error("Supabase not configured");
+    const { data, error } = await supabase
+      .from("moradores")
+      .select("*")
+      .eq("condominium_id", condominiumId)
+      .eq("cpf", cpf)
+      .maybeSingle();
+    if (error) {
+      console.error("[getMoradorByCpf] Error:", error);
+      throw error;
+    }
+    return data ? toCamelCase(data) as Morador : undefined;
   }
 
   async createMorador(morador: InsertMorador): Promise<Morador> {
-    const [data] = await db.insert(moradoresTable).values(morador).returning();
-    return data;
+    if (!supabase) throw new Error("Supabase not configured");
+    const snakeCaseData = toSnakeCase(morador);
+    console.log("[createMorador] Inserting:", JSON.stringify(snakeCaseData));
+    const { data, error } = await supabase
+      .from("moradores")
+      .insert(snakeCaseData)
+      .select()
+      .single();
+    if (error) {
+      console.error("[createMorador] Error:", error);
+      throw error;
+    }
+    console.log("[createMorador] Created:", JSON.stringify(data));
+    return toCamelCase(data) as Morador;
   }
 
   async updateMorador(id: string, morador: Partial<InsertMorador>): Promise<Morador | undefined> {
-    const [data] = await db.update(moradoresTable)
-      .set({ ...morador, updatedAt: new Date() })
-      .where(eq(moradoresTable.id, id))
-      .returning();
-    return data;
+    if (!supabase) throw new Error("Supabase not configured");
+    const snakeCaseData = toSnakeCase({ ...morador, updatedAt: new Date() });
+    const { data, error } = await supabase
+      .from("moradores")
+      .update(snakeCaseData)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) {
+      console.error("[updateMorador] Error:", error);
+      throw error;
+    }
+    return data ? toCamelCase(data) as Morador : undefined;
   }
 
   async deleteMorador(id: string): Promise<boolean> {
-    await db.delete(moradoresTable).where(eq(moradoresTable.id, id));
+    if (!supabase) throw new Error("Supabase not configured");
+    const { error } = await supabase.from("moradores").delete().eq("id", id);
+    if (error) {
+      console.error("[deleteMorador] Error:", error);
+      throw error;
+    }
     return true;
   }
 
