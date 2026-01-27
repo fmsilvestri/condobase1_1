@@ -83,6 +83,13 @@ const storage = createStorage();
 
 export { storage };
 
+function requireCondominiumId(body: any): string {
+  if (!body.condominiumId || typeof body.condominiumId !== 'string') {
+    throw new Error("condominiumId é obrigatório");
+  }
+  return body.condominiumId;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -1626,12 +1633,13 @@ export async function registerRoutes(
 
   app.post("/api/equipment", async (req, res) => {
     try {
+      requireCondominiumId(req.body);
       const validatedData = insertEquipmentSchema.parse(req.body);
       const equipment = await storage.createEquipment(validatedData);
       res.status(201).json(equipment);
     } catch (error: any) {
       console.error("Equipment validation error:", error.message || error);
-      res.status(400).json({ error: "Invalid equipment data", details: error.message });
+      res.status(400).json({ error: error.message || "Invalid equipment data" });
     }
   });
 
@@ -1685,15 +1693,16 @@ export async function registerRoutes(
 
   app.post("/api/maintenance", async (req, res) => {
     try {
+      requireCondominiumId(req.body);
       console.log("[maintenance] Creating request with data:", JSON.stringify(req.body));
       const validatedData = insertMaintenanceRequestSchema.parse(req.body);
       console.log("[maintenance] Validated data:", JSON.stringify(validatedData));
       const request = await storage.createMaintenanceRequest(validatedData);
       console.log("[maintenance] Created request:", JSON.stringify(request));
       res.status(201).json(request);
-    } catch (error) {
+    } catch (error: any) {
       console.error("[maintenance] Error creating request:", error);
-      res.status(400).json({ error: "Invalid maintenance request data", details: String(error) });
+      res.status(400).json({ error: error.message || "Invalid maintenance request data" });
     }
   });
 
@@ -1829,6 +1838,7 @@ export async function registerRoutes(
 
   app.post("/api/pool", async (req, res) => {
     try {
+      requireCondominiumId(req.body);
       console.log("Pool reading request body:", JSON.stringify(req.body));
       const validatedData = insertPoolReadingSchema.parse(req.body);
       console.log("Validated pool data:", JSON.stringify(validatedData));
@@ -1867,11 +1877,12 @@ export async function registerRoutes(
 
   app.post("/api/reservoirs", async (req, res) => {
     try {
+      requireCondominiumId(req.body);
       const validatedData = insertReservoirSchema.parse(req.body);
       const reservoir = await storage.createReservoir(validatedData);
       res.status(201).json(reservoir);
     } catch (error: any) {
-      res.status(400).json({ error: "Invalid reservoir data", details: error.message });
+      res.status(400).json({ error: error.message || "Invalid reservoir data" });
     }
   });
 
@@ -1911,13 +1922,14 @@ export async function registerRoutes(
 
   app.post("/api/water", async (req, res) => {
     try {
+      requireCondominiumId(req.body);
       console.log("Water reading request body:", JSON.stringify(req.body));
       const validatedData = insertWaterReadingSchema.parse(req.body);
       const reading = await storage.createWaterReading(validatedData);
       res.status(201).json(reading);
     } catch (error: any) {
       console.error("Water reading validation error:", error?.message || error);
-      res.status(400).json({ error: "Invalid water reading data", details: error?.message });
+      res.status(400).json({ error: error.message || "Invalid water reading data" });
     }
   });
 
@@ -1934,12 +1946,13 @@ export async function registerRoutes(
 
   app.post("/api/hydrometer", async (req, res) => {
     try {
+      requireCondominiumId(req.body);
       const validatedData = insertHydrometerReadingSchema.parse(req.body);
       const reading = await storage.createHydrometerReading(validatedData);
       res.status(201).json(reading);
     } catch (error: any) {
       console.error("Hydrometer reading validation error:", error?.message || error);
-      res.status(400).json({ error: "Invalid hydrometer reading data", details: error?.message });
+      res.status(400).json({ error: error.message || "Invalid hydrometer reading data" });
     }
   });
 
@@ -1979,13 +1992,14 @@ export async function registerRoutes(
 
   app.post("/api/gas", async (req, res) => {
     try {
+      requireCondominiumId(req.body);
       console.log("Gas reading request body:", JSON.stringify(req.body));
       const validatedData = insertGasReadingSchema.parse(req.body);
       const reading = await storage.createGasReading(validatedData);
       res.status(201).json(reading);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Gas reading validation error:", error);
-      res.status(400).json({ error: "Invalid gas reading data", details: String(error) });
+      res.status(400).json({ error: error.message || "Invalid gas reading data" });
     }
   });
 
@@ -2001,11 +2015,12 @@ export async function registerRoutes(
 
   app.post("/api/energy", async (req, res) => {
     try {
+      requireCondominiumId(req.body);
       const validatedData = insertEnergyEventSchema.parse(req.body);
       const event = await storage.createEnergyEvent(validatedData);
       res.status(201).json(event);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid energy event data" });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Invalid energy event data" });
     }
   });
 
@@ -2065,11 +2080,12 @@ export async function registerRoutes(
 
   app.post("/api/documents", async (req, res) => {
     try {
+      requireCondominiumId(req.body);
       const validatedData = insertDocumentSchema.parse(req.body);
       const document = await storage.createDocument(validatedData);
       res.status(201).json(document);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid document data" });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Invalid document data" });
     }
   });
 
@@ -2207,6 +2223,7 @@ export async function registerRoutes(
 
   app.post("/api/announcements", async (req, res) => {
     try {
+      requireCondominiumId(req.body);
       const validatedData = insertAnnouncementSchema.parse(req.body);
       const announcement = await storage.createAnnouncement(validatedData);
       
@@ -2764,14 +2781,12 @@ export async function registerRoutes(
 
   app.post("/api/maintenance-plans", async (req, res) => {
     try {
-      if (!req.body.condominiumId) {
-        return res.status(400).json({ error: "condominiumId é obrigatório" });
-      }
+      requireCondominiumId(req.body);
       const validatedData = insertMaintenancePlanSchema.parse(req.body);
       const plan = await storage.createMaintenancePlan(validatedData);
       res.status(201).json(plan);
     } catch (error: any) {
-      res.status(400).json({ error: "Dados inválidos", details: error.message });
+      res.status(400).json({ error: error.message || "Dados inválidos" });
     }
   });
 
@@ -2874,11 +2889,12 @@ export async function registerRoutes(
 
   app.post("/api/maintenance-executions", async (req, res) => {
     try {
+      requireCondominiumId(req.body);
       const validatedData = insertMaintenanceExecutionSchema.parse(req.body);
       const execution = await storage.createMaintenanceExecution(validatedData);
       res.status(201).json(execution);
     } catch (error: any) {
-      res.status(400).json({ error: "Dados inválidos", details: error.message });
+      res.status(400).json({ error: error.message || "Dados inválidos" });
     }
   });
 
