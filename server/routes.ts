@@ -2764,6 +2764,9 @@ export async function registerRoutes(
 
   app.post("/api/maintenance-plans", async (req, res) => {
     try {
+      if (!req.body.condominiumId) {
+        return res.status(400).json({ error: "condominiumId é obrigatório" });
+      }
       const validatedData = insertMaintenancePlanSchema.parse(req.body);
       const plan = await storage.createMaintenancePlan(validatedData);
       res.status(201).json(plan);

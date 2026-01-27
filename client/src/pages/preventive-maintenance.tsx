@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useCondominium } from "@/hooks/use-condominium";
 import { format, differenceInDays, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -102,6 +103,7 @@ const categoryIcons: Record<string, { icon: any; color: string }> = {
 
 export default function PreventiveMaintenance() {
   const { toast } = useToast();
+  const { selectedCondominium } = useCondominium();
   const [activeTab, setActiveTab] = useState("assets");
   const [assetDialogOpen, setAssetDialogOpen] = useState(false);
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
@@ -241,9 +243,14 @@ export default function PreventiveMaintenance() {
 
   const handleAssetSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!selectedCondominium) {
+      toast({ title: "Selecione um condominio primeiro", variant: "destructive" });
+      return;
+    }
     const formData = new FormData(e.currentTarget);
     const supplierIdValue = formData.get("supplierId") as string;
     const data = {
+      condominiumId: selectedCondominium,
       name: formData.get("name") as string,
       category: formData.get("category") as string,
       location: formData.get("location") as string,
@@ -266,11 +273,16 @@ export default function PreventiveMaintenance() {
 
   const handlePlanSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!selectedCondominium) {
+      toast({ title: "Selecione um condominio primeiro", variant: "destructive" });
+      return;
+    }
     const formData = new FormData(e.currentTarget);
     const periodicity = formData.get("periodicity") as string;
     const nextDate = new Date(formData.get("nextMaintenanceDate") as string);
 
     const data = {
+      condominiumId: selectedCondominium,
       equipmentId: formData.get("equipmentId") as string,
       name: formData.get("name") as string,
       maintenanceType: formData.get("maintenanceType") as string,
@@ -290,8 +302,13 @@ export default function PreventiveMaintenance() {
 
   const handleExecutionSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!selectedCondominium) {
+      toast({ title: "Selecione um condominio primeiro", variant: "destructive" });
+      return;
+    }
     const formData = new FormData(e.currentTarget);
     const data = {
+      condominiumId: selectedCondominium,
       equipmentId: formData.get("equipmentId") as string,
       planId: formData.get("planId") as string || null,
       maintenanceType: formData.get("maintenanceType") as string,
