@@ -49,6 +49,7 @@ export const users = pgTable("users", {
   role: text("role").notNull().default("condômino"),
   name: text("name").notNull(),
   unit: text("unit"),
+  stripeCustomerId: text("stripe_customer_id"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

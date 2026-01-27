@@ -27,6 +27,7 @@ import {
   Scale,
   ShieldCheck,
   Target,
+  CreditCard,
 } from "lucide-react";
 import {
   Sidebar,
@@ -158,6 +159,11 @@ const secondaryModules = [
     title: "Comunicados",
     url: "/comunicados",
     icon: Megaphone,
+  },
+  {
+    title: "Pagamentos",
+    url: "/pagamentos",
+    icon: CreditCard,
   },
   {
     title: "Perguntas Frequentes",
