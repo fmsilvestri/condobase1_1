@@ -40,6 +40,7 @@ import Financial from "@/pages/financial";
 import Contracts from "@/pages/contracts";
 import Compliance from "@/pages/compliance";
 import Insurance from "@/pages/insurance";
+import Automation from "@/pages/automation";
 
 function Router() {
   return (
@@ -70,6 +71,7 @@ function Router() {
       <Route path="/faq" component={Faq} />
       <Route path="/configuracoes-notificacao" component={NotificationSettings} />
       <Route path="/dispositivos-iot" component={IotDevices} />
+      <Route path="/automacao" component={Automation} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -126,6 +126,11 @@ const mainModules = [
     url: "/dispositivos-iot",
     icon: Router,
   },
+  {
+    title: "Operação e Automação",
+    url: "/automacao",
+    icon: Settings,
+  },
 ];
 
 const secondaryModules = [

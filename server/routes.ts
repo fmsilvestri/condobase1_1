@@ -58,6 +58,9 @@ import {
   insertContractSchema,
   insertLegalChecklistSchema,
   insertInsurancePolicySchema,
+  insertAutomationRuleSchema,
+  insertScheduledTaskSchema,
+  insertOperationLogSchema,
 } from "@shared/schema";
 
 import { z } from "zod";
@@ -3221,6 +3224,179 @@ export async function registerRoutes(
       res.status(204).send();
     } catch (error: any) {
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===========================
+  // PILAR 6: OPERAÇÃO E AUTOMAÇÃO
+  // ===========================
+
+  // Automation Rules
+  app.get("/api/automation/rules", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      const rules = await storage.getAutomationRules(condominiumId);
+      res.json(rules);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch automation rules" });
+    }
+  });
+
+  app.get("/api/automation/rules/:id", requireGestao, async (req, res) => {
+    try {
+      const rule = await storage.getAutomationRuleById(req.params.id);
+      if (!rule) {
+        return res.status(404).json({ error: "Automation rule not found" });
+      }
+      res.json(rule);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch automation rule" });
+    }
+  });
+
+  app.post("/api/automation/rules", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) {
+        return res.status(401).json({ error: "Condomínio não selecionado" });
+      }
+      const validation = insertAutomationRuleSchema.safeParse({
+        ...req.body,
+        condominiumId,
+        createdBy: getUserId(req),
+      });
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const rule = await storage.createAutomationRule(validation.data);
+      res.status(201).json(rule);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/automation/rules/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const validation = insertAutomationRuleSchema.partial().safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const rule = await storage.updateAutomationRule(req.params.id, validation.data);
+      if (!rule) {
+        return res.status(404).json({ error: "Automation rule not found" });
+      }
+      res.json(rule);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/automation/rules/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteAutomationRule(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to delete automation rule" });
+    }
+  });
+
+  // Scheduled Tasks
+  app.get("/api/automation/tasks", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      const tasks = await storage.getScheduledTasks(condominiumId);
+      res.json(tasks);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch scheduled tasks" });
+    }
+  });
+
+  app.get("/api/automation/tasks/:id", requireGestao, async (req, res) => {
+    try {
+      const task = await storage.getScheduledTaskById(req.params.id);
+      if (!task) {
+        return res.status(404).json({ error: "Scheduled task not found" });
+      }
+      res.json(task);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch scheduled task" });
+    }
+  });
+
+  app.post("/api/automation/tasks", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) {
+        return res.status(401).json({ error: "Condomínio não selecionado" });
+      }
+      const validation = insertScheduledTaskSchema.safeParse({
+        ...req.body,
+        condominiumId,
+        createdBy: getUserId(req),
+      });
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const task = await storage.createScheduledTask(validation.data);
+      res.status(201).json(task);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/automation/tasks/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const validation = insertScheduledTaskSchema.partial().safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const task = await storage.updateScheduledTask(req.params.id, validation.data);
+      if (!task) {
+        return res.status(404).json({ error: "Scheduled task not found" });
+      }
+      res.json(task);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/automation/tasks/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteScheduledTask(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to delete scheduled task" });
+    }
+  });
+
+  // Operation Logs
+  app.get("/api/automation/logs", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      const logs = await storage.getOperationLogs(condominiumId);
+      res.json(logs);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch operation logs" });
+    }
+  });
+
+  app.post("/api/automation/logs", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) {
+        return res.status(401).json({ error: "Condomínio não selecionado" });
+      }
+      const validation = insertOperationLogSchema.safeParse({
+        ...req.body,
+        condominiumId,
+      });
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const log = await storage.createOperationLog(validation.data);
+      res.status(201).json(log);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
     }
   });
 

@@ -1309,6 +1309,131 @@ export type InsertInsurancePolicy = z.infer<typeof insertInsurancePolicySchema>;
 export type InsurancePolicy = typeof insurancePolicies.$inferSelect;
 
 // ===========================
+// PILAR 6: OPERAÇÃO E AUTOMAÇÃO
+// ===========================
+
+export const automationTriggerTypes = [
+  "horario",
+  "evento",
+  "sensor",
+  "condicao",
+  "manual",
+] as const;
+export type AutomationTriggerType = (typeof automationTriggerTypes)[number];
+
+export const automationActionTypes = [
+  "ligar_dispositivo",
+  "desligar_dispositivo",
+  "enviar_notificacao",
+  "gerar_alerta",
+  "executar_tarefa",
+  "enviar_email",
+] as const;
+export type AutomationActionType = (typeof automationActionTypes)[number];
+
+// Automation Rules - Regras de automação
+export const automationRules = pgTable("automation_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  triggerType: text("trigger_type").notNull(), // horario, evento, sensor, condicao, manual
+  triggerConfig: text("trigger_config"), // JSON config for trigger
+  actionType: text("action_type").notNull(), // ligar_dispositivo, desligar_dispositivo, etc
+  actionConfig: text("action_config"), // JSON config for action
+  targetDeviceId: varchar("target_device_id"),
+  isActive: boolean("is_active").notNull().default(true),
+  priority: integer("priority").notNull().default(1),
+  lastExecutedAt: timestamp("last_executed_at"),
+  executionCount: integer("execution_count").notNull().default(0),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAutomationRuleSchema = createInsertSchema(automationRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastExecutedAt: true,
+  executionCount: true,
+});
+
+export type InsertAutomationRule = z.infer<typeof insertAutomationRuleSchema>;
+export type AutomationRule = typeof automationRules.$inferSelect;
+
+export const scheduledTaskStatuses = ["pendente", "em_execucao", "concluida", "falhou", "cancelada"] as const;
+export type ScheduledTaskStatus = (typeof scheduledTaskStatuses)[number];
+
+export const scheduledTaskFrequencies = ["unica", "diaria", "semanal", "mensal", "anual"] as const;
+export type ScheduledTaskFrequency = (typeof scheduledTaskFrequencies)[number];
+
+// Scheduled Tasks - Tarefas agendadas
+export const scheduledTasks = pgTable("scheduled_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  taskType: text("task_type").notNull(), // manutencao, limpeza, inspecao, relatorio, backup
+  frequency: text("frequency").notNull().default("unica"), // unica, diaria, semanal, mensal, anual
+  scheduledDate: timestamp("scheduled_date").notNull(),
+  scheduledTime: text("scheduled_time"), // HH:MM format
+  daysOfWeek: text("days_of_week").array(), // for weekly tasks
+  dayOfMonth: integer("day_of_month"), // for monthly tasks
+  assignedTo: varchar("assigned_to"),
+  assignedName: text("assigned_name"),
+  status: text("status").notNull().default("pendente"),
+  lastRunAt: timestamp("last_run_at"),
+  nextRunAt: timestamp("next_run_at"),
+  automationRuleId: varchar("automation_rule_id"),
+  notes: text("notes"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertScheduledTaskSchema = createInsertSchema(scheduledTasks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastRunAt: true,
+  nextRunAt: true,
+}).extend({
+  scheduledDate: z.coerce.date(),
+});
+
+export type InsertScheduledTask = z.infer<typeof insertScheduledTaskSchema>;
+export type ScheduledTask = typeof scheduledTasks.$inferSelect;
+
+export const operationLogTypes = ["automacao", "dispositivo", "tarefa", "sistema", "usuario"] as const;
+export type OperationLogType = (typeof operationLogTypes)[number];
+
+// Operation Logs - Logs de operação do sistema
+export const operationLogs = pgTable("operation_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  logType: text("log_type").notNull(), // automacao, dispositivo, tarefa, sistema
+  action: text("action").notNull(),
+  description: text("description"),
+  entityType: text("entity_type"), // automation_rule, scheduled_task, iot_device
+  entityId: varchar("entity_id"),
+  status: text("status").notNull().default("sucesso"), // sucesso, falha, aviso
+  errorMessage: text("error_message"),
+  executedBy: varchar("executed_by"), // user or system
+  executedAt: timestamp("executed_at").defaultNow(),
+  duration: integer("duration"), // in milliseconds
+  metadata: text("metadata"), // JSON additional data
+});
+
+export const insertOperationLogSchema = createInsertSchema(operationLogs).omit({
+  id: true,
+  executedAt: true,
+});
+
+export type InsertOperationLog = z.infer<typeof insertOperationLogSchema>;
+export type OperationLog = typeof operationLogs.$inferSelect;
+
+// ===========================
 // SISTEMA DE ALERTAS INTELIGENTES
 // ===========================
 

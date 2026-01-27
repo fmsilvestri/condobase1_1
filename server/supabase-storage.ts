@@ -125,6 +125,15 @@ import {
   legalChecklist as legalChecklistTable,
   insurancePolicies as insurancePoliciesTable,
   smartAlerts as smartAlertsTable,
+  automationRules as automationRulesTable,
+  scheduledTasks as scheduledTasksTable,
+  operationLogs as operationLogsTable,
+  type AutomationRule,
+  type InsertAutomationRule,
+  type ScheduledTask,
+  type InsertScheduledTask,
+  type OperationLog,
+  type InsertOperationLog,
 } from "@shared/schema";
 
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
@@ -1691,6 +1700,87 @@ export class SupabaseStorage implements IStorage {
       .set({ isResolved: true, resolvedAt: new Date(), resolvedBy })
       .where(eq(smartAlertsTable.id, id))
       .returning();
+    return data;
+  }
+
+  // Automation Rules
+  async getAutomationRules(condominiumId?: string): Promise<AutomationRule[]> {
+    if (condominiumId) {
+      return db.select().from(automationRulesTable)
+        .where(eq(automationRulesTable.condominiumId, condominiumId))
+        .orderBy(desc(automationRulesTable.createdAt));
+    }
+    return db.select().from(automationRulesTable).orderBy(desc(automationRulesTable.createdAt));
+  }
+
+  async getAutomationRuleById(id: string): Promise<AutomationRule | undefined> {
+    const [data] = await db.select().from(automationRulesTable).where(eq(automationRulesTable.id, id));
+    return data;
+  }
+
+  async createAutomationRule(rule: InsertAutomationRule): Promise<AutomationRule> {
+    const [data] = await db.insert(automationRulesTable).values(rule).returning();
+    return data;
+  }
+
+  async updateAutomationRule(id: string, rule: Partial<InsertAutomationRule>): Promise<AutomationRule | undefined> {
+    const [data] = await db.update(automationRulesTable)
+      .set({ ...rule, updatedAt: new Date() })
+      .where(eq(automationRulesTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteAutomationRule(id: string): Promise<boolean> {
+    const result = await db.delete(automationRulesTable).where(eq(automationRulesTable.id, id));
+    return true;
+  }
+
+  // Scheduled Tasks
+  async getScheduledTasks(condominiumId?: string): Promise<ScheduledTask[]> {
+    if (condominiumId) {
+      return db.select().from(scheduledTasksTable)
+        .where(eq(scheduledTasksTable.condominiumId, condominiumId))
+        .orderBy(desc(scheduledTasksTable.scheduledDate));
+    }
+    return db.select().from(scheduledTasksTable).orderBy(desc(scheduledTasksTable.scheduledDate));
+  }
+
+  async getScheduledTaskById(id: string): Promise<ScheduledTask | undefined> {
+    const [data] = await db.select().from(scheduledTasksTable).where(eq(scheduledTasksTable.id, id));
+    return data;
+  }
+
+  async createScheduledTask(task: InsertScheduledTask): Promise<ScheduledTask> {
+    const [data] = await db.insert(scheduledTasksTable).values(task).returning();
+    return data;
+  }
+
+  async updateScheduledTask(id: string, task: Partial<InsertScheduledTask>): Promise<ScheduledTask | undefined> {
+    const [data] = await db.update(scheduledTasksTable)
+      .set({ ...task, updatedAt: new Date() })
+      .where(eq(scheduledTasksTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteScheduledTask(id: string): Promise<boolean> {
+    const result = await db.delete(scheduledTasksTable).where(eq(scheduledTasksTable.id, id));
+    return true;
+  }
+
+  // Operation Logs
+  async getOperationLogs(condominiumId?: string): Promise<OperationLog[]> {
+    if (condominiumId) {
+      return db.select().from(operationLogsTable)
+        .where(eq(operationLogsTable.condominiumId, condominiumId))
+        .orderBy(desc(operationLogsTable.executedAt));
+    }
+    return db.select().from(operationLogsTable).orderBy(desc(operationLogsTable.executedAt));
+  }
+
+  async createOperationLog(log: InsertOperationLog): Promise<OperationLog> {
+    const [data] = await db.insert(operationLogsTable).values(log).returning();
     return data;
   }
 }

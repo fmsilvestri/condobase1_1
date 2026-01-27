@@ -81,6 +81,12 @@ import {
   type InsertSmartAlert,
   type SuccessionPlan,
   type InsertSuccessionPlan,
+  type AutomationRule,
+  type InsertAutomationRule,
+  type ScheduledTask,
+  type InsertScheduledTask,
+  type OperationLog,
+  type InsertOperationLog,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -332,6 +338,24 @@ export interface IStorage {
   createSmartAlert(alert: InsertSmartAlert): Promise<SmartAlert>;
   updateSmartAlert(id: string, alert: Partial<InsertSmartAlert>): Promise<SmartAlert | undefined>;
   resolveSmartAlert(id: string, resolvedBy: string): Promise<SmartAlert | undefined>;
+
+  // Automation Rules
+  getAutomationRules(condominiumId?: string): Promise<AutomationRule[]>;
+  getAutomationRuleById(id: string): Promise<AutomationRule | undefined>;
+  createAutomationRule(rule: InsertAutomationRule): Promise<AutomationRule>;
+  updateAutomationRule(id: string, rule: Partial<InsertAutomationRule>): Promise<AutomationRule | undefined>;
+  deleteAutomationRule(id: string): Promise<boolean>;
+
+  // Scheduled Tasks
+  getScheduledTasks(condominiumId?: string): Promise<ScheduledTask[]>;
+  getScheduledTaskById(id: string): Promise<ScheduledTask | undefined>;
+  createScheduledTask(task: InsertScheduledTask): Promise<ScheduledTask>;
+  updateScheduledTask(id: string, task: Partial<InsertScheduledTask>): Promise<ScheduledTask | undefined>;
+  deleteScheduledTask(id: string): Promise<boolean>;
+
+  // Operation Logs
+  getOperationLogs(condominiumId?: string): Promise<OperationLog[]>;
+  createOperationLog(log: InsertOperationLog): Promise<OperationLog>;
 }
 
 export class MemStorage implements IStorage {
@@ -1235,6 +1259,27 @@ export class MemStorage implements IStorage {
   }
   async updateSmartAlert(): Promise<SmartAlert | undefined> { return undefined; }
   async resolveSmartAlert(): Promise<SmartAlert | undefined> { return undefined; }
+
+  async getAutomationRules(): Promise<AutomationRule[]> { return []; }
+  async getAutomationRuleById(): Promise<AutomationRule | undefined> { return undefined; }
+  async createAutomationRule(rule: InsertAutomationRule): Promise<AutomationRule> {
+    return { ...rule, id: randomUUID(), createdAt: new Date(), updatedAt: new Date(), lastExecutedAt: null, executionCount: 0 } as AutomationRule;
+  }
+  async updateAutomationRule(): Promise<AutomationRule | undefined> { return undefined; }
+  async deleteAutomationRule(): Promise<boolean> { return true; }
+
+  async getScheduledTasks(): Promise<ScheduledTask[]> { return []; }
+  async getScheduledTaskById(): Promise<ScheduledTask | undefined> { return undefined; }
+  async createScheduledTask(task: InsertScheduledTask): Promise<ScheduledTask> {
+    return { ...task, id: randomUUID(), createdAt: new Date(), updatedAt: new Date(), lastRunAt: null, nextRunAt: null } as ScheduledTask;
+  }
+  async updateScheduledTask(): Promise<ScheduledTask | undefined> { return undefined; }
+  async deleteScheduledTask(): Promise<boolean> { return true; }
+
+  async getOperationLogs(): Promise<OperationLog[]> { return []; }
+  async createOperationLog(log: InsertOperationLog): Promise<OperationLog> {
+    return { ...log, id: randomUUID(), executedAt: new Date() } as OperationLog;
+  }
 }
 
 export const storage = new MemStorage();
