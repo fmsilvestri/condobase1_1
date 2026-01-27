@@ -138,6 +138,8 @@ import {
   fornecedoresMarketplace as fornecedoresMarketplaceTable,
   ofertas as ofertasTable,
   contratacoes as contratacoesTable,
+  avaliacoes as avaliacoesTable,
+  veiculos as veiculosTable,
   type AutomationRule,
   type InsertAutomationRule,
   type ScheduledTask,
@@ -164,6 +166,10 @@ import {
   type InsertOferta,
   type Contratacao,
   type InsertContratacao,
+  type Avaliacao,
+  type InsertAvaliacao,
+  type Veiculo,
+  type InsertVeiculo,
 } from "@shared/schema";
 
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
@@ -2192,6 +2198,308 @@ export class SupabaseStorage implements IStorage {
   async deleteContratacao(id: string): Promise<boolean> {
     await db.delete(contratacoesTable).where(eq(contratacoesTable.id, id));
     return true;
+  }
+
+  // ========== AVALIACOES ==========
+
+  async getAvaliacoes(condominiumId?: string): Promise<Avaliacao[]> {
+    if (condominiumId) {
+      return db.select().from(avaliacoesTable).where(eq(avaliacoesTable.condominiumId, condominiumId)).orderBy(desc(avaliacoesTable.createdAt));
+    }
+    return db.select().from(avaliacoesTable).orderBy(desc(avaliacoesTable.createdAt));
+  }
+
+  async getAvaliacaoById(id: string): Promise<Avaliacao | undefined> {
+    const [data] = await db.select().from(avaliacoesTable).where(eq(avaliacoesTable.id, id));
+    return data;
+  }
+
+  async getAvaliacoesByFornecedor(fornecedorId: string): Promise<Avaliacao[]> {
+    return db.select().from(avaliacoesTable)
+      .where(eq(avaliacoesTable.fornecedorId, fornecedorId))
+      .orderBy(desc(avaliacoesTable.createdAt));
+  }
+
+  async getAvaliacoesByMorador(moradorId: string): Promise<Avaliacao[]> {
+    return db.select().from(avaliacoesTable)
+      .where(eq(avaliacoesTable.moradorId, moradorId))
+      .orderBy(desc(avaliacoesTable.createdAt));
+  }
+
+  async createAvaliacao(avaliacao: InsertAvaliacao): Promise<Avaliacao> {
+    const [data] = await db.insert(avaliacoesTable).values(avaliacao).returning();
+    
+    // Update fornecedor average rating
+    const avaliacoesFornecedor = await this.getAvaliacoesByFornecedor(avaliacao.fornecedorId);
+    const totalNotas = avaliacoesFornecedor.reduce((acc, a) => acc + a.nota, 0);
+    const avaliacaoMedia = totalNotas / avaliacoesFornecedor.length;
+    
+    await db.update(fornecedoresMarketplaceTable)
+      .set({ 
+        avaliacaoMedia, 
+        totalAvaliacoes: avaliacoesFornecedor.length,
+        updatedAt: new Date() 
+      })
+      .where(eq(fornecedoresMarketplaceTable.id, avaliacao.fornecedorId));
+    
+    return data;
+  }
+
+  async updateAvaliacao(id: string, avaliacao: Partial<InsertAvaliacao>): Promise<Avaliacao | undefined> {
+    const [data] = await db.update(avaliacoesTable)
+      .set({ ...avaliacao, updatedAt: new Date() })
+      .where(eq(avaliacoesTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteAvaliacao(id: string): Promise<boolean> {
+    await db.delete(avaliacoesTable).where(eq(avaliacoesTable.id, id));
+    return true;
+  }
+
+  // ========== VEICULOS ==========
+
+  async getVeiculos(condominiumId?: string): Promise<Veiculo[]> {
+    if (condominiumId) {
+      return db.select().from(veiculosTable).where(eq(veiculosTable.condominiumId, condominiumId)).orderBy(desc(veiculosTable.createdAt));
+    }
+    return db.select().from(veiculosTable).orderBy(desc(veiculosTable.createdAt));
+  }
+
+  async getVeiculoById(id: string): Promise<Veiculo | undefined> {
+    const [data] = await db.select().from(veiculosTable).where(eq(veiculosTable.id, id));
+    return data;
+  }
+
+  async getVeiculosByMorador(moradorId: string): Promise<Veiculo[]> {
+    return db.select().from(veiculosTable)
+      .where(eq(veiculosTable.moradorId, moradorId))
+      .orderBy(desc(veiculosTable.createdAt));
+  }
+
+  async createVeiculo(veiculo: InsertVeiculo): Promise<Veiculo> {
+    const [data] = await db.insert(veiculosTable).values(veiculo).returning();
+    return data;
+  }
+
+  async updateVeiculo(id: string, veiculo: Partial<InsertVeiculo>): Promise<Veiculo | undefined> {
+    const [data] = await db.update(veiculosTable)
+      .set({ ...veiculo, updatedAt: new Date() })
+      .where(eq(veiculosTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteVeiculo(id: string): Promise<boolean> {
+    await db.delete(veiculosTable).where(eq(veiculosTable.id, id));
+    return true;
+  }
+
+  // ========== MARKETPLACE INTELIGENTE ==========
+
+  async getMarketplaceRecomendacoes(moradorId: string, condominiumId: string): Promise<{
+    ofertas: Oferta[];
+    recomendadas: Oferta[];
+    porCategoria: Record<string, Oferta[]>;
+  }> {
+    // Get morador data for personalization
+    const morador = await this.getMoradorById(moradorId);
+    const veiculos = await this.getVeiculosByMorador(moradorId);
+    
+    // Get all active offers from approved suppliers
+    const todasOfertas = await db.select().from(ofertasTable)
+      .where(and(
+        eq(ofertasTable.condominiumId, condominiumId),
+        eq(ofertasTable.ativo, true)
+      ))
+      .orderBy(desc(ofertasTable.createdAt));
+
+    // Get services for categorization
+    const todosServicos = await this.getServicos(condominiumId);
+    const servicosMap = new Map(todosServicos.map(s => [s.id, s]));
+
+    // Get approved suppliers
+    const fornecedores = await db.select().from(fornecedoresMarketplaceTable)
+      .where(and(
+        eq(fornecedoresMarketplaceTable.condominiumId, condominiumId),
+        eq(fornecedoresMarketplaceTable.statusAprovacao, "aprovado"),
+        eq(fornecedoresMarketplaceTable.ativo, true)
+      ));
+    const fornecedoresAprovados = new Set(fornecedores.map(f => f.id));
+
+    // Filter offers from approved suppliers only
+    const ofertasAtivas = todasOfertas.filter(o => fornecedoresAprovados.has(o.fornecedorId));
+
+    // Personalized recommendations
+    const recomendadas: Oferta[] = [];
+    const porCategoria: Record<string, Oferta[]> = {};
+
+    for (const oferta of ofertasAtivas) {
+      const servico = servicosMap.get(oferta.servicoId);
+      if (!servico) continue;
+
+      // Categorize by service type
+      if (!porCategoria[servico.tipoServico]) {
+        porCategoria[servico.tipoServico] = [];
+      }
+      porCategoria[servico.tipoServico].push(oferta);
+
+      // Intelligent recommendations based on morador profile
+      let isRecommended = false;
+
+      // Pet services for pet owners
+      if (morador?.temPet && servico.tipoServico === "pet") {
+        isRecommended = true;
+      }
+
+      // Vehicle services for vehicle owners
+      if (veiculos.length > 0 && servico.tipoServico === "veiculo") {
+        isRecommended = true;
+      }
+
+      // Cleaning services for renters
+      if (morador?.tipoMorador === "inquilino" && servico.tipoServico === "limpeza") {
+        isRecommended = true;
+      }
+
+      if (isRecommended && !recomendadas.find(r => r.id === oferta.id)) {
+        recomendadas.push(oferta);
+      }
+    }
+
+    // Sort recommendations by supplier rating
+    const fornecedoresMap = new Map(fornecedores.map(f => [f.id, f]));
+    recomendadas.sort((a, b) => {
+      const fA = fornecedoresMap.get(a.fornecedorId);
+      const fB = fornecedoresMap.get(b.fornecedorId);
+      return (fB?.avaliacaoMedia || 0) - (fA?.avaliacaoMedia || 0);
+    });
+
+    return {
+      ofertas: ofertasAtivas,
+      recomendadas,
+      porCategoria,
+    };
+  }
+
+  // ========== SUPPLIER APPROVAL ==========
+
+  async aprovarFornecedor(id: string): Promise<FornecedorMarketplace | undefined> {
+    const [data] = await db.update(fornecedoresMarketplaceTable)
+      .set({ statusAprovacao: "aprovado", motivoBloqueio: null, updatedAt: new Date() })
+      .where(eq(fornecedoresMarketplaceTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async bloquearFornecedor(id: string, motivo: string): Promise<FornecedorMarketplace | undefined> {
+    const [data] = await db.update(fornecedoresMarketplaceTable)
+      .set({ statusAprovacao: "bloqueado", motivoBloqueio: motivo, updatedAt: new Date() })
+      .where(eq(fornecedoresMarketplaceTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async getFornecedoresByStatus(condominiumId: string, status: string): Promise<FornecedorMarketplace[]> {
+    return db.select().from(fornecedoresMarketplaceTable)
+      .where(and(
+        eq(fornecedoresMarketplaceTable.condominiumId, condominiumId),
+        eq(fornecedoresMarketplaceTable.statusAprovacao, status as any)
+      ))
+      .orderBy(desc(fornecedoresMarketplaceTable.createdAt));
+  }
+
+  // ========== MARKETPLACE REPORTS ==========
+
+  async getMarketplaceRelatorios(condominiumId: string): Promise<{
+    servicosMaisContratados: { servicoId: string; nome: string; total: number }[];
+    fornecedoresMelhorAvaliados: FornecedorMarketplace[];
+    totalContratacoes: number;
+    valorTotalContratado: number;
+  }> {
+    // Get all contracts for the condominium
+    const contratacoes = await this.getContratacoes(condominiumId);
+    
+    // Count contracts per service
+    const servicosCount: Record<string, number> = {};
+    let valorTotal = 0;
+    
+    for (const c of contratacoes) {
+      const oferta = await this.getOfertaById(c.ofertaId);
+      if (oferta) {
+        servicosCount[oferta.servicoId] = (servicosCount[oferta.servicoId] || 0) + 1;
+        valorTotal += oferta.precoBase || 0;
+      }
+    }
+
+    // Get services info
+    const servicos = await this.getServicos(condominiumId);
+    const servicosMap = new Map(servicos.map(s => [s.id, s]));
+
+    const servicosMaisContratados = Object.entries(servicosCount)
+      .map(([servicoId, total]) => ({
+        servicoId,
+        nome: servicosMap.get(servicoId)?.nome || "Desconhecido",
+        total,
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+
+    // Get best rated suppliers
+    const fornecedores = await this.getFornecedoresMarketplace(condominiumId);
+    const fornecedoresMelhorAvaliados = fornecedores
+      .filter(f => f.totalAvaliacoes && f.totalAvaliacoes > 0)
+      .sort((a, b) => (b.avaliacaoMedia || 0) - (a.avaliacaoMedia || 0))
+      .slice(0, 10);
+
+    return {
+      servicosMaisContratados,
+      fornecedoresMelhorAvaliados,
+      totalContratacoes: contratacoes.length,
+      valorTotalContratado: valorTotal,
+    };
+  }
+
+  // ========== SUPPLIER PORTAL ==========
+
+  async getOfertasByFornecedorUserId(userId: string): Promise<Oferta[]> {
+    // Find fornecedor by userId
+    const [fornecedor] = await db.select().from(fornecedoresMarketplaceTable)
+      .where(eq(fornecedoresMarketplaceTable.userId, userId));
+    
+    if (!fornecedor) return [];
+    
+    return db.select().from(ofertasTable)
+      .where(eq(ofertasTable.fornecedorId, fornecedor.id))
+      .orderBy(desc(ofertasTable.createdAt));
+  }
+
+  async getContratacoesByFornecedorUserId(userId: string): Promise<Contratacao[]> {
+    // Find fornecedor by userId
+    const [fornecedor] = await db.select().from(fornecedoresMarketplaceTable)
+      .where(eq(fornecedoresMarketplaceTable.userId, userId));
+    
+    if (!fornecedor) return [];
+    
+    // Get all offers from this supplier
+    const ofertas = await db.select().from(ofertasTable)
+      .where(eq(ofertasTable.fornecedorId, fornecedor.id));
+    
+    const ofertaIds = ofertas.map(o => o.id);
+    if (ofertaIds.length === 0) return [];
+    
+    // Get all contracts for these offers
+    const allContratacoes = await db.select().from(contratacoesTable)
+      .orderBy(desc(contratacoesTable.createdAt));
+    
+    return allContratacoes.filter(c => ofertaIds.includes(c.ofertaId));
+  }
+
+  async getFornecedorByUserId(userId: string): Promise<FornecedorMarketplace | undefined> {
+    const [data] = await db.select().from(fornecedoresMarketplaceTable)
+      .where(eq(fornecedoresMarketplaceTable.userId, userId));
+    return data;
   }
 }
 
