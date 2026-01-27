@@ -234,7 +234,7 @@ export default function Marketplace() {
     return matchesSearch && matchesTipo && matchesCategoria;
   });
 
-  const tiposDisponiveis = [...new Set(marketplace.map(o => o.servico?.tipoServico).filter(Boolean))] as string[];
+  const tiposDisponiveis = Array.from(new Set(marketplace.map(o => o.servico?.tipoServico).filter(Boolean))) as string[];
 
   if (!selectedCondominium) {
     return (
