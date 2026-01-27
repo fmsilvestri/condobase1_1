@@ -1,0 +1,118 @@
+Crie um módulo completo de CRUD de MORADORES para um sistema SaaS de gestão de condomínios.
+
+### Stack obrigatória
+- Backend: Node.js + Express
+- Banco de dados: Supabase (PostgreSQL, Auth, Storage)
+- Frontend: React (dashboard administrativo)
+- Autenticação: Supabase Auth
+- Controle de acesso: RBAC (Role Based Access Control)
+
+---
+
+### MODELO DE DADOS (Supabase)
+
+Tabela: moradores
+Campos:
+- id (uuid, PK)
+- nome_completo (text, not null)
+- cpf (text, unique, not null)
+- data_nascimento (date)
+- email (text)
+- telefone (text)
+- tipo_morador (enum: proprietario, inquilino, dependente)
+- status (enum: ativo, inativo)
+- unidade_id (uuid, FK)
+- bloco (text)
+- torre (text)
+- inicio_ocupacao (date)
+- fim_ocupacao (date)
+- responsavel_financeiro (boolean)
+- perfil_acesso (enum: morador, sindico, conselheiro, administrador)
+- canal_preferido (enum: whatsapp, email, app)
+- contato_emergencia_nome (text)
+- contato_emergencia_telefone (text)
+- created_at (timestamp)
+- updated_at (timestamp)
+
+---
+
+### PERMISSÕES (RBAC)
+
+- administrador:
+  - acesso total (CRUD completo)
+- sindico:
+  - criar, editar, listar moradores
+  - NÃO pode excluir
+- conselheiro:
+  - visualizar moradores
+- morador:
+  - visualizar apenas seu próprio cadastro
+  - editar telefone, email e preferências
+
+---
+
+### BACKEND
+
+1. Criar API REST com as rotas:
+- POST /moradores
+- GET /moradores
+- GET /moradores/:id
+- PUT /moradores/:id
+- DELETE /moradores/:id
+
+2. Middleware de autenticação via Supabase Auth.
+3. Middleware de autorização que valide o role do usuário.
+4. Validação de dados (CPF único, campos obrigatórios).
+5. Soft delete (campo status = inativo ao invés de deletar).
+6. Logs básicos de criação e alteração.
+
+---
+
+### FRONTEND (React)
+
+1. Tela de listagem de moradores:
+- filtros por unidade, status e tipo
+- busca por nome e CPF
+- paginação
+
+2. Formulário de cadastro/edição:
+- campos organizados por seções
+- validações em tempo real
+
+3. Tela de visualização:
+- modo leitura para conselheiro
+- modo edição conforme permissão
+
+4. Controle de acesso no frontend:
+- esconder botões conforme perfil
+
+---
+
+### SEGURANÇA
+
+- Policies (RLS) no Supabase:
+  - Administrador: acesso total
+  - Síndico: select, insert, update
+  - Conselheiro: select
+  - Morador: select/update apenas do próprio registro
+
+---
+
+### BOAS PRÁTICAS
+
+- Usar UUID
+- Separar controllers, services e routes
+- Código limpo e comentado
+- Preparado para integração futura com:
+  - Controle de acesso (Hikvision)
+  - WhatsApp Bot
+  - Assembleias digitais
+
+---
+
+### RESULTADO ESPERADO
+
+- Código funcional
+- CRUD completo
+- Controle de permissões funcionando
+- Pronto para produção e expansão modular

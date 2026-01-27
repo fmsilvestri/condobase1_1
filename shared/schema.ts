@@ -1657,3 +1657,56 @@ export const insertParcelSchema = createInsertSchema(parcels).omit({
 
 export type InsertParcel = z.infer<typeof insertParcelSchema>;
 export type Parcel = typeof parcels.$inferSelect;
+
+// Moradores - Cadastro de Proprietários e Moradores
+export const tipoMoradorOptions = ["proprietario", "inquilino", "dependente"] as const;
+export type TipoMorador = (typeof tipoMoradorOptions)[number];
+
+export const statusMoradorOptions = ["ativo", "inativo"] as const;
+export type StatusMorador = (typeof statusMoradorOptions)[number];
+
+export const perfilAcessoOptions = ["morador", "sindico", "conselheiro", "administrador"] as const;
+export type PerfilAcesso = (typeof perfilAcessoOptions)[number];
+
+export const canalPreferidoOptions = ["whatsapp", "email", "app"] as const;
+export type CanalPreferido = (typeof canalPreferidoOptions)[number];
+
+export const moradores = pgTable("moradores", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: uuid("condominium_id").notNull().references(() => condominiums.id),
+  nomeCompleto: text("nome_completo").notNull(),
+  cpf: text("cpf").notNull(),
+  dataNascimento: text("data_nascimento"),
+  email: text("email"),
+  telefone: text("telefone"),
+  tipoMorador: text("tipo_morador").notNull().$type<TipoMorador>(),
+  status: text("status").notNull().$type<StatusMorador>().default("ativo"),
+  unidadeId: text("unidade_id"),
+  bloco: text("bloco"),
+  torre: text("torre"),
+  unidade: text("unidade"),
+  inicioOcupacao: text("inicio_ocupacao"),
+  fimOcupacao: text("fim_ocupacao"),
+  responsavelFinanceiro: boolean("responsavel_financeiro").default(false),
+  perfilAcesso: text("perfil_acesso").$type<PerfilAcesso>().default("morador"),
+  canalPreferido: text("canal_preferido").$type<CanalPreferido>().default("whatsapp"),
+  contatoEmergenciaNome: text("contato_emergencia_nome"),
+  contatoEmergenciaTelefone: text("contato_emergencia_telefone"),
+  observacoes: text("observacoes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMoradorSchema = createInsertSchema(moradores).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  nomeCompleto: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
+  cpf: z.string().min(11, "CPF inválido").max(14),
+  email: z.string().email("Email inválido").optional().or(z.literal("")),
+  telefone: z.string().optional(),
+});
+
+export type InsertMorador = z.infer<typeof insertMoradorSchema>;
+export type Morador = typeof moradores.$inferSelect;

@@ -95,6 +95,8 @@ import {
   type InsertProcessExecution,
   type Parcel,
   type InsertParcel,
+  type Morador,
+  type InsertMorador,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -394,6 +396,14 @@ export interface IStorage {
   createParcel(parcel: InsertParcel): Promise<Parcel>;
   updateParcel(id: string, parcel: Partial<InsertParcel>): Promise<Parcel | undefined>;
   deleteParcel(id: string): Promise<boolean>;
+
+  // Moradores
+  getMoradores(condominiumId?: string): Promise<Morador[]>;
+  getMoradorById(id: string): Promise<Morador | undefined>;
+  getMoradorByCpf(condominiumId: string, cpf: string): Promise<Morador | undefined>;
+  createMorador(morador: InsertMorador): Promise<Morador>;
+  updateMorador(id: string, morador: Partial<InsertMorador>): Promise<Morador | undefined>;
+  deleteMorador(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -1356,6 +1366,16 @@ export class MemStorage implements IStorage {
   }
   async updateParcel(): Promise<Parcel | undefined> { return undefined; }
   async deleteParcel(): Promise<boolean> { return true; }
+
+  // Moradores
+  async getMoradores(): Promise<Morador[]> { return []; }
+  async getMoradorById(): Promise<Morador | undefined> { return undefined; }
+  async getMoradorByCpf(): Promise<Morador | undefined> { return undefined; }
+  async createMorador(morador: InsertMorador): Promise<Morador> {
+    return { ...morador, id: randomUUID(), createdAt: new Date(), updatedAt: new Date() } as Morador;
+  }
+  async updateMorador(): Promise<Morador | undefined> { return undefined; }
+  async deleteMorador(): Promise<boolean> { return true; }
 }
 
 export const storage = new MemStorage();

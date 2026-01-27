@@ -44,6 +44,7 @@ import Automation from "@/pages/automation";
 import Payments from "@/pages/payments";
 import TeamManagement from "@/pages/team-management";
 import Parcels from "@/pages/parcels";
+import Moradores from "@/pages/moradores";
 
 function Router() {
   return (
@@ -78,6 +79,7 @@ function Router() {
       <Route path="/pagamentos" component={Payments} />
       <Route path="/equipe" component={TeamManagement} />
       <Route path="/encomendas" component={Parcels} />
+      <Route path="/moradores" component={Moradores} />
       <Route component={NotFound} />
     </Switch>
   );

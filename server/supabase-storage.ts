@@ -132,6 +132,7 @@ import {
   processes as processesTable,
   processExecutions as processExecutionsTable,
   parcels as parcelsTable,
+  moradores as moradoresTable,
   type AutomationRule,
   type InsertAutomationRule,
   type ScheduledTask,
@@ -146,6 +147,8 @@ import {
   type InsertProcessExecution,
   type Parcel,
   type InsertParcel,
+  type Morador,
+  type InsertMorador,
 } from "@shared/schema";
 
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
@@ -1937,6 +1940,45 @@ export class SupabaseStorage implements IStorage {
 
   async deleteParcel(id: string): Promise<boolean> {
     await db.delete(parcelsTable).where(eq(parcelsTable.id, id));
+    return true;
+  }
+
+  // Moradores
+  async getMoradores(condominiumId?: string): Promise<Morador[]> {
+    if (condominiumId) {
+      return db.select().from(moradoresTable)
+        .where(eq(moradoresTable.condominiumId, condominiumId))
+        .orderBy(moradoresTable.nomeCompleto);
+    }
+    return db.select().from(moradoresTable).orderBy(moradoresTable.nomeCompleto);
+  }
+
+  async getMoradorById(id: string): Promise<Morador | undefined> {
+    const [data] = await db.select().from(moradoresTable).where(eq(moradoresTable.id, id));
+    return data;
+  }
+
+  async getMoradorByCpf(condominiumId: string, cpf: string): Promise<Morador | undefined> {
+    const [data] = await db.select().from(moradoresTable)
+      .where(and(eq(moradoresTable.condominiumId, condominiumId), eq(moradoresTable.cpf, cpf)));
+    return data;
+  }
+
+  async createMorador(morador: InsertMorador): Promise<Morador> {
+    const [data] = await db.insert(moradoresTable).values(morador).returning();
+    return data;
+  }
+
+  async updateMorador(id: string, morador: Partial<InsertMorador>): Promise<Morador | undefined> {
+    const [data] = await db.update(moradoresTable)
+      .set({ ...morador, updatedAt: new Date() })
+      .where(eq(moradoresTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteMorador(id: string): Promise<boolean> {
+    await db.delete(moradoresTable).where(eq(moradoresTable.id, id));
     return true;
   }
 }

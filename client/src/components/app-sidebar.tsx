@@ -144,6 +144,11 @@ const mainModules = [
     url: "/encomendas",
     icon: Package,
   },
+  {
+    title: "Moradores",
+    url: "/moradores",
+    icon: Users,
+  },
 ];
 
 const secondaryModules = [
