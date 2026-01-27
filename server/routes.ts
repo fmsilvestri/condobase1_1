@@ -1327,8 +1327,12 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/insurance/policies", requireSindicoOrAdmin, async (req, res) => {
+  app.post("/api/insurance/policies", (req, res, next) => {
+    console.log("[insurance-route] POST /api/insurance/policies hit");
+    next();
+  }, requireSindicoOrAdmin, async (req, res) => {
     try {
+      console.log("[insurance] Handler started");
       const condominiumId = getCondominiumId(req);
       console.log("[insurance] Creating policy, condominiumId:", condominiumId);
       console.log("[insurance] Request body:", JSON.stringify(req.body));

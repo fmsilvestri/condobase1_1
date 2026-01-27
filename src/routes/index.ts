@@ -9,7 +9,8 @@ import {
   getUserId, 
   isAdmin,
   requireCondominium,
-  requireSindicoOrAdmin 
+  requireSindicoOrAdmin,
+  requireGestao
 } from "../../server/condominium-context";
 import {
   insertCondominiumSchema,
@@ -39,6 +40,7 @@ import {
   insertMaintenanceDocumentSchema,
   insertFaqSchema,
   faqCategories,
+  insertInsurancePolicySchema,
 } from "../../shared/schema";
 
 import { z } from "zod";
@@ -2169,6 +2171,75 @@ router.delete("/faqs/:id", requireSindicoOrAdmin, async (req, res) => {
     res.status(204).send();
   } catch (error: any) {
     res.status(500).json({ error: "Erro ao remover FAQ" });
+  }
+});
+
+// ===========================
+// INSURANCE POLICIES (SEGUROS)
+// ===========================
+
+router.get("/insurance/policies", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const policies = await storage.getInsurancePolicies(condominiumId);
+    res.json(policies);
+  } catch (error: any) {
+    res.status(500).json({ error: "Failed to fetch policies", details: error?.message });
+  }
+});
+
+router.post("/insurance/policies", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    console.log("[insurance] Creating policy, condominiumId:", condominiumId);
+    console.log("[insurance] Request body:", JSON.stringify(req.body));
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condominium ID is required" });
+    }
+    const validation = insertInsurancePolicySchema.safeParse({
+      ...req.body,
+      condominiumId,
+      createdBy: getUserId(req),
+    });
+    if (!validation.success) {
+      console.log("[insurance] Validation failed:", JSON.stringify(validation.error.errors));
+      return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+    }
+    console.log("[insurance] Validated data:", JSON.stringify(validation.data));
+    const policy = await storage.createInsurancePolicy(validation.data);
+    console.log("[insurance] Created policy:", JSON.stringify(policy));
+    res.status(201).json(policy);
+  } catch (error: any) {
+    console.error("[insurance] Error creating policy:", error);
+    res.status(500).json({ error: "Failed to create policy", details: error?.message });
+  }
+});
+
+router.patch("/insurance/policies/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const validation = insertInsurancePolicySchema.partial().safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+    }
+    const policy = await storage.updateInsurancePolicy(req.params.id, validation.data);
+    if (!policy) {
+      return res.status(404).json({ error: "Policy not found" });
+    }
+    res.json(policy);
+  } catch (error: any) {
+    res.status(500).json({ error: "Failed to update policy", details: error?.message });
+  }
+});
+
+router.delete("/insurance/policies/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const deleted = await storage.deleteInsurancePolicy(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ error: "Policy not found" });
+    }
+    res.status(204).send();
+  } catch (error: any) {
+    res.status(500).json({ error: "Failed to delete policy", details: error?.message });
   }
 });
 
