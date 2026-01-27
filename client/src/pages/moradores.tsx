@@ -101,6 +101,10 @@ const moradorFormSchema = z.object({
   canalPreferido: z.enum(["whatsapp", "email", "app"]).optional(),
   contatoEmergenciaNome: z.string().optional(),
   contatoEmergenciaTelefone: z.string().optional(),
+  numeroHabitantes: z.coerce.number().min(1).optional(),
+  temPet: z.boolean().optional(),
+  tipoPet: z.string().optional(),
+  quantidadePets: z.coerce.number().min(0).optional(),
   observacoes: z.string().optional(),
 });
 
@@ -163,6 +167,10 @@ export default function MoradoresPage() {
       canalPreferido: "whatsapp",
       contatoEmergenciaNome: "",
       contatoEmergenciaTelefone: "",
+      numeroHabitantes: 1,
+      temPet: false,
+      tipoPet: "",
+      quantidadePets: 0,
       observacoes: "",
     },
   });
@@ -248,6 +256,10 @@ export default function MoradoresPage() {
       canalPreferido: (morador.canalPreferido as any) || "whatsapp",
       contatoEmergenciaNome: morador.contatoEmergenciaNome || "",
       contatoEmergenciaTelefone: morador.contatoEmergenciaTelefone || "",
+      numeroHabitantes: morador.numeroHabitantes || 1,
+      temPet: morador.temPet || false,
+      tipoPet: morador.tipoPet || "",
+      quantidadePets: morador.quantidadePets || 0,
       observacoes: morador.observacoes || "",
     });
     setIsDialogOpen(true);
@@ -752,6 +764,69 @@ export default function MoradoresPage() {
               </div>
 
               <div className="space-y-4">
+                <h3 className="font-semibold text-lg border-b pb-2">Habitantes e Pets</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="numeroHabitantes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Numero de Habitantes</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="1" {...field} data-testid="input-habitantes" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="temPet"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                        <div className="space-y-0.5">
+                          <FormLabel>Possui Pet</FormLabel>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            data-testid="switch-pet"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="tipoPet"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tipo de Pet</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Cachorro, Gato, etc." data-testid="input-tipo-pet" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="quantidadePets"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Quantidade de Pets</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="0" {...field} data-testid="input-qtd-pets" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4">
                 <h3 className="font-semibold text-lg border-b pb-2">Contato de Emergencia</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
@@ -882,6 +957,21 @@ export default function MoradoresPage() {
                   <div>
                     <p className="text-sm text-muted-foreground">Responsavel Financeiro</p>
                     <Badge>Sim</Badge>
+                  </div>
+                )}
+                {selectedMorador.numeroHabitantes && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Numero de Habitantes</p>
+                    <p className="font-medium">{selectedMorador.numeroHabitantes}</p>
+                  </div>
+                )}
+                {selectedMorador.temPet && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Possui Pet</p>
+                    <p className="font-medium">
+                      {selectedMorador.tipoPet || "Sim"} 
+                      {selectedMorador.quantidadePets ? ` (${selectedMorador.quantidadePets})` : ""}
+                    </p>
                   </div>
                 )}
               </div>
