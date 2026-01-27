@@ -118,13 +118,10 @@ export default function Insurance() {
 
   const createInsurance = useMutation({
     mutationFn: async (data: InsuranceFormData) => {
-      return apiRequest("/api/insurance", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", "/api/insurance/policies", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/insurance"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/insurance/policies"] });
       setIsDialogOpen(false);
       form.reset();
       toast({ title: "Seguro cadastrado com sucesso" });
@@ -138,55 +135,14 @@ export default function Insurance() {
     createInsurance.mutate(data);
   };
 
-  const mockPolicies: InsurancePolicy[] = [
-    {
-      id: "1",
-      policyNumber: "POL-2024-001234",
-      insuranceCompany: "Porto Seguro",
-      coverageType: "condominio_completo",
-      coverageAmount: 5000000,
-      premium: 18500,
-      startDate: "2024-01-01",
-      endDate: "2024-12-31",
-      broker: "Carlos Seguros",
-      brokerPhone: "(48) 99999-1234",
-      brokerEmail: "carlos@seguros.com",
-      status: "ativo",
-      daysUntilExpiry: 340,
-    },
-    {
-      id: "2",
-      policyNumber: "POL-2024-005678",
-      insuranceCompany: "SulAmérica",
-      coverageType: "responsabilidade_civil",
-      coverageAmount: 1000000,
-      premium: 4200,
-      startDate: "2024-02-01",
-      endDate: "2025-01-31",
-      broker: "Carlos Seguros",
-      brokerPhone: "(48) 99999-1234",
-      brokerEmail: "carlos@seguros.com",
-      status: "ativo",
-      daysUntilExpiry: 380,
-    },
-    {
-      id: "3",
-      policyNumber: "POL-2023-009012",
-      insuranceCompany: "Tokio Marine",
-      coverageType: "vida_sindico",
-      coverageAmount: 500000,
-      premium: 2800,
-      startDate: "2023-03-01",
-      endDate: "2024-02-28",
-      broker: "Maria Corretora",
-      brokerPhone: "(48) 98888-5678",
-      brokerEmail: "maria@corretora.com",
-      status: "ativo",
-      daysUntilExpiry: 45,
-    },
-  ];
+  const { data: policiesData = [], isLoading } = useQuery<InsurancePolicy[]>({
+    queryKey: ["/api/insurance/policies"],
+  });
 
-  const policies = mockPolicies;
+  const policies = policiesData.map((p) => ({
+    ...p,
+    daysUntilExpiry: p.endDate ? Math.ceil((new Date(p.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0,
+  }));
 
   const filteredPolicies = policies.filter(
     (p) =>
