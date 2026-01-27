@@ -22,6 +22,11 @@ import {
   UserCheck,
   Briefcase,
   MessageCircle,
+  FileText,
+  Share2,
+  Building2,
+  Layers,
+  Wrench,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -67,6 +72,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { jsPDF } from "jspdf";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useCondominium } from "@/hooks/use-condominium";
@@ -101,6 +108,11 @@ const processFormSchema = z.object({
   category: z.string().min(1, "Selecione uma categoria"),
   frequency: z.string().min(1, "Selecione uma frequência"),
   assignedToId: z.string().optional().nullable(),
+  blocks: z.array(z.string()).optional(),
+  floors: z.array(z.string()).optional(),
+  equipmentIds: z.array(z.string()).optional(),
+  executionScript: z.string().optional(),
+  checklistItems: z.array(z.string()).optional(),
   estimatedDuration: z.coerce.number().optional().nullable(),
   isActive: z.boolean().default(true),
   notes: z.string().optional(),
@@ -185,6 +197,11 @@ export default function TeamManagement() {
       category: "",
       frequency: "",
       assignedToId: null,
+      blocks: [],
+      floors: [],
+      equipmentIds: [],
+      executionScript: "",
+      checklistItems: [],
       estimatedDuration: null,
       isActive: true,
       notes: "",
@@ -203,6 +220,11 @@ export default function TeamManagement() {
 
   const { data: executions = [] } = useQuery<ProcessExecution[]>({
     queryKey: ["/api/process-executions"],
+    enabled: !!selectedCondominium,
+  });
+
+  const { data: equipment = [] } = useQuery<Array<{ id: string; name: string; category: string }>>({
+    queryKey: ["/api/equipment"],
     enabled: !!selectedCondominium,
   });
 
@@ -330,6 +352,11 @@ export default function TeamManagement() {
         category: process.category,
         frequency: process.frequency,
         assignedToId: process.assignedToId || null,
+        blocks: process.blocks || [],
+        floors: process.floors || [],
+        equipmentIds: process.equipmentIds || [],
+        executionScript: process.executionScript || "",
+        checklistItems: process.checklistItems || [],
         estimatedDuration: process.estimatedDuration || null,
         isActive: process.isActive,
         notes: process.notes || "",
@@ -941,6 +968,111 @@ export default function TeamManagement() {
                           )}
                         />
                       </div>
+                      <FormField
+                        control={processForm.control}
+                        name="blocks"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Blocos</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="Ex: A, B, C (separados por vírgula)"
+                                value={(field.value || []).join(", ")}
+                                onChange={(e) => field.onChange(e.target.value.split(",").map(b => b.trim()).filter(Boolean))}
+                                data-testid="input-process-blocks"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={processForm.control}
+                        name="floors"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Andares</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="Ex: Térreo, 1, 2, 3 (separados por vírgula)"
+                                value={(field.value || []).join(", ")}
+                                onChange={(e) => field.onChange(e.target.value.split(",").map(f => f.trim()).filter(Boolean))}
+                                data-testid="input-process-floors"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={processForm.control}
+                        name="equipmentIds"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Equipamentos</FormLabel>
+                            <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded p-2">
+                              {equipment.length === 0 ? (
+                                <p className="text-sm text-muted-foreground col-span-2">Nenhum equipamento cadastrado</p>
+                              ) : (
+                                equipment.map((eq) => (
+                                  <div key={eq.id} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={`eq-${eq.id}`}
+                                      checked={(field.value || []).includes(eq.id)}
+                                      onCheckedChange={(checked) => {
+                                        const current = field.value || [];
+                                        if (checked) {
+                                          field.onChange([...current, eq.id]);
+                                        } else {
+                                          field.onChange(current.filter(id => id !== eq.id));
+                                        }
+                                      }}
+                                    />
+                                    <label htmlFor={`eq-${eq.id}`} className="text-sm">{eq.name}</label>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={processForm.control}
+                        name="executionScript"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Roteiro de Execução</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Descreva passo a passo as tarefas a serem executadas..."
+                                className="min-h-[100px]"
+                                {...field}
+                                data-testid="textarea-process-script"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={processForm.control}
+                        name="checklistItems"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Checklist de Tarefas</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Liste as tarefas (uma por linha)"
+                                value={(field.value || []).join("\n")}
+                                onChange={(e) => field.onChange(e.target.value.split("\n").filter(Boolean))}
+                                data-testid="textarea-process-checklist"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                       <FormField
                         control={processForm.control}
                         name="notes"
