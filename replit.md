@@ -68,7 +68,7 @@ The application consists of these main feature modules:
 - **Documentos**: Document storage with expiration tracking
 - **Fornecedores**: Supplier contact management by category
 - **Comunicados**: Announcements and resident communications
-- **Equipe e Gestão de Processos**: Team member management (roles, schedules, contacts) and operational process tracking (categories, frequencies, assignments, executions)
+- **Equipe e Gestão de Processos**: Team member management (roles, schedules, contacts, CPF, WhatsApp) and operational process tracking (categories, frequencies, assignments, executions). Supports work routines by block/floor, equipment assignment, execution scripts, checklists, PDF generation, and WhatsApp sharing
 
 ### Multi-Tenant Architecture
 - **Data Isolation**: Each condominium has isolated data; users only see data for their selected condominium
