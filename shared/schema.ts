@@ -255,6 +255,7 @@ export const waterReadings = pgTable("water_readings", {
   volumeAvailable: real("volume_available").notNull().default(0),
   estimatedAutonomy: real("estimated_autonomy"),
   casanStatus: text("casan_status").default("normal"),
+  photo: text("photo"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   recordedBy: varchar("recorded_by"),

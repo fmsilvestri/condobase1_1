@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,6 +15,9 @@ import {
   TrendingUp,
   TrendingDown,
   Gauge,
+  Camera,
+  Image,
+  X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,7 +51,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { PageHeader } from "@/components/page-header";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, getAuthHeaders } from "@/lib/queryClient";
 import {
   AreaChart,
   Area,
@@ -95,6 +98,7 @@ interface WaterReading {
   volumeAvailable: number;
   estimatedAutonomy: number | null;
   casanStatus: string | null;
+  photo: string | null;
   notes: string | null;
   createdAt: string;
   recordedBy: string | null;
@@ -146,6 +150,99 @@ export default function Automation() {
   const [isWaterDialogOpen, setIsWaterDialogOpen] = useState(false);
   const [isGasDialogOpen, setIsGasDialogOpen] = useState(false);
   const [isEnergyDialogOpen, setIsEnergyDialogOpen] = useState(false);
+  const [waterPhotoFile, setWaterPhotoFile] = useState<File | null>(null);
+  const [waterPhotoPreview, setWaterPhotoPreview] = useState<string | null>(null);
+  const [gasPhotoFile, setGasPhotoFile] = useState<File | null>(null);
+  const [gasPhotoPreview, setGasPhotoPreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const waterPhotoInputRef = useRef<HTMLInputElement>(null);
+  const gasPhotoInputRef = useRef<HTMLInputElement>(null);
+
+  // Função para upload de foto
+  const uploadPhoto = async (file: File): Promise<string | null> => {
+    try {
+      const authHeaders = getAuthHeaders();
+      
+      // Solicitar URL de upload (requer autenticação)
+      const response = await fetch("/api/uploads/request-url", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
+        body: JSON.stringify({
+          name: file.name,
+          size: file.size,
+          contentType: file.type,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Falha ao obter URL de upload");
+      }
+
+      const { uploadURL, objectPath } = await response.json();
+
+      // Upload direto para o storage
+      const uploadResponse = await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: {
+          "Content-Type": file.type,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("Falha no upload do arquivo");
+      }
+
+      return objectPath;
+    } catch (error) {
+      console.error("Erro no upload:", error);
+      toast({ title: "Erro ao fazer upload da foto", variant: "destructive" });
+      return null;
+    }
+  };
+
+  const handleWaterPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setWaterPhotoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setWaterPhotoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleGasPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setGasPhotoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setGasPhotoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const clearWaterPhoto = () => {
+    setWaterPhotoFile(null);
+    setWaterPhotoPreview(null);
+    if (waterPhotoInputRef.current) {
+      waterPhotoInputRef.current.value = "";
+    }
+  };
+
+  const clearGasPhoto = () => {
+    setGasPhotoFile(null);
+    setGasPhotoPreview(null);
+    if (gasPhotoInputRef.current) {
+      gasPhotoInputRef.current.value = "";
+    }
+  };
 
   const waterForm = useForm<WaterReadingFormData>({
     resolver: zodResolver(waterReadingSchema),
@@ -174,54 +271,74 @@ export default function Automation() {
 
   // Queries
   const { data: waterReadings = [], isLoading: waterLoading } = useQuery<WaterReading[]>({
-    queryKey: ["/api/water-readings"],
+    queryKey: ["/api/water"],
   });
 
   const { data: gasReadings = [], isLoading: gasLoading } = useQuery<GasReading[]>({
-    queryKey: ["/api/gas-readings"],
+    queryKey: ["/api/gas"],
   });
 
   const { data: energyEvents = [], isLoading: energyLoading } = useQuery<EnergyEvent[]>({
-    queryKey: ["/api/energy-events"],
+    queryKey: ["/api/energy"],
   });
 
   // Mutations
   const createWaterReading = useMutation({
     mutationFn: async (data: WaterReadingFormData) => {
-      return apiRequest("POST", "/api/water-readings", data);
+      setIsUploading(true);
+      let photoUrl: string | null = null;
+      
+      if (waterPhotoFile) {
+        photoUrl = await uploadPhoto(waterPhotoFile);
+      }
+      
+      setIsUploading(false);
+      return apiRequest("POST", "/api/water", { ...data, photo: photoUrl });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/water-readings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/water"] });
       setIsWaterDialogOpen(false);
       waterForm.reset();
+      clearWaterPhoto();
       toast({ title: "Leitura de água registrada com sucesso" });
     },
     onError: () => {
+      setIsUploading(false);
       toast({ title: "Erro ao registrar leitura", variant: "destructive" });
     },
   });
 
   const createGasReading = useMutation({
     mutationFn: async (data: GasReadingFormData) => {
-      return apiRequest("POST", "/api/gas-readings", data);
+      setIsUploading(true);
+      let photoUrl: string | null = null;
+      
+      if (gasPhotoFile) {
+        photoUrl = await uploadPhoto(gasPhotoFile);
+      }
+      
+      setIsUploading(false);
+      return apiRequest("POST", "/api/gas", { ...data, photo: photoUrl });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/gas-readings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/gas"] });
       setIsGasDialogOpen(false);
       gasForm.reset();
+      clearGasPhoto();
       toast({ title: "Leitura de gás registrada com sucesso" });
     },
     onError: () => {
+      setIsUploading(false);
       toast({ title: "Erro ao registrar leitura", variant: "destructive" });
     },
   });
 
   const createEnergyEvent = useMutation({
     mutationFn: async (data: EnergyEventFormData) => {
-      return apiRequest("POST", "/api/energy-events", data);
+      return apiRequest("POST", "/api/energy", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/energy-events"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/energy"] });
       setIsEnergyDialogOpen(false);
       energyForm.reset();
       toast({ title: "Evento de energia registrado com sucesso" });
@@ -519,6 +636,51 @@ export default function Automation() {
                           </FormItem>
                         )}
                       />
+                      {/* Upload de foto do hidrômetro */}
+                      <div className="space-y-2">
+                        <FormLabel>Foto do Hidrômetro</FormLabel>
+                        <div className="flex items-center gap-3">
+                          <input
+                            ref={waterPhotoInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleWaterPhotoChange}
+                            className="hidden"
+                            data-testid="input-water-photo"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => waterPhotoInputRef.current?.click()}
+                            className="flex items-center gap-2"
+                            data-testid="button-water-photo"
+                          >
+                            <Camera className="h-4 w-4" />
+                            {waterPhotoPreview ? "Trocar Foto" : "Adicionar Foto"}
+                          </Button>
+                          {waterPhotoPreview && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={clearWaterPhoto}
+                              data-testid="button-clear-water-photo"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                        {waterPhotoPreview && (
+                          <div className="relative mt-2">
+                            <img
+                              src={waterPhotoPreview}
+                              alt="Preview da foto do hidrômetro"
+                              className="w-full max-h-48 object-contain rounded-lg border"
+                            />
+                          </div>
+                        )}
+                      </div>
+
                       <FormField
                         control={waterForm.control}
                         name="notes"
@@ -532,7 +694,7 @@ export default function Automation() {
                           </FormItem>
                         )}
                       />
-                      <Button type="submit" className="w-full" disabled={createWaterReading.isPending} data-testid="button-submit-water">
+                      <Button type="submit" className="w-full" disabled={createWaterReading.isPending || isUploading} data-testid="button-submit-water">
                         {createWaterReading.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
                         Registrar Leitura
                       </Button>
@@ -607,9 +769,17 @@ export default function Automation() {
                           data-testid={`water-reading-${reading.id}`}
                         >
                           <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-blue-500/10">
-                              <Gauge className="h-4 w-4 text-blue-500" />
-                            </div>
+                            {reading.photo ? (
+                              <img
+                                src={reading.photo}
+                                alt="Foto do hidrômetro"
+                                className="h-12 w-12 object-cover rounded-lg border"
+                              />
+                            ) : (
+                              <div className="p-2 rounded-lg bg-blue-500/10">
+                                <Gauge className="h-4 w-4 text-blue-500" />
+                              </div>
+                            )}
                             <div>
                               <p className="font-medium">{reading.tankLevel}% - {reading.volumeAvailable}L</p>
                               <p className="text-xs text-muted-foreground">
@@ -618,6 +788,16 @@ export default function Automation() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
+                            {reading.photo && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => window.open(reading.photo!, '_blank')}
+                                data-testid={`button-view-water-photo-${reading.id}`}
+                              >
+                                <Image className="h-4 w-4" />
+                              </Button>
+                            )}
                             {getQualityBadge(reading.quality)}
                           </div>
                         </div>
@@ -674,6 +854,51 @@ export default function Automation() {
                           )}
                         />
                       </div>
+                      {/* Upload de foto do medidor de gás */}
+                      <div className="space-y-2">
+                        <FormLabel>Foto do Medidor de Gás</FormLabel>
+                        <div className="flex items-center gap-3">
+                          <input
+                            ref={gasPhotoInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleGasPhotoChange}
+                            className="hidden"
+                            data-testid="input-gas-photo"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => gasPhotoInputRef.current?.click()}
+                            className="flex items-center gap-2"
+                            data-testid="button-gas-photo"
+                          >
+                            <Camera className="h-4 w-4" />
+                            {gasPhotoPreview ? "Trocar Foto" : "Adicionar Foto"}
+                          </Button>
+                          {gasPhotoPreview && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={clearGasPhoto}
+                              data-testid="button-clear-gas-photo"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                        {gasPhotoPreview && (
+                          <div className="relative mt-2">
+                            <img
+                              src={gasPhotoPreview}
+                              alt="Preview da foto do medidor de gás"
+                              className="w-full max-h-48 object-contain rounded-lg border"
+                            />
+                          </div>
+                        )}
+                      </div>
+
                       <FormField
                         control={gasForm.control}
                         name="notes"
@@ -687,7 +912,7 @@ export default function Automation() {
                           </FormItem>
                         )}
                       />
-                      <Button type="submit" className="w-full" disabled={createGasReading.isPending} data-testid="button-submit-gas">
+                      <Button type="submit" className="w-full" disabled={createGasReading.isPending || isUploading} data-testid="button-submit-gas">
                         {createGasReading.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
                         Registrar Leitura
                       </Button>
@@ -762,9 +987,17 @@ export default function Automation() {
                           data-testid={`gas-reading-${reading.id}`}
                         >
                           <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-orange-500/10">
-                              <Flame className="h-4 w-4 text-orange-500" />
-                            </div>
+                            {reading.photo ? (
+                              <img
+                                src={reading.photo}
+                                alt="Foto do medidor de gás"
+                                className="h-12 w-12 object-cover rounded-lg border"
+                              />
+                            ) : (
+                              <div className="p-2 rounded-lg bg-orange-500/10">
+                                <Flame className="h-4 w-4 text-orange-500" />
+                              </div>
+                            )}
                             <div>
                               <p className="font-medium">{reading.percentAvailable}% disponível</p>
                               <p className="text-xs text-muted-foreground">
@@ -772,9 +1005,21 @@ export default function Automation() {
                               </p>
                             </div>
                           </div>
-                          {reading.notes && (
-                            <p className="text-xs text-muted-foreground max-w-[200px] truncate">{reading.notes}</p>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {reading.photo && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => window.open(reading.photo!, '_blank')}
+                                data-testid={`button-view-gas-photo-${reading.id}`}
+                              >
+                                <Image className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {reading.notes && (
+                              <p className="text-xs text-muted-foreground max-w-[150px] truncate">{reading.notes}</p>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
