@@ -21,6 +21,7 @@ import {
   PlayCircle,
   UserCheck,
   Briefcase,
+  MessageCircle,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -82,9 +83,11 @@ import {
 
 const teamMemberFormSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
+  cpf: z.string().optional(),
   role: z.string().min(1, "Selecione uma função"),
   department: z.string().optional(),
   phone: z.string().optional(),
+  whatsapp: z.string().optional(),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   workSchedule: z.string().optional(),
   hireDate: z.string().optional(),
@@ -300,9 +303,11 @@ export default function TeamManagement() {
       setEditingMember(member);
       teamForm.reset({
         name: member.name,
+        cpf: member.cpf || "",
         role: member.role,
         department: member.department || "",
         phone: member.phone || "",
+        whatsapp: member.whatsapp || "",
         email: member.email || "",
         workSchedule: member.workSchedule || "",
         hireDate: member.hireDate ? new Date(member.hireDate).toISOString().split("T")[0] : "",
@@ -493,6 +498,19 @@ export default function TeamManagement() {
                           </FormItem>
                         )}
                       />
+                      <FormField
+                        control={teamForm.control}
+                        name="cpf"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>CPF</FormLabel>
+                            <FormControl>
+                              <Input placeholder="000.000.000-00" {...field} data-testid="input-member-cpf" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
                           control={teamForm.control}
@@ -572,18 +590,31 @@ export default function TeamManagement() {
                         />
                         <FormField
                           control={teamForm.control}
-                          name="email"
+                          name="whatsapp"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Email</FormLabel>
+                              <FormLabel>WhatsApp</FormLabel>
                               <FormControl>
-                                <Input type="email" placeholder="email@exemplo.com" {...field} data-testid="input-member-email" />
+                                <Input placeholder="(11) 99999-9999" {...field} data-testid="input-member-whatsapp" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
                       </div>
+                      <FormField
+                        control={teamForm.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input type="email" placeholder="email@exemplo.com" {...field} data-testid="input-member-email" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
                           control={teamForm.control}
@@ -691,6 +722,12 @@ export default function TeamManagement() {
                       <div className="flex items-center gap-2 text-sm">
                         <Phone className="h-3 w-3 text-muted-foreground" />
                         {member.phone}
+                      </div>
+                    )}
+                    {member.whatsapp && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <MessageCircle className="h-3 w-3 text-muted-foreground" />
+                        {member.whatsapp}
                       </div>
                     )}
                     {member.email && (
