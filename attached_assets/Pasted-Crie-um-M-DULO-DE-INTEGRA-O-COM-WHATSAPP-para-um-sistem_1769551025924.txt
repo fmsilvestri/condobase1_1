@@ -1,0 +1,140 @@
+Crie um MÓDULO DE INTEGRAÇÃO COM WHATSAPP para um sistema SaaS de gestão de condomínios,
+integrado ao MARKETPLACE DE SERVIÇOS e aos dados cadastrais dos moradores.
+
+A integração deve permitir que moradores contratem, acompanhem e interajam com serviços
+diretamente pelo WhatsApp, de forma simples e segura.
+
+────────────────────────────────────
+STACK OBRIGATÓRIA
+────────────────────────────────────
+- Backend: Node.js + Express
+- Banco: Supabase (PostgreSQL + Auth + RLS)
+- Integração WhatsApp:
+  - WhatsApp Cloud API (Meta) OU
+  - Twilio WhatsApp API
+- Webhooks para mensagens recebidas
+- Autenticação por número de telefone
+
+────────────────────────────────────
+OBJETIVO DO MÓDULO
+────────────────────────────────────
+Transformar o WhatsApp no principal canal de:
+- descoberta de serviços
+- contratação
+- acompanhamento de status
+- comunicação com fornecedores
+
+Sem exigir que o morador abra o app.
+
+────────────────────────────────────
+IDENTIFICAÇÃO DO MORADOR
+────────────────────────────────────
+- Identificar morador pelo número de telefone
+- Vincular telefone ao cadastro do morador no Supabase
+- Se número não estiver cadastrado:
+  - responder com mensagem de orientação para cadastro
+- Garantir que o morador só acesse seus próprios dados
+
+────────────────────────────────────
+FUNCIONALIDADES VIA WHATSAPP
+────────────────────────────────────
+
+### MENU INICIAL (BOT)
+Ao enviar "Oi" ou "Menu", responder com opções numeradas:
+
+1️⃣ Ver serviços recomendados  
+2️⃣ Contratar um serviço  
+3️⃣ Acompanhar meus pedidos  
+4️⃣ Falar com o fornecedor  
+5️⃣ Ajuda / Regras do condomínio  
+
+────────────────────────────────────
+SERVIÇOS RECOMENDADOS
+────────────────────────────────────
+- Buscar dados do morador:
+  - pets
+  - veículos
+  - tipo de unidade
+- Retornar lista curta de serviços relevantes
+Exemplo:
+"🐶 Para seu cachorro:
+1) Banho e Tosa
+2) Veterinário domiciliar"
+
+────────────────────────────────────
+CONTRATAÇÃO PELO WHATSAPP
+────────────────────────────────────
+Fluxo conversacional:
+1. Morador escolhe serviço
+2. Bot lista ofertas disponíveis
+3. Morador confirma contratação
+4. Criar registro em `contratacoes`
+5. Enviar confirmação automática
+
+────────────────────────────────────
+ACOMPANHAMENTO DE PEDIDOS
+────────────────────────────────────
+- Listar pedidos ativos
+- Mostrar status:
+  - solicitado
+  - em execução
+  - concluído
+- Permitir cancelamento conforme regra
+
+────────────────────────────────────
+FORNECEDORES
+────────────────────────────────────
+- Notificar fornecedor quando nova contratação ocorrer
+- Permitir que fornecedor:
+  - atualize status via painel web
+- Enviar atualização automática ao morador via WhatsApp
+
+────────────────────────────────────
+REGRAS E SEGURANÇA
+────────────────────────────────────
+- Morador só pode acessar seus próprios dados
+- Validar permissões antes de cada ação
+- Logs de mensagens e ações
+- Rate limit para evitar abuso
+
+────────────────────────────────────
+BACKEND (ROTAS PRINCIPAIS)
+────────────────────────────────────
+- POST /webhook/whatsapp
+- POST /whatsapp/send
+- GET /whatsapp/menu
+- POST /whatsapp/contratar
+- GET /whatsapp/contratacoes
+
+────────────────────────────────────
+MENSAGENS AUTOMÁTICAS IMPORTANTES
+────────────────────────────────────
+- Confirmação de contratação
+- Mudança de status do serviço
+- Solicitação de avaliação após conclusão
+- Ofertas recorrentes (opcional)
+
+────────────────────────────────────
+BOAS PRÁTICAS
+────────────────────────────────────
+- Fluxo conversacional simples
+- Mensagens curtas e claras
+- Fallback humano (contato da administração)
+- Código modular (services, controllers, webhooks)
+
+────────────────────────────────────
+PREPARAÇÃO PARA O FUTURO
+────────────────────────────────────
+- IA para interpretar mensagens livres
+- Pagamento via WhatsApp
+- Automação de serviços recorrentes
+- Integração com portaria (liberação de acesso)
+
+────────────────────────────────────
+RESULTADO ESPERADO
+────────────────────────────────────
+- Bot funcional no WhatsApp
+- Integração total com o marketplace
+- Contratação de serviços via mensagem
+- Notificações automáticas
+- Pronto para escalar
