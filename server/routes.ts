@@ -61,6 +61,9 @@ import {
   insertAutomationRuleSchema,
   insertScheduledTaskSchema,
   insertOperationLogSchema,
+  insertTeamMemberSchema,
+  insertProcessSchema,
+  insertProcessExecutionSchema,
 } from "@shared/schema";
 
 import { z } from "zod";
@@ -3397,6 +3400,210 @@ export async function registerRoutes(
       res.status(201).json(log);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Team Members
+  app.get("/api/team-members", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      const members = await storage.getTeamMembers(condominiumId);
+      res.json(members);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch team members" });
+    }
+  });
+
+  app.get("/api/team-members/:id", requireGestao, async (req, res) => {
+    try {
+      const member = await storage.getTeamMemberById(req.params.id);
+      if (!member) {
+        return res.status(404).json({ error: "Team member not found" });
+      }
+      res.json(member);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch team member" });
+    }
+  });
+
+  app.post("/api/team-members", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) {
+        return res.status(401).json({ error: "Condomínio não selecionado" });
+      }
+      const validation = insertTeamMemberSchema.safeParse({
+        ...req.body,
+        condominiumId,
+      });
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const member = await storage.createTeamMember(validation.data);
+      res.status(201).json(member);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/team-members/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const validation = insertTeamMemberSchema.partial().safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const member = await storage.updateTeamMember(req.params.id, validation.data);
+      if (!member) {
+        return res.status(404).json({ error: "Team member not found" });
+      }
+      res.json(member);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/team-members/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteTeamMember(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to delete team member" });
+    }
+  });
+
+  // Processes
+  app.get("/api/processes", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      const processes = await storage.getProcesses(condominiumId);
+      res.json(processes);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch processes" });
+    }
+  });
+
+  app.get("/api/processes/:id", requireGestao, async (req, res) => {
+    try {
+      const process = await storage.getProcessById(req.params.id);
+      if (!process) {
+        return res.status(404).json({ error: "Process not found" });
+      }
+      res.json(process);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch process" });
+    }
+  });
+
+  app.post("/api/processes", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) {
+        return res.status(401).json({ error: "Condomínio não selecionado" });
+      }
+      const validation = insertProcessSchema.safeParse({
+        ...req.body,
+        condominiumId,
+      });
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const process = await storage.createProcess(validation.data);
+      res.status(201).json(process);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/processes/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const validation = insertProcessSchema.partial().safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const process = await storage.updateProcess(req.params.id, validation.data);
+      if (!process) {
+        return res.status(404).json({ error: "Process not found" });
+      }
+      res.json(process);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/processes/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteProcess(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to delete process" });
+    }
+  });
+
+  // Process Executions
+  app.get("/api/process-executions", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      const executions = await storage.getProcessExecutions(condominiumId);
+      res.json(executions);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch process executions" });
+    }
+  });
+
+  app.get("/api/process-executions/:id", requireGestao, async (req, res) => {
+    try {
+      const execution = await storage.getProcessExecutionById(req.params.id);
+      if (!execution) {
+        return res.status(404).json({ error: "Process execution not found" });
+      }
+      res.json(execution);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch process execution" });
+    }
+  });
+
+  app.post("/api/process-executions", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) {
+        return res.status(401).json({ error: "Condomínio não selecionado" });
+      }
+      const validation = insertProcessExecutionSchema.safeParse({
+        ...req.body,
+        condominiumId,
+      });
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const execution = await storage.createProcessExecution(validation.data);
+      res.status(201).json(execution);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/process-executions/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const validation = insertProcessExecutionSchema.partial().safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const execution = await storage.updateProcessExecution(req.params.id, validation.data);
+      if (!execution) {
+        return res.status(404).json({ error: "Process execution not found" });
+      }
+      res.json(execution);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/process-executions/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteProcessExecution(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to delete process execution" });
     }
   });
 

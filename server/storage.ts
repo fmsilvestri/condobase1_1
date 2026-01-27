@@ -87,6 +87,12 @@ import {
   type InsertScheduledTask,
   type OperationLog,
   type InsertOperationLog,
+  type TeamMember,
+  type InsertTeamMember,
+  type Process,
+  type InsertProcess,
+  type ProcessExecution,
+  type InsertProcessExecution,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -356,6 +362,28 @@ export interface IStorage {
   // Operation Logs
   getOperationLogs(condominiumId?: string): Promise<OperationLog[]>;
   createOperationLog(log: InsertOperationLog): Promise<OperationLog>;
+
+  // Team Members
+  getTeamMembers(condominiumId?: string): Promise<TeamMember[]>;
+  getTeamMemberById(id: string): Promise<TeamMember | undefined>;
+  createTeamMember(member: InsertTeamMember): Promise<TeamMember>;
+  updateTeamMember(id: string, member: Partial<InsertTeamMember>): Promise<TeamMember | undefined>;
+  deleteTeamMember(id: string): Promise<boolean>;
+
+  // Processes
+  getProcesses(condominiumId?: string): Promise<Process[]>;
+  getProcessById(id: string): Promise<Process | undefined>;
+  createProcess(process: InsertProcess): Promise<Process>;
+  updateProcess(id: string, process: Partial<InsertProcess>): Promise<Process | undefined>;
+  deleteProcess(id: string): Promise<boolean>;
+
+  // Process Executions
+  getProcessExecutions(condominiumId?: string): Promise<ProcessExecution[]>;
+  getProcessExecutionById(id: string): Promise<ProcessExecution | undefined>;
+  getProcessExecutionsByProcessId(processId: string): Promise<ProcessExecution[]>;
+  createProcessExecution(execution: InsertProcessExecution): Promise<ProcessExecution>;
+  updateProcessExecution(id: string, execution: Partial<InsertProcessExecution>): Promise<ProcessExecution | undefined>;
+  deleteProcessExecution(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -1280,6 +1308,34 @@ export class MemStorage implements IStorage {
   async createOperationLog(log: InsertOperationLog): Promise<OperationLog> {
     return { ...log, id: randomUUID(), executedAt: new Date() } as OperationLog;
   }
+
+  // Team Members
+  async getTeamMembers(): Promise<TeamMember[]> { return []; }
+  async getTeamMemberById(): Promise<TeamMember | undefined> { return undefined; }
+  async createTeamMember(member: InsertTeamMember): Promise<TeamMember> {
+    return { ...member, id: randomUUID(), createdAt: new Date(), updatedAt: new Date() } as TeamMember;
+  }
+  async updateTeamMember(): Promise<TeamMember | undefined> { return undefined; }
+  async deleteTeamMember(): Promise<boolean> { return true; }
+
+  // Processes
+  async getProcesses(): Promise<Process[]> { return []; }
+  async getProcessById(): Promise<Process | undefined> { return undefined; }
+  async createProcess(process: InsertProcess): Promise<Process> {
+    return { ...process, id: randomUUID(), createdAt: new Date(), updatedAt: new Date() } as Process;
+  }
+  async updateProcess(): Promise<Process | undefined> { return undefined; }
+  async deleteProcess(): Promise<boolean> { return true; }
+
+  // Process Executions
+  async getProcessExecutions(): Promise<ProcessExecution[]> { return []; }
+  async getProcessExecutionById(): Promise<ProcessExecution | undefined> { return undefined; }
+  async getProcessExecutionsByProcessId(): Promise<ProcessExecution[]> { return []; }
+  async createProcessExecution(execution: InsertProcessExecution): Promise<ProcessExecution> {
+    return { ...execution, id: randomUUID(), createdAt: new Date() } as ProcessExecution;
+  }
+  async updateProcessExecution(): Promise<ProcessExecution | undefined> { return undefined; }
+  async deleteProcessExecution(): Promise<boolean> { return true; }
 }
 
 export const storage = new MemStorage();

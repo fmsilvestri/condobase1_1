@@ -128,12 +128,21 @@ import {
   automationRules as automationRulesTable,
   scheduledTasks as scheduledTasksTable,
   operationLogs as operationLogsTable,
+  teamMembers as teamMembersTable,
+  processes as processesTable,
+  processExecutions as processExecutionsTable,
   type AutomationRule,
   type InsertAutomationRule,
   type ScheduledTask,
   type InsertScheduledTask,
   type OperationLog,
   type InsertOperationLog,
+  type TeamMember,
+  type InsertTeamMember,
+  type Process,
+  type InsertProcess,
+  type ProcessExecution,
+  type InsertProcessExecution,
 } from "@shared/schema";
 
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
@@ -1782,6 +1791,111 @@ export class SupabaseStorage implements IStorage {
   async createOperationLog(log: InsertOperationLog): Promise<OperationLog> {
     const [data] = await db.insert(operationLogsTable).values(log).returning();
     return data;
+  }
+
+  // Team Members
+  async getTeamMembers(condominiumId?: string): Promise<TeamMember[]> {
+    if (condominiumId) {
+      return db.select().from(teamMembersTable)
+        .where(eq(teamMembersTable.condominiumId, condominiumId))
+        .orderBy(desc(teamMembersTable.createdAt));
+    }
+    return db.select().from(teamMembersTable).orderBy(desc(teamMembersTable.createdAt));
+  }
+
+  async getTeamMemberById(id: string): Promise<TeamMember | undefined> {
+    const [data] = await db.select().from(teamMembersTable).where(eq(teamMembersTable.id, id));
+    return data;
+  }
+
+  async createTeamMember(member: InsertTeamMember): Promise<TeamMember> {
+    const [data] = await db.insert(teamMembersTable).values(member).returning();
+    return data;
+  }
+
+  async updateTeamMember(id: string, member: Partial<InsertTeamMember>): Promise<TeamMember | undefined> {
+    const [data] = await db.update(teamMembersTable)
+      .set({ ...member, updatedAt: new Date() })
+      .where(eq(teamMembersTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteTeamMember(id: string): Promise<boolean> {
+    await db.delete(teamMembersTable).where(eq(teamMembersTable.id, id));
+    return true;
+  }
+
+  // Processes
+  async getProcesses(condominiumId?: string): Promise<Process[]> {
+    if (condominiumId) {
+      return db.select().from(processesTable)
+        .where(eq(processesTable.condominiumId, condominiumId))
+        .orderBy(desc(processesTable.createdAt));
+    }
+    return db.select().from(processesTable).orderBy(desc(processesTable.createdAt));
+  }
+
+  async getProcessById(id: string): Promise<Process | undefined> {
+    const [data] = await db.select().from(processesTable).where(eq(processesTable.id, id));
+    return data;
+  }
+
+  async createProcess(process: InsertProcess): Promise<Process> {
+    const [data] = await db.insert(processesTable).values(process).returning();
+    return data;
+  }
+
+  async updateProcess(id: string, process: Partial<InsertProcess>): Promise<Process | undefined> {
+    const [data] = await db.update(processesTable)
+      .set({ ...process, updatedAt: new Date() })
+      .where(eq(processesTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteProcess(id: string): Promise<boolean> {
+    await db.delete(processesTable).where(eq(processesTable.id, id));
+    return true;
+  }
+
+  // Process Executions
+  async getProcessExecutions(condominiumId?: string): Promise<ProcessExecution[]> {
+    if (condominiumId) {
+      return db.select().from(processExecutionsTable)
+        .where(eq(processExecutionsTable.condominiumId, condominiumId))
+        .orderBy(desc(processExecutionsTable.scheduledDate));
+    }
+    return db.select().from(processExecutionsTable).orderBy(desc(processExecutionsTable.scheduledDate));
+  }
+
+  async getProcessExecutionById(id: string): Promise<ProcessExecution | undefined> {
+    const [data] = await db.select().from(processExecutionsTable).where(eq(processExecutionsTable.id, id));
+    return data;
+  }
+
+  async getProcessExecutionsByProcessId(processId: string): Promise<ProcessExecution[]> {
+    return db.select().from(processExecutionsTable)
+      .where(eq(processExecutionsTable.processId, processId))
+      .orderBy(desc(processExecutionsTable.scheduledDate));
+  }
+
+  async createProcessExecution(execution: InsertProcessExecution): Promise<ProcessExecution> {
+    const [data] = await db.insert(processExecutionsTable).values(execution).returning();
+    return data;
+  }
+
+  async updateProcessExecution(id: string, execution: Partial<InsertProcessExecution>): Promise<ProcessExecution | undefined> {
+    const [data] = await db.update(processExecutionsTable)
+      .set(execution)
+      .where(eq(processExecutionsTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteProcessExecution(id: string): Promise<boolean> {
+    await db.delete(processExecutionsTable).where(eq(processExecutionsTable.id, id));
+    return true;
   }
 }
 
