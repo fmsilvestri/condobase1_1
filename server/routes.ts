@@ -3767,5 +3767,418 @@ export async function registerRoutes(
     }
   });
 
+  // ========== MARKETPLACE DE SERVICOS ==========
+
+  // Categorias de Servicos
+  app.get("/api/categorias-servicos", requireGestao, async (req, res) => {
+    try {
+      const categorias = await storage.getCategoriasServicos(req.condominiumId);
+      res.json(categorias);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar categorias" });
+    }
+  });
+
+  app.get("/api/categorias-servicos/:id", requireGestao, async (req, res) => {
+    try {
+      const categoria = await storage.getCategoriaServicoById(req.params.id);
+      if (!categoria) {
+        return res.status(404).json({ error: "Categoria não encontrada" });
+      }
+      res.json(categoria);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar categoria" });
+    }
+  });
+
+  app.post("/api/categorias-servicos", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const categoria = await storage.createCategoriaServico({
+        ...req.body,
+        condominiumId: req.condominiumId,
+      });
+      res.status(201).json(categoria);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao criar categoria" });
+    }
+  });
+
+  app.patch("/api/categorias-servicos/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const categoria = await storage.updateCategoriaServico(req.params.id, req.body);
+      if (!categoria) {
+        return res.status(404).json({ error: "Categoria não encontrada" });
+      }
+      res.json(categoria);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao atualizar categoria" });
+    }
+  });
+
+  app.delete("/api/categorias-servicos/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteCategoriaServico(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao excluir categoria" });
+    }
+  });
+
+  // Servicos
+  app.get("/api/servicos", requireGestao, async (req, res) => {
+    try {
+      const servicos = await storage.getServicos(req.condominiumId);
+      res.json(servicos);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar servicos" });
+    }
+  });
+
+  app.get("/api/servicos/:id", requireGestao, async (req, res) => {
+    try {
+      const servico = await storage.getServicoById(req.params.id);
+      if (!servico) {
+        return res.status(404).json({ error: "Servico não encontrado" });
+      }
+      res.json(servico);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar servico" });
+    }
+  });
+
+  app.get("/api/servicos/categoria/:categoriaId", requireGestao, async (req, res) => {
+    try {
+      const servicos = await storage.getServicosByCategoria(req.params.categoriaId);
+      res.json(servicos);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar servicos por categoria" });
+    }
+  });
+
+  app.post("/api/servicos", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const servico = await storage.createServico({
+        ...req.body,
+        condominiumId: req.condominiumId,
+      });
+      res.status(201).json(servico);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao criar servico" });
+    }
+  });
+
+  app.patch("/api/servicos/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const servico = await storage.updateServico(req.params.id, req.body);
+      if (!servico) {
+        return res.status(404).json({ error: "Servico não encontrado" });
+      }
+      res.json(servico);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao atualizar servico" });
+    }
+  });
+
+  app.delete("/api/servicos/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteServico(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao excluir servico" });
+    }
+  });
+
+  // Fornecedores Marketplace
+  app.get("/api/fornecedores-marketplace", requireGestao, async (req, res) => {
+    try {
+      const fornecedores = await storage.getFornecedoresMarketplace(req.condominiumId);
+      res.json(fornecedores);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar fornecedores" });
+    }
+  });
+
+  app.get("/api/fornecedores-marketplace/:id", requireGestao, async (req, res) => {
+    try {
+      const fornecedor = await storage.getFornecedorMarketplaceById(req.params.id);
+      if (!fornecedor) {
+        return res.status(404).json({ error: "Fornecedor não encontrado" });
+      }
+      res.json(fornecedor);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar fornecedor" });
+    }
+  });
+
+  app.post("/api/fornecedores-marketplace", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const fornecedor = await storage.createFornecedorMarketplace({
+        ...req.body,
+        condominiumId: req.condominiumId,
+      });
+      res.status(201).json(fornecedor);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao criar fornecedor" });
+    }
+  });
+
+  app.patch("/api/fornecedores-marketplace/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const fornecedor = await storage.updateFornecedorMarketplace(req.params.id, req.body);
+      if (!fornecedor) {
+        return res.status(404).json({ error: "Fornecedor não encontrado" });
+      }
+      res.json(fornecedor);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao atualizar fornecedor" });
+    }
+  });
+
+  app.delete("/api/fornecedores-marketplace/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteFornecedorMarketplace(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao excluir fornecedor" });
+    }
+  });
+
+  // Ofertas
+  app.get("/api/ofertas", requireGestao, async (req, res) => {
+    try {
+      const ofertas = await storage.getOfertas(req.condominiumId);
+      res.json(ofertas);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar ofertas" });
+    }
+  });
+
+  app.get("/api/ofertas/:id", requireGestao, async (req, res) => {
+    try {
+      const oferta = await storage.getOfertaById(req.params.id);
+      if (!oferta) {
+        return res.status(404).json({ error: "Oferta não encontrada" });
+      }
+      res.json(oferta);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar oferta" });
+    }
+  });
+
+  app.get("/api/ofertas/servico/:servicoId", requireGestao, async (req, res) => {
+    try {
+      const ofertas = await storage.getOfertasByServico(req.params.servicoId);
+      res.json(ofertas);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar ofertas por servico" });
+    }
+  });
+
+  app.get("/api/ofertas/fornecedor/:fornecedorId", requireGestao, async (req, res) => {
+    try {
+      const ofertas = await storage.getOfertasByFornecedor(req.params.fornecedorId);
+      res.json(ofertas);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar ofertas por fornecedor" });
+    }
+  });
+
+  app.post("/api/ofertas", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const oferta = await storage.createOferta({
+        ...req.body,
+        condominiumId: req.condominiumId,
+      });
+      res.status(201).json(oferta);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao criar oferta" });
+    }
+  });
+
+  app.patch("/api/ofertas/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const oferta = await storage.updateOferta(req.params.id, req.body);
+      if (!oferta) {
+        return res.status(404).json({ error: "Oferta não encontrada" });
+      }
+      res.json(oferta);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao atualizar oferta" });
+    }
+  });
+
+  app.delete("/api/ofertas/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteOferta(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao excluir oferta" });
+    }
+  });
+
+  // Contratacoes
+  app.get("/api/contratacoes", requireGestao, async (req, res) => {
+    try {
+      const contratacoes = await storage.getContratacoes(req.condominiumId);
+      res.json(contratacoes);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar contratacoes" });
+    }
+  });
+
+  app.get("/api/contratacoes/:id", requireGestao, async (req, res) => {
+    try {
+      const contratacao = await storage.getContratacaoById(req.params.id);
+      if (!contratacao) {
+        return res.status(404).json({ error: "Contratacao não encontrada" });
+      }
+      res.json(contratacao);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar contratacao" });
+    }
+  });
+
+  app.get("/api/contratacoes/morador/:moradorId", requireGestao, async (req, res) => {
+    try {
+      const contratacoes = await storage.getContratacoesByMorador(req.params.moradorId);
+      res.json(contratacoes);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar contratacoes por morador" });
+    }
+  });
+
+  app.post("/api/contratacoes", requireGestao, async (req, res) => {
+    try {
+      const contratacao = await storage.createContratacao({
+        ...req.body,
+        condominiumId: req.condominiumId,
+      });
+      res.status(201).json(contratacao);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao criar contratacao" });
+    }
+  });
+
+  app.patch("/api/contratacoes/:id", requireGestao, async (req, res) => {
+    try {
+      const contratacao = await storage.updateContratacao(req.params.id, req.body);
+      if (!contratacao) {
+        return res.status(404).json({ error: "Contratacao não encontrada" });
+      }
+      res.json(contratacao);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao atualizar contratacao" });
+    }
+  });
+
+  app.patch("/api/contratacoes/:id/status", requireGestao, async (req, res) => {
+    try {
+      const { status } = req.body;
+      const updateData: any = { status };
+      
+      if (status === "aceito") {
+        updateData.dataAceite = new Date();
+      } else if (status === "concluido") {
+        updateData.dataConclusao = new Date();
+      }
+      
+      const contratacao = await storage.updateContratacao(req.params.id, updateData);
+      if (!contratacao) {
+        return res.status(404).json({ error: "Contratacao não encontrada" });
+      }
+      res.json(contratacao);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao atualizar status" });
+    }
+  });
+
+  app.patch("/api/contratacoes/:id/avaliar", requireGestao, async (req, res) => {
+    try {
+      const { avaliacao, comentarioAvaliacao } = req.body;
+      const contratacao = await storage.updateContratacao(req.params.id, {
+        avaliacao,
+        comentarioAvaliacao,
+      });
+      if (!contratacao) {
+        return res.status(404).json({ error: "Contratacao não encontrada" });
+      }
+      
+      // Update fornecedor average rating
+      const oferta = await storage.getOfertaById(contratacao.ofertaId);
+      if (oferta) {
+        const fornecedor = await storage.getFornecedorMarketplaceById(oferta.fornecedorId);
+        if (fornecedor) {
+          const currentTotal = (fornecedor.avaliacaoMedia || 0) * (fornecedor.totalAvaliacoes || 0);
+          const newTotal = fornecedor.totalAvaliacoes || 0;
+          const newAverage = (currentTotal + avaliacao) / (newTotal + 1);
+          await storage.updateFornecedorMarketplace(oferta.fornecedorId, {
+            avaliacaoMedia: newAverage,
+            totalAvaliacoes: newTotal + 1,
+          });
+        }
+      }
+      
+      res.json(contratacao);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao avaliar contratacao" });
+    }
+  });
+
+  // Marketplace - Servicos recomendados para morador
+  app.get("/api/marketplace", requireGestao, async (req, res) => {
+    try {
+      const moradorId = req.query.moradorId as string;
+      
+      // Buscar todas ofertas ativas
+      const ofertas = await storage.getOfertas(req.condominiumId);
+      const ofertasAtivas = ofertas.filter(o => o.ativo);
+      
+      // Buscar servicos e fornecedores para enriquecer dados
+      const servicos = await storage.getServicos(req.condominiumId);
+      const fornecedores = await storage.getFornecedoresMarketplace(req.condominiumId);
+      const categorias = await storage.getCategoriasServicos(req.condominiumId);
+      
+      // Enriquecer ofertas com dados do servico e fornecedor
+      const ofertasEnriquecidas = ofertasAtivas.map(oferta => {
+        const servico = servicos.find(s => s.id === oferta.servicoId);
+        const fornecedor = fornecedores.find(f => f.id === oferta.fornecedorId);
+        const categoria = servico ? categorias.find(c => c.id === servico.categoriaId) : null;
+        
+        return {
+          ...oferta,
+          servico,
+          fornecedor,
+          categoria,
+        };
+      });
+      
+      // Se tiver moradorId, ordenar por relevancia
+      if (moradorId) {
+        const morador = await storage.getMoradorById(moradorId);
+        if (morador) {
+          // Ordenar ofertas por relevancia baseado no perfil do morador
+          ofertasEnriquecidas.sort((a, b) => {
+            let scoreA = 0;
+            let scoreB = 0;
+            
+            // Se morador tem pet, priorizar servicos de pet
+            if (morador.temPet && a.servico?.tipoServico === "pet") scoreA += 10;
+            if (morador.temPet && b.servico?.tipoServico === "pet") scoreB += 10;
+            
+            // Priorizar fornecedores melhor avaliados
+            scoreA += (a.fornecedor?.avaliacaoMedia || 0) * 2;
+            scoreB += (b.fornecedor?.avaliacaoMedia || 0) * 2;
+            
+            return scoreB - scoreA;
+          });
+        }
+      }
+      
+      res.json(ofertasEnriquecidas);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar marketplace" });
+    }
+  });
+
   return httpServer;
 }
