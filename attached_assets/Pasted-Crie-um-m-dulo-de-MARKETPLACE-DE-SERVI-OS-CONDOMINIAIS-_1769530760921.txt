@@ -1,0 +1,204 @@
+Crie um módulo de MARKETPLACE DE SERVIÇOS CONDOMINIAIS inteligente, integrado aos dados cadastrais dos moradores.
+
+O marketplace deve sugerir, filtrar e permitir contratação de serviços com base em:
+- perfil do morador
+- dados da unidade
+- veículos
+- pets
+- histórico de uso
+
+---
+
+## STACK OBRIGATÓRIA
+- Backend: Node.js + Express
+- Banco: Supabase (PostgreSQL + Auth + Storage)
+- Frontend: React
+- Autenticação: Supabase Auth
+- Controle de acesso: RBAC
+
+---
+
+## OBJETIVO DO MÓDULO
+
+Criar um marketplace interno do condomínio onde:
+- moradores veem serviços relevantes automaticamente
+- síndico/admin cadastram fornecedores e ofertas
+- o sistema cruza dados do morador para sugerir serviços
+- o condomínio vira hub de serviços recorrentes
+
+---
+
+## MODELO DE DADOS (SUPABASE)
+
+### moradores (já existente)
+Usar dados como:
+- tipo_morador
+- unidade_id
+- veiculos
+- pets
+- perfil_acesso
+
+---
+
+### Tabela: categorias_servicos
+- id (uuid)
+- nome (ex: Veículos, Pets, Limpeza, Manutenção)
+- descricao
+- ativo (boolean)
+
+---
+
+### Tabela: servicos
+- id (uuid)
+- categoria_id (uuid, FK)
+- nome
+- descricao
+- tipo_servico (enum: veiculo, pet, limpeza, manutencao, pessoal, geral)
+- requisitos (jsonb) 
+  Ex:
+  {
+    "pet": ["cachorro"],
+    "porte": ["medio", "grande"],
+    "veiculo": ["carro"]
+  }
+- ativo (boolean)
+
+---
+
+### Tabela: fornecedores
+- id (uuid)
+- nome_fantasia
+- razao_social
+- cnpj
+- telefone
+- email
+- descricao
+- avaliacao_media
+- ativo (boolean)
+
+---
+
+### Tabela: ofertas
+- id (uuid)
+- servico_id (uuid)
+- fornecedor_id (uuid)
+- titulo
+- descricao
+- preco_base
+- recorrente (boolean)
+- unidade_preco (mensal, avulso)
+- ativo (boolean)
+
+---
+
+### Tabela: contratacoes
+- id (uuid)
+- morador_id (uuid)
+- oferta_id (uuid)
+- status (solicitado, aceito, em_execucao, concluido, cancelado)
+- data_solicitacao
+- observacoes
+
+---
+
+## LÓGICA INTELIGENTE DE SUGESTÃO
+
+Criar serviço de recomendação que:
+- analisa dados do morador:
+  - se possui PET → sugere banho, tosa, veterinário
+  - se possui VEÍCULO → sugere lavagem, manutenção
+  - se unidade é locada → sugere limpeza recorrente
+- filtra ofertas incompatíveis
+- prioriza serviços mais usados no condomínio
+
+---
+
+## PERMISSÕES (RBAC)
+
+### administrador / sindico
+- CRUD completo:
+  - categorias
+  - serviços
+  - fornecedores
+  - ofertas
+- visualizar todas as contratações
+
+### fornecedor
+- visualizar apenas suas ofertas
+- atualizar status das contratações
+
+### morador
+- visualizar marketplace
+- contratar serviços
+- acompanhar status
+- avaliar fornecedor
+
+---
+
+## BACKEND
+
+Criar APIs REST:
+
+### Marketplace
+- GET /marketplace (lista serviços sugeridos)
+- GET /servicos
+- GET /ofertas/:servico_id
+
+### Administração
+- POST /fornecedores
+- POST /servicos
+- POST /ofertas
+- PUT /ofertas/:id
+
+### Contratação
+- POST /contratacoes
+- GET /contratacoes/morador
+- PUT /contratacoes/:id/status
+
+---
+
+## FRONTEND (REACT)
+
+### Morador
+- Tela de marketplace personalizada
+- Cards de serviços recomendados
+- Filtros automáticos (pet, veículo, limpeza)
+- Fluxo simples de contratação
+
+### Síndico/Admin
+- Dashboard de fornecedores
+- Cadastro de serviços e ofertas
+- Relatório de serviços mais contratados
+
+---
+
+## SEGURANÇA (SUPABASE RLS)
+
+- Morador só vê:
+  - ofertas ativas
+  - suas próprias contratações
+- Fornecedor vê apenas:
+  - suas ofertas
+  - contratações vinculadas
+- Síndico/Admin vê tudo
+
+---
+
+## DIFERENCIAIS IMPORTANTES
+
+- Marketplace interno exclusivo do condomínio
+- Baseado em dados reais do morador
+- Preparado para:
+  - cobrança futura
+  - comissão do condomínio
+  - integração com WhatsApp
+  - automação de serviços recorrentes
+
+---
+
+## RESULTADO ESPERADO
+
+- Módulo funcional
+- Marketplace inteligente
+- CRUD completo
+- Pronto para escalar em multi-condomínio

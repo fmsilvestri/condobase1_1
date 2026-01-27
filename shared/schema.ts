@@ -1714,3 +1714,138 @@ export const insertMoradorSchema = createInsertSchema(moradores).omit({
 
 export type InsertMorador = z.infer<typeof insertMoradorSchema>;
 export type Morador = typeof moradores.$inferSelect;
+
+// ========== MARKETPLACE DE SERVICOS ==========
+
+// Categorias de Servicos
+export const categoriasServicos = pgTable("categorias_servicos", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: uuid("condominium_id").notNull().references(() => condominiums.id),
+  nome: text("nome").notNull(),
+  descricao: text("descricao"),
+  ativo: boolean("ativo").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCategoriaServicoSchema = createInsertSchema(categoriasServicos).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertCategoriaServico = z.infer<typeof insertCategoriaServicoSchema>;
+export type CategoriaServico = typeof categoriasServicos.$inferSelect;
+
+// Tipos de Servico
+export const tipoServicoOptions = ["veiculo", "pet", "limpeza", "manutencao", "pessoal", "geral"] as const;
+export type TipoServico = (typeof tipoServicoOptions)[number];
+
+// Servicos
+export const servicos = pgTable("servicos", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: uuid("condominium_id").notNull().references(() => condominiums.id),
+  categoriaId: uuid("categoria_id").notNull().references(() => categoriasServicos.id),
+  nome: text("nome").notNull(),
+  descricao: text("descricao"),
+  tipoServico: text("tipo_servico").notNull().$type<TipoServico>().default("geral"),
+  requisitos: text("requisitos"),
+  ativo: boolean("ativo").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertServicoSchema = createInsertSchema(servicos).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertServico = z.infer<typeof insertServicoSchema>;
+export type Servico = typeof servicos.$inferSelect;
+
+// Fornecedores
+export const fornecedoresMarketplace = pgTable("fornecedores_marketplace", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: uuid("condominium_id").notNull().references(() => condominiums.id),
+  nomeFantasia: text("nome_fantasia").notNull(),
+  razaoSocial: text("razao_social"),
+  cnpj: text("cnpj"),
+  telefone: text("telefone"),
+  email: text("email"),
+  whatsapp: text("whatsapp"),
+  descricao: text("descricao"),
+  avaliacaoMedia: real("avaliacao_media").default(0),
+  totalAvaliacoes: integer("total_avaliacoes").default(0),
+  ativo: boolean("ativo").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFornecedorMarketplaceSchema = createInsertSchema(fornecedoresMarketplace).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertFornecedorMarketplace = z.infer<typeof insertFornecedorMarketplaceSchema>;
+export type FornecedorMarketplace = typeof fornecedoresMarketplace.$inferSelect;
+
+// Unidade de Preco
+export const unidadePrecoOptions = ["avulso", "mensal", "semanal", "anual"] as const;
+export type UnidadePreco = (typeof unidadePrecoOptions)[number];
+
+// Ofertas
+export const ofertas = pgTable("ofertas", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: uuid("condominium_id").notNull().references(() => condominiums.id),
+  servicoId: uuid("servico_id").notNull().references(() => servicos.id),
+  fornecedorId: uuid("fornecedor_id").notNull().references(() => fornecedoresMarketplace.id),
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao"),
+  precoBase: real("preco_base"),
+  recorrente: boolean("recorrente").default(false),
+  unidadePreco: text("unidade_preco").$type<UnidadePreco>().default("avulso"),
+  ativo: boolean("ativo").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertOfertaSchema = createInsertSchema(ofertas).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertOferta = z.infer<typeof insertOfertaSchema>;
+export type Oferta = typeof ofertas.$inferSelect;
+
+// Status de Contratacao
+export const statusContratacaoOptions = ["solicitado", "aceito", "em_execucao", "concluido", "cancelado"] as const;
+export type StatusContratacao = (typeof statusContratacaoOptions)[number];
+
+// Contratacoes
+export const contratacoes = pgTable("contratacoes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: uuid("condominium_id").notNull().references(() => condominiums.id),
+  moradorId: uuid("morador_id").notNull().references(() => moradores.id),
+  ofertaId: uuid("oferta_id").notNull().references(() => ofertas.id),
+  status: text("status").notNull().$type<StatusContratacao>().default("solicitado"),
+  dataSolicitacao: timestamp("data_solicitacao").defaultNow(),
+  dataAceite: timestamp("data_aceite"),
+  dataConclusao: timestamp("data_conclusao"),
+  avaliacao: integer("avaliacao"),
+  comentarioAvaliacao: text("comentario_avaliacao"),
+  observacoes: text("observacoes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertContratacaoSchema = createInsertSchema(contratacoes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertContratacao = z.infer<typeof insertContratacaoSchema>;
+export type Contratacao = typeof contratacoes.$inferSelect;
