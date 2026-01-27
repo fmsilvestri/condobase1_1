@@ -41,6 +41,7 @@ import {
   insertFaqSchema,
   faqCategories,
   insertInsurancePolicySchema,
+  insertLegalChecklistSchema,
 } from "../../shared/schema";
 
 import { z } from "zod";
@@ -2240,6 +2241,64 @@ router.delete("/insurance/policies/:id", requireSindicoOrAdmin, async (req, res)
     res.status(204).send();
   } catch (error: any) {
     res.status(500).json({ error: "Failed to delete policy", details: error?.message });
+  }
+});
+
+// Legal Checklist Routes
+router.get("/legal-checklist", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const items = await storage.getLegalChecklist(condominiumId);
+    res.json(items);
+  } catch (error: any) {
+    res.status(500).json({ error: "Failed to fetch legal checklist", details: error?.message });
+  }
+});
+
+router.post("/legal-checklist", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condominium ID required" });
+    }
+    const validation = insertLegalChecklistSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+    }
+    const userId = (req as any).userId;
+    const data = { ...validation.data, condominiumId, createdBy: userId };
+    const item = await storage.createLegalChecklistItem(data);
+    res.status(201).json(item);
+  } catch (error: any) {
+    res.status(500).json({ error: "Failed to create checklist item", details: error?.message });
+  }
+});
+
+router.patch("/legal-checklist/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const validation = insertLegalChecklistSchema.partial().safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+    }
+    const item = await storage.updateLegalChecklistItem(req.params.id, validation.data);
+    if (!item) {
+      return res.status(404).json({ error: "Item not found" });
+    }
+    res.json(item);
+  } catch (error: any) {
+    res.status(500).json({ error: "Failed to update checklist item", details: error?.message });
+  }
+});
+
+router.delete("/legal-checklist/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const deleted = await storage.deleteLegalChecklistItem(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ error: "Item not found" });
+    }
+    res.status(204).send();
+  } catch (error: any) {
+    res.status(500).json({ error: "Failed to delete checklist item", details: error?.message });
   }
 });
 
