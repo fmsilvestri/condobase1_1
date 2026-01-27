@@ -71,6 +71,8 @@ import {
   insertFornecedorMarketplaceSchema,
   insertOfertaSchema,
   insertContratacaoSchema,
+  insertAvaliacaoSchema,
+  insertVeiculoSchema,
 } from "@shared/schema";
 
 import { z } from "zod";
@@ -4164,23 +4166,31 @@ export async function registerRoutes(
       const fornecedores = await storage.getFornecedoresMarketplace(req.condominiumId);
       const categorias = await storage.getCategoriasServicos(req.condominiumId);
       
-      // Enriquecer ofertas com dados do servico e fornecedor
-      const ofertasEnriquecidas = ofertasAtivas.map(oferta => {
-        const servico = servicos.find(s => s.id === oferta.servicoId);
-        const fornecedor = fornecedores.find(f => f.id === oferta.fornecedorId);
-        const categoria = servico ? categorias.find(c => c.id === servico.categoriaId) : null;
-        
-        return {
-          ...oferta,
-          servico,
-          fornecedor,
-          categoria,
-        };
-      });
+      // Filtrar apenas fornecedores aprovados
+      const fornecedoresAprovados = fornecedores.filter(f => f.statusAprovacao === "aprovado" && f.ativo);
+      const fornecedoresAprovadosIds = new Set(fornecedoresAprovados.map(f => f.id));
+      
+      // Enriquecer ofertas com dados do servico e fornecedor (apenas de fornecedores aprovados)
+      const ofertasEnriquecidas = ofertasAtivas
+        .filter(o => fornecedoresAprovadosIds.has(o.fornecedorId))
+        .map(oferta => {
+          const servico = servicos.find(s => s.id === oferta.servicoId);
+          const fornecedor = fornecedoresAprovados.find(f => f.id === oferta.fornecedorId);
+          const categoria = servico ? categorias.find(c => c.id === servico.categoriaId) : null;
+          
+          return {
+            ...oferta,
+            servico,
+            fornecedor,
+            categoria,
+          };
+        });
       
       // Se tiver moradorId, ordenar por relevancia
       if (moradorId) {
         const morador = await storage.getMoradorById(moradorId);
+        const veiculos = await storage.getVeiculosByMorador(moradorId);
+        
         if (morador) {
           // Ordenar ofertas por relevancia baseado no perfil do morador
           ofertasEnriquecidas.sort((a, b) => {
@@ -4190,6 +4200,14 @@ export async function registerRoutes(
             // Se morador tem pet, priorizar servicos de pet
             if (morador.temPet && a.servico?.tipoServico === "pet") scoreA += 10;
             if (morador.temPet && b.servico?.tipoServico === "pet") scoreB += 10;
+            
+            // Se morador tem veiculo, priorizar servicos de veiculo
+            if (veiculos.length > 0 && a.servico?.tipoServico === "veiculo") scoreA += 10;
+            if (veiculos.length > 0 && b.servico?.tipoServico === "veiculo") scoreB += 10;
+            
+            // Se inquilino, priorizar servicos de limpeza
+            if (morador.tipoMorador === "inquilino" && a.servico?.tipoServico === "limpeza") scoreA += 5;
+            if (morador.tipoMorador === "inquilino" && b.servico?.tipoServico === "limpeza") scoreB += 5;
             
             // Priorizar fornecedores melhor avaliados
             scoreA += (a.fornecedor?.avaliacaoMedia || 0) * 2;
@@ -4203,6 +4221,264 @@ export async function registerRoutes(
       res.json(ofertasEnriquecidas);
     } catch (error: any) {
       res.status(500).json({ error: "Falha ao buscar marketplace" });
+    }
+  });
+
+  // ========== AVALIACOES ==========
+
+  app.get("/api/avaliacoes", requireGestao, async (req, res) => {
+    try {
+      const avaliacoes = await storage.getAvaliacoes(req.condominiumId);
+      res.json(avaliacoes);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar avaliacoes" });
+    }
+  });
+
+  app.get("/api/avaliacoes/:id", requireGestao, async (req, res) => {
+    try {
+      const avaliacao = await storage.getAvaliacaoById(req.params.id);
+      if (!avaliacao) {
+        return res.status(404).json({ error: "Avaliacao nao encontrada" });
+      }
+      res.json(avaliacao);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar avaliacao" });
+    }
+  });
+
+  app.get("/api/avaliacoes/fornecedor/:fornecedorId", requireGestao, async (req, res) => {
+    try {
+      const avaliacoes = await storage.getAvaliacoesByFornecedor(req.params.fornecedorId);
+      res.json(avaliacoes);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar avaliacoes do fornecedor" });
+    }
+  });
+
+  app.post("/api/avaliacoes", requireGestao, async (req, res) => {
+    try {
+      const validatedData = insertAvaliacaoSchema.parse({
+        ...req.body,
+        condominiumId: req.condominiumId,
+        dataAvaliacao: new Date(),
+      });
+      const avaliacao = await storage.createAvaliacao(validatedData);
+      res.status(201).json(avaliacao);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados invalidos", details: error.errors });
+      }
+      res.status(500).json({ error: "Falha ao criar avaliacao" });
+    }
+  });
+
+  app.patch("/api/avaliacoes/:id", requireGestao, async (req, res) => {
+    try {
+      const avaliacao = await storage.updateAvaliacao(req.params.id, req.body);
+      if (!avaliacao) {
+        return res.status(404).json({ error: "Avaliacao nao encontrada" });
+      }
+      res.json(avaliacao);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao atualizar avaliacao" });
+    }
+  });
+
+  app.delete("/api/avaliacoes/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteAvaliacao(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao excluir avaliacao" });
+    }
+  });
+
+  // ========== VEICULOS ==========
+
+  app.get("/api/veiculos", requireGestao, async (req, res) => {
+    try {
+      const veiculos = await storage.getVeiculos(req.condominiumId);
+      res.json(veiculos);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar veiculos" });
+    }
+  });
+
+  app.get("/api/veiculos/:id", requireGestao, async (req, res) => {
+    try {
+      const veiculo = await storage.getVeiculoById(req.params.id);
+      if (!veiculo) {
+        return res.status(404).json({ error: "Veiculo nao encontrado" });
+      }
+      res.json(veiculo);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar veiculo" });
+    }
+  });
+
+  app.get("/api/veiculos/morador/:moradorId", requireGestao, async (req, res) => {
+    try {
+      const veiculos = await storage.getVeiculosByMorador(req.params.moradorId);
+      res.json(veiculos);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar veiculos do morador" });
+    }
+  });
+
+  app.post("/api/veiculos", requireGestao, async (req, res) => {
+    try {
+      const validatedData = insertVeiculoSchema.parse({
+        ...req.body,
+        condominiumId: req.condominiumId,
+      });
+      const veiculo = await storage.createVeiculo(validatedData);
+      res.status(201).json(veiculo);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados invalidos", details: error.errors });
+      }
+      res.status(500).json({ error: "Falha ao criar veiculo" });
+    }
+  });
+
+  app.patch("/api/veiculos/:id", requireGestao, async (req, res) => {
+    try {
+      const veiculo = await storage.updateVeiculo(req.params.id, req.body);
+      if (!veiculo) {
+        return res.status(404).json({ error: "Veiculo nao encontrado" });
+      }
+      res.json(veiculo);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao atualizar veiculo" });
+    }
+  });
+
+  app.delete("/api/veiculos/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteVeiculo(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao excluir veiculo" });
+    }
+  });
+
+  // ========== SUPPLIER APPROVAL ==========
+
+  app.patch("/api/fornecedores-marketplace/:id/aprovar", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const fornecedor = await storage.aprovarFornecedor(req.params.id);
+      if (!fornecedor) {
+        return res.status(404).json({ error: "Fornecedor nao encontrado" });
+      }
+      res.json(fornecedor);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao aprovar fornecedor" });
+    }
+  });
+
+  app.patch("/api/fornecedores-marketplace/:id/bloquear", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const { motivo } = req.body;
+      const fornecedor = await storage.bloquearFornecedor(req.params.id, motivo || "Bloqueado pelo administrador");
+      if (!fornecedor) {
+        return res.status(404).json({ error: "Fornecedor nao encontrado" });
+      }
+      res.json(fornecedor);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao bloquear fornecedor" });
+    }
+  });
+
+  app.get("/api/fornecedores-marketplace/status/:status", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const fornecedores = await storage.getFornecedoresByStatus(req.condominiumId, req.params.status);
+      res.json(fornecedores);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar fornecedores por status" });
+    }
+  });
+
+  // ========== MARKETPLACE REPORTS ==========
+
+  app.get("/api/marketplace/relatorios", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const relatorios = await storage.getMarketplaceRelatorios(req.condominiumId);
+      res.json(relatorios);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar relatorios" });
+    }
+  });
+
+  // ========== SUPPLIER PORTAL ==========
+
+  app.get("/api/fornecedor/perfil", requireAuth, async (req, res) => {
+    try {
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Usuario nao autenticado" });
+      }
+      const fornecedor = await storage.getFornecedorByUserId(userId);
+      if (!fornecedor) {
+        return res.status(404).json({ error: "Perfil de fornecedor nao encontrado" });
+      }
+      res.json(fornecedor);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar perfil do fornecedor" });
+    }
+  });
+
+  app.get("/api/fornecedor/ofertas", requireAuth, async (req, res) => {
+    try {
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Usuario nao autenticado" });
+      }
+      const ofertas = await storage.getOfertasByFornecedorUserId(userId);
+      res.json(ofertas);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar ofertas do fornecedor" });
+    }
+  });
+
+  app.get("/api/fornecedor/contratacoes", requireAuth, async (req, res) => {
+    try {
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Usuario nao autenticado" });
+      }
+      const contratacoes = await storage.getContratacoesByFornecedorUserId(userId);
+      res.json(contratacoes);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar contratacoes do fornecedor" });
+    }
+  });
+
+  app.get("/api/fornecedor/avaliacoes", requireAuth, async (req, res) => {
+    try {
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Usuario nao autenticado" });
+      }
+      const fornecedor = await storage.getFornecedorByUserId(userId);
+      if (!fornecedor) {
+        return res.status(404).json({ error: "Perfil de fornecedor nao encontrado" });
+      }
+      const avaliacoes = await storage.getAvaliacoesByFornecedor(fornecedor.id);
+      res.json(avaliacoes);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar avaliacoes do fornecedor" });
+    }
+  });
+
+  // ========== RECOMENDACOES INTELIGENTES ==========
+
+  app.get("/api/marketplace/recomendacoes/:moradorId", requireGestao, async (req, res) => {
+    try {
+      const recomendacoes = await storage.getMarketplaceRecomendacoes(req.params.moradorId, req.condominiumId);
+      res.json(recomendacoes);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar recomendacoes" });
     }
   });
 
