@@ -1,0 +1,163 @@
+Crie um MÓDULO COMPLETO DE MARKETPLACE DE SERVIÇOS CONDOMINIAIS,
+integrado aos dados cadastrais dos moradores e preparado para escalar como SaaS.
+
+O marketplace deve ser inteligente, automatizado e orientado a dados do morador
+(pets, veículos, unidade, perfil de ocupação).
+
+────────────────────────────────────
+STACK OBRIGATÓRIA
+────────────────────────────────────
+- Backend: Node.js + Express
+- Banco: Supabase (PostgreSQL + Auth + Storage + RLS)
+- Frontend: React
+- Autenticação: Supabase Auth
+- Controle de acesso: RBAC (Role Based Access Control)
+
+────────────────────────────────────
+OBJETIVO DO MÓDULO
+────────────────────────────────────
+Criar um marketplace interno do condomínio onde:
+- moradores veem serviços relevantes automaticamente
+- síndico/admin gerenciam fornecedores e ofertas
+- fornecedores recebem pedidos e atualizam status
+- o sistema gera valor, recorrência e monetização
+
+────────────────────────────────────
+FUNCIONALIDADES PRINCIPAIS
+────────────────────────────────────
+
+### PARA MORADORES
+- Marketplace personalizado com base em:
+  - pets cadastrados (cachorro, gato, porte)
+  - veículos cadastrados
+  - tipo de unidade (alugada, própria, vazia)
+- Sugestão automática de serviços
+- Filtros inteligentes (pet, veículo, limpeza, recorrência)
+- Contratação em 1 clique
+- Acompanhamento do status do serviço
+- Histórico de serviços por unidade
+- Avaliação do fornecedor (nota e comentário)
+
+### PARA SÍNDICO / ADMINISTRADOR
+- CRUD de:
+  - categorias de serviços
+  - serviços
+  - fornecedores
+  - ofertas
+- Aprovação e bloqueio de fornecedores
+- Relatórios:
+  - serviços mais contratados
+  - fornecedores melhor avaliados
+  - economia gerada ao condomínio
+- Definição de regras do condomínio
+- Visualização global das contratações
+
+### PARA FORNECEDORES
+- Acesso restrito ao seu painel
+- Gestão das próprias ofertas
+- Atualização do status das contratações
+- Visualização de avaliações
+
+────────────────────────────────────
+MODELO DE DADOS (RESUMO)
+────────────────────────────────────
+Usar e integrar:
+- moradores
+- pets
+- veículos
+
+Criar:
+- categorias_servicos
+- servicos (com requisitos em JSONB)
+- fornecedores
+- ofertas
+- contratacoes
+- avaliacoes
+- comissoes (opcional)
+
+────────────────────────────────────
+LÓGICA INTELIGENTE (CORE DO MÓDULO)
+────────────────────────────────────
+Criar um serviço de recomendação que:
+- cruza os requisitos do serviço com os dados do morador
+- sugere serviços automaticamente, por exemplo:
+  - tem pet → banho, tosa, veterinário
+  - tem veículo → lavagem, manutenção
+  - unidade alugada → limpeza recorrente
+- prioriza serviços mais usados no condomínio
+- remove ofertas incompatíveis
+
+────────────────────────────────────
+PERMISSÕES (RBAC)
+────────────────────────────────────
+- administrador:
+  - acesso total a tudo
+- sindico:
+  - gerencia marketplace e relatórios
+- fornecedor:
+  - gerencia apenas suas ofertas e pedidos
+- morador:
+  - visualiza marketplace
+  - contrata serviços
+  - avalia fornecedores
+
+────────────────────────────────────
+BACKEND (APIs REST)
+────────────────────────────────────
+
+Marketplace:
+- GET /marketplace (serviços sugeridos)
+- GET /servicos
+- GET /ofertas/:servico_id
+
+Admin:
+- POST /categorias
+- POST /servicos
+- POST /fornecedores
+- POST /ofertas
+
+Contratações:
+- POST /contratacoes
+- GET /contratacoes/morador
+- PUT /contratacoes/:id/status
+
+Avaliações:
+- POST /avaliacoes
+- GET /avaliacoes/fornecedor/:id
+
+────────────────────────────────────
+FRONTEND (REACT)
+────────────────────────────────────
+- Tela de marketplace com cards dinâmicos
+- Badges automáticas (Recomendado para você)
+- Tela de contratação simples
+- Painel administrativo completo
+- Painel do fornecedor
+- Controle de exibição por perfil (RBAC)
+
+────────────────────────────────────
+SEGURANÇA
+────────────────────────────────────
+- Usar RLS no Supabase
+- Morador só vê seus dados
+- Fornecedor só vê suas ofertas e pedidos
+- Admin/Síndico veem tudo
+
+────────────────────────────────────
+DIFERENCIAIS IMPORTANTES
+────────────────────────────────────
+- Serviços recorrentes
+- Preparado para:
+  - WhatsApp Bot
+  - Portaria / controle de acesso
+  - Comissão por serviço
+  - IA de recomendação futura
+
+────────────────────────────────────
+RESULTADO ESPERADO
+────────────────────────────────────
+- Código funcional
+- Marketplace inteligente
+- CRUD completo
+- Pronto para produção
+- Estrutura modular e escalável

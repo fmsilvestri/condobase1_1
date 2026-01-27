@@ -1764,6 +1764,10 @@ export const insertServicoSchema = createInsertSchema(servicos).omit({
 export type InsertServico = z.infer<typeof insertServicoSchema>;
 export type Servico = typeof servicos.$inferSelect;
 
+// Status de Aprovacao do Fornecedor
+export const statusAprovacaoFornecedorOptions = ["pendente", "aprovado", "bloqueado"] as const;
+export type StatusAprovacaoFornecedor = (typeof statusAprovacaoFornecedorOptions)[number];
+
 // Fornecedores
 export const fornecedoresMarketplace = pgTable("fornecedores_marketplace", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -1777,6 +1781,9 @@ export const fornecedoresMarketplace = pgTable("fornecedores_marketplace", {
   descricao: text("descricao"),
   avaliacaoMedia: real("avaliacao_media").default(0),
   totalAvaliacoes: integer("total_avaliacoes").default(0),
+  statusAprovacao: text("status_aprovacao").$type<StatusAprovacaoFornecedor>().default("pendente"),
+  motivoBloqueio: text("motivo_bloqueio"),
+  userId: uuid("user_id"),
   ativo: boolean("ativo").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -1849,3 +1856,58 @@ export const insertContratacaoSchema = createInsertSchema(contratacoes).omit({
 
 export type InsertContratacao = z.infer<typeof insertContratacaoSchema>;
 export type Contratacao = typeof contratacoes.$inferSelect;
+
+// ========== AVALIACOES ==========
+
+export const avaliacoes = pgTable("avaliacoes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: uuid("condominium_id").notNull().references(() => condominiums.id),
+  contratacaoId: uuid("contratacao_id").notNull().references(() => contratacoes.id),
+  fornecedorId: uuid("fornecedor_id").notNull().references(() => fornecedoresMarketplace.id),
+  moradorId: uuid("morador_id").notNull().references(() => moradores.id),
+  nota: integer("nota").notNull(),
+  comentario: text("comentario"),
+  resposta: text("resposta"),
+  dataAvaliacao: timestamp("data_avaliacao").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAvaliacaoSchema = createInsertSchema(avaliacoes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAvaliacao = z.infer<typeof insertAvaliacaoSchema>;
+export type Avaliacao = typeof avaliacoes.$inferSelect;
+
+// ========== VEICULOS DOS MORADORES ==========
+
+export const tipoVeiculoOptions = ["carro", "moto", "bicicleta", "outro"] as const;
+export type TipoVeiculo = (typeof tipoVeiculoOptions)[number];
+
+export const veiculos = pgTable("veiculos", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: uuid("condominium_id").notNull().references(() => condominiums.id),
+  moradorId: uuid("morador_id").notNull().references(() => moradores.id),
+  tipoVeiculo: text("tipo_veiculo").notNull().$type<TipoVeiculo>(),
+  marca: text("marca"),
+  modelo: text("modelo"),
+  cor: text("cor"),
+  placa: text("placa"),
+  anoFabricacao: text("ano_fabricacao"),
+  vagaEstacionamento: text("vaga_estacionamento"),
+  ativo: boolean("ativo").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertVeiculoSchema = createInsertSchema(veiculos).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertVeiculo = z.infer<typeof insertVeiculoSchema>;
+export type Veiculo = typeof veiculos.$inferSelect;
