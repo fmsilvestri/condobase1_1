@@ -133,6 +133,11 @@ import {
   processExecutions as processExecutionsTable,
   parcels as parcelsTable,
   moradores as moradoresTable,
+  categoriasServicos as categoriasServicosTable,
+  servicos as servicosTable,
+  fornecedoresMarketplace as fornecedoresMarketplaceTable,
+  ofertas as ofertasTable,
+  contratacoes as contratacoesTable,
   type AutomationRule,
   type InsertAutomationRule,
   type ScheduledTask,
@@ -149,6 +154,16 @@ import {
   type InsertParcel,
   type Morador,
   type InsertMorador,
+  type CategoriaServico,
+  type InsertCategoriaServico,
+  type Servico,
+  type InsertServico,
+  type FornecedorMarketplace,
+  type InsertFornecedorMarketplace,
+  type Oferta,
+  type InsertOferta,
+  type Contratacao,
+  type InsertContratacao,
 } from "@shared/schema";
 
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
@@ -1979,6 +1994,203 @@ export class SupabaseStorage implements IStorage {
 
   async deleteMorador(id: string): Promise<boolean> {
     await db.delete(moradoresTable).where(eq(moradoresTable.id, id));
+    return true;
+  }
+
+  // ========== MARKETPLACE ==========
+
+  // Categorias de Servicos
+  async getCategoriasServicos(condominiumId?: string): Promise<CategoriaServico[]> {
+    if (condominiumId) {
+      return db.select().from(categoriasServicosTable)
+        .where(eq(categoriasServicosTable.condominiumId, condominiumId))
+        .orderBy(categoriasServicosTable.nome);
+    }
+    return db.select().from(categoriasServicosTable).orderBy(categoriasServicosTable.nome);
+  }
+
+  async getCategoriaServicoById(id: string): Promise<CategoriaServico | undefined> {
+    const [data] = await db.select().from(categoriasServicosTable).where(eq(categoriasServicosTable.id, id));
+    return data;
+  }
+
+  async createCategoriaServico(categoria: InsertCategoriaServico): Promise<CategoriaServico> {
+    const [data] = await db.insert(categoriasServicosTable).values(categoria).returning();
+    return data;
+  }
+
+  async updateCategoriaServico(id: string, categoria: Partial<InsertCategoriaServico>): Promise<CategoriaServico | undefined> {
+    const [data] = await db.update(categoriasServicosTable)
+      .set({ ...categoria, updatedAt: new Date() })
+      .where(eq(categoriasServicosTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteCategoriaServico(id: string): Promise<boolean> {
+    await db.delete(categoriasServicosTable).where(eq(categoriasServicosTable.id, id));
+    return true;
+  }
+
+  // Servicos
+  async getServicos(condominiumId?: string): Promise<Servico[]> {
+    if (condominiumId) {
+      return db.select().from(servicosTable)
+        .where(eq(servicosTable.condominiumId, condominiumId))
+        .orderBy(servicosTable.nome);
+    }
+    return db.select().from(servicosTable).orderBy(servicosTable.nome);
+  }
+
+  async getServicoById(id: string): Promise<Servico | undefined> {
+    const [data] = await db.select().from(servicosTable).where(eq(servicosTable.id, id));
+    return data;
+  }
+
+  async getServicosByCategoria(categoriaId: string): Promise<Servico[]> {
+    return db.select().from(servicosTable)
+      .where(eq(servicosTable.categoriaId, categoriaId))
+      .orderBy(servicosTable.nome);
+  }
+
+  async createServico(servico: InsertServico): Promise<Servico> {
+    const [data] = await db.insert(servicosTable).values(servico).returning();
+    return data;
+  }
+
+  async updateServico(id: string, servico: Partial<InsertServico>): Promise<Servico | undefined> {
+    const [data] = await db.update(servicosTable)
+      .set({ ...servico, updatedAt: new Date() })
+      .where(eq(servicosTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteServico(id: string): Promise<boolean> {
+    await db.delete(servicosTable).where(eq(servicosTable.id, id));
+    return true;
+  }
+
+  // Fornecedores Marketplace
+  async getFornecedoresMarketplace(condominiumId?: string): Promise<FornecedorMarketplace[]> {
+    if (condominiumId) {
+      return db.select().from(fornecedoresMarketplaceTable)
+        .where(eq(fornecedoresMarketplaceTable.condominiumId, condominiumId))
+        .orderBy(fornecedoresMarketplaceTable.nomeFantasia);
+    }
+    return db.select().from(fornecedoresMarketplaceTable).orderBy(fornecedoresMarketplaceTable.nomeFantasia);
+  }
+
+  async getFornecedorMarketplaceById(id: string): Promise<FornecedorMarketplace | undefined> {
+    const [data] = await db.select().from(fornecedoresMarketplaceTable).where(eq(fornecedoresMarketplaceTable.id, id));
+    return data;
+  }
+
+  async createFornecedorMarketplace(fornecedor: InsertFornecedorMarketplace): Promise<FornecedorMarketplace> {
+    const [data] = await db.insert(fornecedoresMarketplaceTable).values(fornecedor).returning();
+    return data;
+  }
+
+  async updateFornecedorMarketplace(id: string, fornecedor: Partial<InsertFornecedorMarketplace>): Promise<FornecedorMarketplace | undefined> {
+    const [data] = await db.update(fornecedoresMarketplaceTable)
+      .set({ ...fornecedor, updatedAt: new Date() })
+      .where(eq(fornecedoresMarketplaceTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteFornecedorMarketplace(id: string): Promise<boolean> {
+    await db.delete(fornecedoresMarketplaceTable).where(eq(fornecedoresMarketplaceTable.id, id));
+    return true;
+  }
+
+  // Ofertas
+  async getOfertas(condominiumId?: string): Promise<Oferta[]> {
+    if (condominiumId) {
+      return db.select().from(ofertasTable)
+        .where(eq(ofertasTable.condominiumId, condominiumId))
+        .orderBy(desc(ofertasTable.createdAt));
+    }
+    return db.select().from(ofertasTable).orderBy(desc(ofertasTable.createdAt));
+  }
+
+  async getOfertaById(id: string): Promise<Oferta | undefined> {
+    const [data] = await db.select().from(ofertasTable).where(eq(ofertasTable.id, id));
+    return data;
+  }
+
+  async getOfertasByServico(servicoId: string): Promise<Oferta[]> {
+    return db.select().from(ofertasTable)
+      .where(eq(ofertasTable.servicoId, servicoId))
+      .orderBy(desc(ofertasTable.createdAt));
+  }
+
+  async getOfertasByFornecedor(fornecedorId: string): Promise<Oferta[]> {
+    return db.select().from(ofertasTable)
+      .where(eq(ofertasTable.fornecedorId, fornecedorId))
+      .orderBy(desc(ofertasTable.createdAt));
+  }
+
+  async createOferta(oferta: InsertOferta): Promise<Oferta> {
+    const [data] = await db.insert(ofertasTable).values(oferta).returning();
+    return data;
+  }
+
+  async updateOferta(id: string, oferta: Partial<InsertOferta>): Promise<Oferta | undefined> {
+    const [data] = await db.update(ofertasTable)
+      .set({ ...oferta, updatedAt: new Date() })
+      .where(eq(ofertasTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteOferta(id: string): Promise<boolean> {
+    await db.delete(ofertasTable).where(eq(ofertasTable.id, id));
+    return true;
+  }
+
+  // Contratacoes
+  async getContratacoes(condominiumId?: string): Promise<Contratacao[]> {
+    if (condominiumId) {
+      return db.select().from(contratacoesTable)
+        .where(eq(contratacoesTable.condominiumId, condominiumId))
+        .orderBy(desc(contratacoesTable.createdAt));
+    }
+    return db.select().from(contratacoesTable).orderBy(desc(contratacoesTable.createdAt));
+  }
+
+  async getContratacaoById(id: string): Promise<Contratacao | undefined> {
+    const [data] = await db.select().from(contratacoesTable).where(eq(contratacoesTable.id, id));
+    return data;
+  }
+
+  async getContratacoesByMorador(moradorId: string): Promise<Contratacao[]> {
+    return db.select().from(contratacoesTable)
+      .where(eq(contratacoesTable.moradorId, moradorId))
+      .orderBy(desc(contratacoesTable.createdAt));
+  }
+
+  async getContratacoesByOferta(ofertaId: string): Promise<Contratacao[]> {
+    return db.select().from(contratacoesTable)
+      .where(eq(contratacoesTable.ofertaId, ofertaId))
+      .orderBy(desc(contratacoesTable.createdAt));
+  }
+
+  async createContratacao(contratacao: InsertContratacao): Promise<Contratacao> {
+    const [data] = await db.insert(contratacoesTable).values(contratacao).returning();
+    return data;
+  }
+
+  async updateContratacao(id: string, contratacao: Partial<InsertContratacao>): Promise<Contratacao | undefined> {
+    const [data] = await db.update(contratacoesTable)
+      .set({ ...contratacao, updatedAt: new Date() })
+      .where(eq(contratacoesTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteContratacao(id: string): Promise<boolean> {
+    await db.delete(contratacoesTable).where(eq(contratacoesTable.id, id));
     return true;
   }
 }

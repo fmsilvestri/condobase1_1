@@ -97,6 +97,16 @@ import {
   type InsertParcel,
   type Morador,
   type InsertMorador,
+  type CategoriaServico,
+  type InsertCategoriaServico,
+  type Servico,
+  type InsertServico,
+  type FornecedorMarketplace,
+  type InsertFornecedorMarketplace,
+  type Oferta,
+  type InsertOferta,
+  type Contratacao,
+  type InsertContratacao,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -404,6 +414,48 @@ export interface IStorage {
   createMorador(morador: InsertMorador): Promise<Morador>;
   updateMorador(id: string, morador: Partial<InsertMorador>): Promise<Morador | undefined>;
   deleteMorador(id: string): Promise<boolean>;
+
+  // ========== MARKETPLACE ==========
+
+  // Categorias de Servicos
+  getCategoriasServicos(condominiumId?: string): Promise<CategoriaServico[]>;
+  getCategoriaServicoById(id: string): Promise<CategoriaServico | undefined>;
+  createCategoriaServico(categoria: InsertCategoriaServico): Promise<CategoriaServico>;
+  updateCategoriaServico(id: string, categoria: Partial<InsertCategoriaServico>): Promise<CategoriaServico | undefined>;
+  deleteCategoriaServico(id: string): Promise<boolean>;
+
+  // Servicos
+  getServicos(condominiumId?: string): Promise<Servico[]>;
+  getServicoById(id: string): Promise<Servico | undefined>;
+  getServicosByCategoria(categoriaId: string): Promise<Servico[]>;
+  createServico(servico: InsertServico): Promise<Servico>;
+  updateServico(id: string, servico: Partial<InsertServico>): Promise<Servico | undefined>;
+  deleteServico(id: string): Promise<boolean>;
+
+  // Fornecedores Marketplace
+  getFornecedoresMarketplace(condominiumId?: string): Promise<FornecedorMarketplace[]>;
+  getFornecedorMarketplaceById(id: string): Promise<FornecedorMarketplace | undefined>;
+  createFornecedorMarketplace(fornecedor: InsertFornecedorMarketplace): Promise<FornecedorMarketplace>;
+  updateFornecedorMarketplace(id: string, fornecedor: Partial<InsertFornecedorMarketplace>): Promise<FornecedorMarketplace | undefined>;
+  deleteFornecedorMarketplace(id: string): Promise<boolean>;
+
+  // Ofertas
+  getOfertas(condominiumId?: string): Promise<Oferta[]>;
+  getOfertaById(id: string): Promise<Oferta | undefined>;
+  getOfertasByServico(servicoId: string): Promise<Oferta[]>;
+  getOfertasByFornecedor(fornecedorId: string): Promise<Oferta[]>;
+  createOferta(oferta: InsertOferta): Promise<Oferta>;
+  updateOferta(id: string, oferta: Partial<InsertOferta>): Promise<Oferta | undefined>;
+  deleteOferta(id: string): Promise<boolean>;
+
+  // Contratacoes
+  getContratacoes(condominiumId?: string): Promise<Contratacao[]>;
+  getContratacaoById(id: string): Promise<Contratacao | undefined>;
+  getContratacoesByMorador(moradorId: string): Promise<Contratacao[]>;
+  getContratacoesByOferta(ofertaId: string): Promise<Contratacao[]>;
+  createContratacao(contratacao: InsertContratacao): Promise<Contratacao>;
+  updateContratacao(id: string, contratacao: Partial<InsertContratacao>): Promise<Contratacao | undefined>;
+  deleteContratacao(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -1376,6 +1428,58 @@ export class MemStorage implements IStorage {
   }
   async updateMorador(): Promise<Morador | undefined> { return undefined; }
   async deleteMorador(): Promise<boolean> { return true; }
+
+  // ========== MARKETPLACE ==========
+  
+  // Categorias de Servicos
+  async getCategoriasServicos(): Promise<CategoriaServico[]> { return []; }
+  async getCategoriaServicoById(): Promise<CategoriaServico | undefined> { return undefined; }
+  async createCategoriaServico(categoria: InsertCategoriaServico): Promise<CategoriaServico> {
+    return { ...categoria, id: randomUUID(), createdAt: new Date(), updatedAt: new Date() } as CategoriaServico;
+  }
+  async updateCategoriaServico(): Promise<CategoriaServico | undefined> { return undefined; }
+  async deleteCategoriaServico(): Promise<boolean> { return true; }
+
+  // Servicos
+  async getServicos(): Promise<Servico[]> { return []; }
+  async getServicoById(): Promise<Servico | undefined> { return undefined; }
+  async getServicosByCategoria(): Promise<Servico[]> { return []; }
+  async createServico(servico: InsertServico): Promise<Servico> {
+    return { ...servico, id: randomUUID(), createdAt: new Date(), updatedAt: new Date() } as Servico;
+  }
+  async updateServico(): Promise<Servico | undefined> { return undefined; }
+  async deleteServico(): Promise<boolean> { return true; }
+
+  // Fornecedores Marketplace
+  async getFornecedoresMarketplace(): Promise<FornecedorMarketplace[]> { return []; }
+  async getFornecedorMarketplaceById(): Promise<FornecedorMarketplace | undefined> { return undefined; }
+  async createFornecedorMarketplace(fornecedor: InsertFornecedorMarketplace): Promise<FornecedorMarketplace> {
+    return { ...fornecedor, id: randomUUID(), createdAt: new Date(), updatedAt: new Date() } as FornecedorMarketplace;
+  }
+  async updateFornecedorMarketplace(): Promise<FornecedorMarketplace | undefined> { return undefined; }
+  async deleteFornecedorMarketplace(): Promise<boolean> { return true; }
+
+  // Ofertas
+  async getOfertas(): Promise<Oferta[]> { return []; }
+  async getOfertaById(): Promise<Oferta | undefined> { return undefined; }
+  async getOfertasByServico(): Promise<Oferta[]> { return []; }
+  async getOfertasByFornecedor(): Promise<Oferta[]> { return []; }
+  async createOferta(oferta: InsertOferta): Promise<Oferta> {
+    return { ...oferta, id: randomUUID(), createdAt: new Date(), updatedAt: new Date() } as Oferta;
+  }
+  async updateOferta(): Promise<Oferta | undefined> { return undefined; }
+  async deleteOferta(): Promise<boolean> { return true; }
+
+  // Contratacoes
+  async getContratacoes(): Promise<Contratacao[]> { return []; }
+  async getContratacaoById(): Promise<Contratacao | undefined> { return undefined; }
+  async getContratacoesByMorador(): Promise<Contratacao[]> { return []; }
+  async getContratacoesByOferta(): Promise<Contratacao[]> { return []; }
+  async createContratacao(contratacao: InsertContratacao): Promise<Contratacao> {
+    return { ...contratacao, id: randomUUID(), createdAt: new Date(), updatedAt: new Date() } as Contratacao;
+  }
+  async updateContratacao(): Promise<Contratacao | undefined> { return undefined; }
+  async deleteContratacao(): Promise<boolean> { return true; }
 }
 
 export const storage = new MemStorage();
