@@ -997,7 +997,7 @@ export default function TeamManagement() {
                     </DialogDescription>
                   </DialogHeader>
                   <Form {...processForm}>
-                    <form onSubmit={processForm.handleSubmit(handleProcessSubmit)} className="space-y-4">
+                    <form onSubmit={processForm.handleSubmit(handleProcessSubmit, (errors) => console.log("Form validation errors:", errors))} className="space-y-4">
                       <FormField
                         control={processForm.control}
                         name="name"
