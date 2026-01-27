@@ -410,6 +410,150 @@ export default function TeamManagement() {
     return member?.name || "Não encontrado";
   };
 
+  const getMemberWhatsApp = (id: string | null | undefined) => {
+    if (!id) return null;
+    const member = teamMembers.find((m) => m.id === id);
+    return member?.whatsapp || null;
+  };
+
+  const getEquipmentName = (id: string) => {
+    const eq = equipment.find((e) => e.id === id);
+    return eq?.name || "Equipamento não encontrado";
+  };
+
+  const generateProcessPDF = (process: Process) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let y = 20;
+
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("Roteiro de Trabalho", pageWidth / 2, y, { align: "center" });
+    y += 15;
+
+    doc.setFontSize(14);
+    doc.text(process.name, pageWidth / 2, y, { align: "center" });
+    y += 15;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    
+    doc.text(`Categoria: ${categoryLabels[process.category] || process.category}`, 20, y);
+    y += 7;
+    doc.text(`Frequencia: ${frequencyLabels[process.frequency] || process.frequency}`, 20, y);
+    y += 7;
+    doc.text(`Responsavel: ${getMemberName(process.assignedToId)}`, 20, y);
+    y += 7;
+    if (process.estimatedDuration) {
+      doc.text(`Duracao estimada: ${process.estimatedDuration} minutos`, 20, y);
+      y += 7;
+    }
+    y += 5;
+
+    if (process.blocks && process.blocks.length > 0) {
+      doc.setFont("helvetica", "bold");
+      doc.text("Blocos:", 20, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(process.blocks.join(", "), 50, y);
+      y += 7;
+    }
+
+    if (process.floors && process.floors.length > 0) {
+      doc.setFont("helvetica", "bold");
+      doc.text("Andares:", 20, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(process.floors.join(", "), 50, y);
+      y += 7;
+    }
+
+    if (process.equipmentIds && process.equipmentIds.length > 0) {
+      y += 5;
+      doc.setFont("helvetica", "bold");
+      doc.text("Equipamentos:", 20, y);
+      y += 7;
+      doc.setFont("helvetica", "normal");
+      process.equipmentIds.forEach((eqId) => {
+        doc.text(`- ${getEquipmentName(eqId)}`, 25, y);
+        y += 6;
+      });
+    }
+
+    if (process.description) {
+      y += 5;
+      doc.setFont("helvetica", "bold");
+      doc.text("Descricao:", 20, y);
+      y += 7;
+      doc.setFont("helvetica", "normal");
+      const descLines = doc.splitTextToSize(process.description, pageWidth - 40);
+      doc.text(descLines, 20, y);
+      y += descLines.length * 5 + 5;
+    }
+
+    if (process.executionScript) {
+      y += 5;
+      doc.setFont("helvetica", "bold");
+      doc.text("Roteiro de Execucao:", 20, y);
+      y += 7;
+      doc.setFont("helvetica", "normal");
+      const scriptLines = doc.splitTextToSize(process.executionScript, pageWidth - 40);
+      doc.text(scriptLines, 20, y);
+      y += scriptLines.length * 5 + 5;
+    }
+
+    if (process.checklistItems && process.checklistItems.length > 0) {
+      y += 5;
+      doc.setFont("helvetica", "bold");
+      doc.text("Checklist:", 20, y);
+      y += 7;
+      doc.setFont("helvetica", "normal");
+      process.checklistItems.forEach((item, index) => {
+        doc.text(`[ ] ${index + 1}. ${item}`, 25, y);
+        y += 6;
+      });
+    }
+
+    if (process.notes) {
+      y += 5;
+      doc.setFont("helvetica", "bold");
+      doc.text("Observacoes:", 20, y);
+      y += 7;
+      doc.setFont("helvetica", "normal");
+      const notesLines = doc.splitTextToSize(process.notes, pageWidth - 40);
+      doc.text(notesLines, 20, y);
+    }
+
+    doc.setFontSize(8);
+    doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.getHeight() - 10);
+
+    doc.save(`roteiro-${process.name.replace(/\s+/g, "-").toLowerCase()}.pdf`);
+    toast({ title: "PDF gerado com sucesso!" });
+  };
+
+  const shareViaWhatsApp = (process: Process) => {
+    const whatsapp = getMemberWhatsApp(process.assignedToId);
+    if (!whatsapp) {
+      toast({ title: "Funcionário sem WhatsApp cadastrado", variant: "destructive" });
+      return;
+    }
+
+    const cleanNumber = whatsapp.replace(/\D/g, "");
+    const phone = cleanNumber.startsWith("55") ? cleanNumber : `55${cleanNumber}`;
+
+    const message = encodeURIComponent(
+      `*Roteiro de Trabalho*\n\n` +
+      `*${process.name}*\n\n` +
+      `Categoria: ${categoryLabels[process.category] || process.category}\n` +
+      `Frequência: ${frequencyLabels[process.frequency] || process.frequency}\n` +
+      (process.blocks?.length ? `Blocos: ${process.blocks.join(", ")}\n` : "") +
+      (process.floors?.length ? `Andares: ${process.floors.join(", ")}\n` : "") +
+      (process.executionScript ? `\n*Roteiro:*\n${process.executionScript}\n` : "") +
+      (process.checklistItems?.length ? `\n*Checklist:*\n${process.checklistItems.map((item, i) => `${i + 1}. ${item}`).join("\n")}\n` : "") +
+      (process.notes ? `\n*Obs:* ${process.notes}` : "")
+    );
+
+    window.open(`https://wa.me/${phone}?text=${message}`, "_blank");
+  };
+
   return (
     <div className="flex-1 space-y-4 p-4 md:p-6" data-testid="page-team-management">
       <PageHeader
@@ -1159,8 +1303,46 @@ export default function TeamManagement() {
                         {process.estimatedDuration} minutos
                       </div>
                     )}
+                    {process.blocks && process.blocks.length > 0 && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Building2 className="h-3 w-3 text-muted-foreground" />
+                        Blocos: {process.blocks.join(", ")}
+                      </div>
+                    )}
+                    {process.floors && process.floors.length > 0 && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Layers className="h-3 w-3 text-muted-foreground" />
+                        Andares: {process.floors.join(", ")}
+                      </div>
+                    )}
+                    {process.equipmentIds && process.equipmentIds.length > 0 && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Wrench className="h-3 w-3 text-muted-foreground" />
+                        {process.equipmentIds.length} equipamento(s)
+                      </div>
+                    )}
+                    <div className="flex gap-2 pt-2 flex-wrap">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => generateProcessPDF(process)}
+                        data-testid={`button-pdf-process-${process.id}`}
+                      >
+                        <FileText className="h-3 w-3 mr-1" />
+                        PDF
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => shareViaWhatsApp(process)}
+                        data-testid={`button-whatsapp-process-${process.id}`}
+                      >
+                        <Share2 className="h-3 w-3 mr-1" />
+                        WhatsApp
+                      </Button>
+                    </div>
                     {canEdit && (
-                      <div className="flex gap-2 pt-2">
+                      <div className="flex gap-2 pt-2 flex-wrap">
                         <Button
                           variant="outline"
                           size="sm"
