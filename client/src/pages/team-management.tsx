@@ -976,19 +976,18 @@ export default function TeamManagement() {
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-medium">Processos Operacionais</h3>
             {canEdit && (
-              <Dialog open={isProcessDialogOpen} onOpenChange={(open) => {
-                if (!open) {
-                  setEditingProcess(null);
-                  processForm.reset();
-                }
-                setIsProcessDialogOpen(open);
-              }}>
-                <DialogTrigger asChild>
-                  <Button onClick={() => handleOpenProcessDialog()} data-testid="button-add-process">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Novo Processo
-                  </Button>
-                </DialogTrigger>
+              <>
+                <Button onClick={() => handleOpenProcessDialog()} data-testid="button-add-process">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo Processo
+                </Button>
+                <Dialog open={isProcessDialogOpen} onOpenChange={(open) => {
+                  if (!open) {
+                    setEditingProcess(null);
+                    processForm.reset();
+                  }
+                  setIsProcessDialogOpen(open);
+                }}>
                 <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>{editingProcess ? "Editar Processo" : "Novo Processo"}</DialogTitle>
@@ -1257,6 +1256,7 @@ export default function TeamManagement() {
                   </Form>
                 </DialogContent>
               </Dialog>
+              </>
             )}
           </div>
 
