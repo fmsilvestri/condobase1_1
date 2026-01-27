@@ -64,6 +64,7 @@ import {
   insertTeamMemberSchema,
   insertProcessSchema,
   insertProcessExecutionSchema,
+  insertParcelSchema,
 } from "@shared/schema";
 
 import { z } from "zod";
@@ -3604,6 +3605,83 @@ export async function registerRoutes(
       res.status(204).send();
     } catch (error: any) {
       res.status(500).json({ error: "Failed to delete process execution" });
+    }
+  });
+
+  // Parcels - Encomendas
+  app.get("/api/parcels", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      const parcels = await storage.getParcels(condominiumId);
+      res.json(parcels);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar encomendas" });
+    }
+  });
+
+  app.get("/api/parcels/:id", requireGestao, async (req, res) => {
+    try {
+      const parcel = await storage.getParcelById(req.params.id);
+      if (!parcel) {
+        return res.status(404).json({ error: "Encomenda não encontrada" });
+      }
+      res.json(parcel);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar encomenda" });
+    }
+  });
+
+  app.get("/api/parcels/unit/:unit", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) {
+        return res.status(401).json({ error: "Condomínio não selecionado" });
+      }
+      const parcels = await storage.getParcelsByUnit(condominiumId, req.params.unit);
+      res.json(parcels);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar encomendas da unidade" });
+    }
+  });
+
+  app.post("/api/parcels", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) {
+        return res.status(401).json({ error: "Condomínio não selecionado" });
+      }
+      const validation = insertParcelSchema.safeParse({
+        ...req.body,
+        condominiumId,
+      });
+      if (!validation.success) {
+        return res.status(400).json({ error: validation.error.errors });
+      }
+      const parcel = await storage.createParcel(validation.data);
+      res.status(201).json(parcel);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao criar encomenda" });
+    }
+  });
+
+  app.patch("/api/parcels/:id", requireGestao, async (req, res) => {
+    try {
+      const parcel = await storage.updateParcel(req.params.id, req.body);
+      if (!parcel) {
+        return res.status(404).json({ error: "Encomenda não encontrada" });
+      }
+      res.json(parcel);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao atualizar encomenda" });
+    }
+  });
+
+  app.delete("/api/parcels/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteParcel(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao excluir encomenda" });
     }
   });
 
