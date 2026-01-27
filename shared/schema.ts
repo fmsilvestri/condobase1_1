@@ -1617,3 +1617,43 @@ export const insertProcessExecutionSchema = createInsertSchema(processExecutions
 
 export type InsertProcessExecution = z.infer<typeof insertProcessExecutionSchema>;
 export type ProcessExecution = typeof processExecutions.$inferSelect;
+
+// Parcels - Encomendas e entregas
+export const parcelStatuses = ["aguardando", "notificado", "retirado", "devolvido"] as const;
+export type ParcelStatus = (typeof parcelStatuses)[number];
+
+export const parcelTypes = ["carta", "pacote", "caixa", "envelope", "outros"] as const;
+export type ParcelType = (typeof parcelTypes)[number];
+
+export const parcels = pgTable("parcels", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: uuid("condominium_id").notNull().references(() => condominiums.id),
+  unit: text("unit").notNull(),
+  recipientName: text("recipient_name").notNull(),
+  senderName: text("sender_name"),
+  carrier: text("carrier"),
+  trackingCode: text("tracking_code"),
+  type: text("type").notNull().$type<ParcelType>(),
+  status: text("status").notNull().$type<ParcelStatus>().default("aguardando"),
+  receivedAt: timestamp("received_at").notNull().defaultNow(),
+  receivedBy: text("received_by").notNull(),
+  notifiedAt: timestamp("notified_at"),
+  pickedUpAt: timestamp("picked_up_at"),
+  pickedUpBy: text("picked_up_by"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertParcelSchema = createInsertSchema(parcels).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  receivedAt: z.coerce.date().optional(),
+  notifiedAt: z.coerce.date().optional().nullable(),
+  pickedUpAt: z.coerce.date().optional().nullable(),
+});
+
+export type InsertParcel = z.infer<typeof insertParcelSchema>;
+export type Parcel = typeof parcels.$inferSelect;

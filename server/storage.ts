@@ -93,6 +93,8 @@ import {
   type InsertProcess,
   type ProcessExecution,
   type InsertProcessExecution,
+  type Parcel,
+  type InsertParcel,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -384,6 +386,14 @@ export interface IStorage {
   createProcessExecution(execution: InsertProcessExecution): Promise<ProcessExecution>;
   updateProcessExecution(id: string, execution: Partial<InsertProcessExecution>): Promise<ProcessExecution | undefined>;
   deleteProcessExecution(id: string): Promise<boolean>;
+
+  // Parcels
+  getParcels(condominiumId?: string): Promise<Parcel[]>;
+  getParcelById(id: string): Promise<Parcel | undefined>;
+  getParcelsByUnit(condominiumId: string, unit: string): Promise<Parcel[]>;
+  createParcel(parcel: InsertParcel): Promise<Parcel>;
+  updateParcel(id: string, parcel: Partial<InsertParcel>): Promise<Parcel | undefined>;
+  deleteParcel(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -1336,6 +1346,16 @@ export class MemStorage implements IStorage {
   }
   async updateProcessExecution(): Promise<ProcessExecution | undefined> { return undefined; }
   async deleteProcessExecution(): Promise<boolean> { return true; }
+
+  // Parcels
+  async getParcels(): Promise<Parcel[]> { return []; }
+  async getParcelById(): Promise<Parcel | undefined> { return undefined; }
+  async getParcelsByUnit(): Promise<Parcel[]> { return []; }
+  async createParcel(parcel: InsertParcel): Promise<Parcel> {
+    return { ...parcel, id: randomUUID(), createdAt: new Date(), updatedAt: new Date() } as Parcel;
+  }
+  async updateParcel(): Promise<Parcel | undefined> { return undefined; }
+  async deleteParcel(): Promise<boolean> { return true; }
 }
 
 export const storage = new MemStorage();

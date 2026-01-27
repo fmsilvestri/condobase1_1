@@ -131,6 +131,7 @@ import {
   teamMembers as teamMembersTable,
   processes as processesTable,
   processExecutions as processExecutionsTable,
+  parcels as parcelsTable,
   type AutomationRule,
   type InsertAutomationRule,
   type ScheduledTask,
@@ -143,6 +144,8 @@ import {
   type InsertProcess,
   type ProcessExecution,
   type InsertProcessExecution,
+  type Parcel,
+  type InsertParcel,
 } from "@shared/schema";
 
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
@@ -1895,6 +1898,45 @@ export class SupabaseStorage implements IStorage {
 
   async deleteProcessExecution(id: string): Promise<boolean> {
     await db.delete(processExecutionsTable).where(eq(processExecutionsTable.id, id));
+    return true;
+  }
+
+  // Parcels
+  async getParcels(condominiumId?: string): Promise<Parcel[]> {
+    if (condominiumId) {
+      return db.select().from(parcelsTable)
+        .where(eq(parcelsTable.condominiumId, condominiumId))
+        .orderBy(desc(parcelsTable.receivedAt));
+    }
+    return db.select().from(parcelsTable).orderBy(desc(parcelsTable.receivedAt));
+  }
+
+  async getParcelById(id: string): Promise<Parcel | undefined> {
+    const [data] = await db.select().from(parcelsTable).where(eq(parcelsTable.id, id));
+    return data;
+  }
+
+  async getParcelsByUnit(condominiumId: string, unit: string): Promise<Parcel[]> {
+    return db.select().from(parcelsTable)
+      .where(and(eq(parcelsTable.condominiumId, condominiumId), eq(parcelsTable.unit, unit)))
+      .orderBy(desc(parcelsTable.receivedAt));
+  }
+
+  async createParcel(parcel: InsertParcel): Promise<Parcel> {
+    const [data] = await db.insert(parcelsTable).values(parcel).returning();
+    return data;
+  }
+
+  async updateParcel(id: string, parcel: Partial<InsertParcel>): Promise<Parcel | undefined> {
+    const [data] = await db.update(parcelsTable)
+      .set({ ...parcel, updatedAt: new Date() })
+      .where(eq(parcelsTable.id, id))
+      .returning();
+    return data;
+  }
+
+  async deleteParcel(id: string): Promise<boolean> {
+    await db.delete(parcelsTable).where(eq(parcelsTable.id, id));
     return true;
   }
 }
