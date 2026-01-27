@@ -250,7 +250,7 @@ export default function PreventiveMaintenance() {
     const formData = new FormData(e.currentTarget);
     const supplierIdValue = formData.get("supplierId") as string;
     const data = {
-      condominiumId: selectedCondominium,
+      condominiumId: selectedCondominium?.id,
       name: formData.get("name") as string,
       category: formData.get("category") as string,
       location: formData.get("location") as string,
@@ -263,6 +263,7 @@ export default function PreventiveMaintenance() {
       supplierId: supplierIdValue && supplierIdValue !== "none" ? supplierIdValue : null,
       notes: formData.get("notes") as string || null,
     };
+    console.log("[Asset] Payload:", JSON.stringify(data));
 
     if (selectedAsset) {
       updateAssetMutation.mutate({ id: selectedAsset.id, data });
@@ -282,7 +283,7 @@ export default function PreventiveMaintenance() {
     const nextDate = new Date(formData.get("nextMaintenanceDate") as string);
 
     const data = {
-      condominiumId: selectedCondominium,
+      condominiumId: selectedCondominium?.id,
       equipmentId: formData.get("equipmentId") as string,
       name: formData.get("name") as string,
       maintenanceType: formData.get("maintenanceType") as string,
@@ -296,7 +297,7 @@ export default function PreventiveMaintenance() {
       notes: formData.get("notes") as string || null,
       isActive: true,
     };
-
+    console.log("[MaintenancePlan] Payload:", JSON.stringify(data));
     createPlanMutation.mutate(data);
   };
 
@@ -308,7 +309,7 @@ export default function PreventiveMaintenance() {
     }
     const formData = new FormData(e.currentTarget);
     const data = {
-      condominiumId: selectedCondominium,
+      condominiumId: selectedCondominium?.id,
       equipmentId: formData.get("equipmentId") as string,
       planId: formData.get("planId") as string || null,
       maintenanceType: formData.get("maintenanceType") as string,
@@ -319,7 +320,7 @@ export default function PreventiveMaintenance() {
       cost: formData.get("cost") ? parseFloat(formData.get("cost") as string) : null,
       notes: formData.get("notes") as string || null,
     };
-
+    console.log("[Execution] Payload:", JSON.stringify(data));
     createExecutionMutation.mutate(data);
   };
 
