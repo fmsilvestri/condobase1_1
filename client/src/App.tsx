@@ -43,6 +43,7 @@ import Insurance from "@/pages/insurance";
 import Automation from "@/pages/automation";
 import Payments from "@/pages/payments";
 import TeamManagement from "@/pages/team-management";
+import Parcels from "@/pages/parcels";
 
 function Router() {
   return (
@@ -76,6 +77,7 @@ function Router() {
       <Route path="/automacao" component={Automation} />
       <Route path="/pagamentos" component={Payments} />
       <Route path="/equipe" component={TeamManagement} />
+      <Route path="/encomendas" component={Parcels} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -29,6 +29,7 @@ import {
   Target,
   CreditCard,
   UserCog,
+  Package,
 } from "lucide-react";
 import {
   Sidebar,
@@ -137,6 +138,11 @@ const mainModules = [
     title: "Equipe e Processos",
     url: "/equipe",
     icon: UserCog,
+  },
+  {
+    title: "Encomendas",
+    url: "/encomendas",
+    icon: Package,
   },
 ];
 
