@@ -17,6 +17,7 @@ import {
   Loader2,
   FileText,
   Building2,
+  Pencil,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -101,6 +102,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
 export default function Insurance() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [editingPolicy, setEditingPolicy] = useState<InsurancePolicy | null>(null);
   const { toast } = useToast();
 
   const form = useForm<InsuranceFormData>({
@@ -122,8 +124,7 @@ export default function Insurance() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/insurance/policies"] });
-      setIsDialogOpen(false);
-      form.reset();
+      handleCloseDialog();
       toast({ title: "Seguro cadastrado com sucesso" });
     },
     onError: () => {
@@ -131,8 +132,58 @@ export default function Insurance() {
     },
   });
 
+  const updateInsurance = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: InsuranceFormData }) => {
+      return apiRequest("PATCH", `/api/insurance/policies/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/insurance/policies"] });
+      handleCloseDialog();
+      toast({ title: "Seguro atualizado com sucesso" });
+    },
+    onError: () => {
+      toast({ title: "Erro ao atualizar seguro", variant: "destructive" });
+    },
+  });
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setEditingPolicy(null);
+    form.reset({
+      policyNumber: "",
+      insuranceCompany: "",
+      coverageType: "incendio",
+      coverageAmount: 0,
+      premium: 0,
+      startDate: new Date().toISOString().split("T")[0],
+      endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      broker: "",
+      brokerPhone: "",
+    });
+  };
+
+  const handleEditPolicy = (policy: InsurancePolicy) => {
+    setEditingPolicy(policy);
+    form.reset({
+      policyNumber: policy.policyNumber,
+      insuranceCompany: policy.insuranceCompany,
+      coverageType: policy.coverageType,
+      coverageAmount: policy.coverageAmount,
+      premium: policy.premium,
+      startDate: policy.startDate ? new Date(policy.startDate).toISOString().split("T")[0] : "",
+      endDate: policy.endDate ? new Date(policy.endDate).toISOString().split("T")[0] : "",
+      broker: policy.broker || "",
+      brokerPhone: policy.brokerPhone || "",
+    });
+    setIsDialogOpen(true);
+  };
+
   const onSubmit = (data: InsuranceFormData) => {
-    createInsurance.mutate(data);
+    if (editingPolicy) {
+      updateInsurance.mutate({ id: editingPolicy.id, data });
+    } else {
+      createInsurance.mutate(data);
+    }
   };
 
   const { data: policiesData = [], isLoading } = useQuery<InsurancePolicy[]>({
@@ -234,7 +285,7 @@ export default function Insurance() {
             data-testid="input-search"
           />
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) handleCloseDialog(); else setIsDialogOpen(true); }}>
           <DialogTrigger asChild>
             <Button data-testid="button-new-insurance">
               <Plus className="h-4 w-4 mr-2" />
@@ -243,7 +294,7 @@ export default function Insurance() {
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Cadastrar Apólice de Seguro</DialogTitle>
+              <DialogTitle>{editingPolicy ? "Editar Apólice de Seguro" : "Cadastrar Apólice de Seguro"}</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -281,7 +332,7 @@ export default function Insurance() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Tipo de Cobertura</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger data-testid="select-coverage">
                             <SelectValue />
@@ -377,12 +428,12 @@ export default function Insurance() {
                   />
                 </div>
                 <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  <Button type="button" variant="outline" onClick={handleCloseDialog}>
                     Cancelar
                   </Button>
-                  <Button type="submit" disabled={createInsurance.isPending} data-testid="button-submit">
-                    {createInsurance.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Cadastrar
+                  <Button type="submit" disabled={createInsurance.isPending || updateInsurance.isPending} data-testid="button-submit">
+                    {(createInsurance.isPending || updateInsurance.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    {editingPolicy ? "Salvar" : "Cadastrar"}
                   </Button>
                 </div>
               </form>
@@ -446,10 +497,20 @@ export default function Insurance() {
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-2">
-                      <Badge className={`bg-${status.color}-500/10 text-${status.color}-600 border-${status.color}-500/20`}>
-                        {StatusIcon && <StatusIcon className="h-3 w-3 mr-1" />}
-                        {status.label}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleEditPolicy(policy)}
+                          data-testid={`button-edit-${policy.id}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Badge className={`bg-${status.color}-500/10 text-${status.color}-600 border-${status.color}-500/20`}>
+                          {StatusIcon && <StatusIcon className="h-3 w-3 mr-1" />}
+                          {status.label}
+                        </Badge>
+                      </div>
                       {isExpiringSoon && (
                         <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600">
                           <AlertTriangle className="h-3 w-3 mr-1" />
