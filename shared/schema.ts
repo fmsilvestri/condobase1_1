@@ -1705,9 +1705,11 @@ export const moradores = pgTable("moradores", {
 
 export const insertMoradorSchema = createInsertSchema(moradores).omit({
   id: true,
+  condominiumId: true,
   createdAt: true,
   updatedAt: true,
 }).extend({
+  condominiumId: z.string().optional(),
   nomeCompleto: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
   cpf: z.string().min(11, "CPF inválido").max(14),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
