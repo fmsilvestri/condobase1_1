@@ -125,6 +125,12 @@ const equipmentFormSchema = z.object({
   status: z.string().default("operacional"),
   photos: z.array(z.string()).optional(),
   documents: z.array(z.string()).optional(),
+  manufacturer: z.string().optional(),
+  installationDate: z.string().optional(),
+  estimatedLifespan: z.coerce.number().optional().nullable(),
+  powerConsumption: z.coerce.number().optional().nullable(),
+  estimatedUsageHours: z.coerce.number().optional().nullable(),
+  notes: z.string().optional(),
 });
 
 const requestFormSchema = z.object({
@@ -208,6 +214,12 @@ export default function Maintenance() {
       status: "operacional",
       photos: [],
       documents: [],
+      manufacturer: "",
+      installationDate: "",
+      estimatedLifespan: null,
+      powerConsumption: null,
+      estimatedUsageHours: null,
+      notes: "",
     },
   });
 
@@ -369,6 +381,12 @@ export default function Maintenance() {
       status: "operacional",
       photos: [],
       documents: [],
+      manufacturer: "",
+      installationDate: "",
+      estimatedLifespan: null,
+      powerConsumption: null,
+      estimatedUsageHours: null,
+      notes: "",
     });
     setIsNewEquipmentOpen(true);
   };
@@ -384,6 +402,12 @@ export default function Maintenance() {
       description: eq.description || "",
       icon: eq.icon || "",
       status: eq.status,
+      manufacturer: eq.manufacturer || "",
+      installationDate: eq.installationDate ? new Date(eq.installationDate).toISOString().split("T")[0] : "",
+      estimatedLifespan: eq.estimatedLifespan || null,
+      powerConsumption: eq.powerConsumption || null,
+      estimatedUsageHours: eq.estimatedUsageHours || null,
+      notes: eq.notes || "",
     });
   };
 
@@ -525,7 +549,7 @@ export default function Maintenance() {
                     Novo Equipamento
                   </Button>
                 </DialogTrigger>
-              <DialogContent className="sm:max-w-[500px]">
+              <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Cadastrar Equipamento</DialogTitle>
                   <DialogDescription>
@@ -622,6 +646,88 @@ export default function Maintenance() {
                               );
                             })}
                           </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={equipmentForm.control}
+                        name="manufacturer"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Fabricante</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ex: ThyssenKrupp" {...field} data-testid="input-equipment-manufacturer" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={equipmentForm.control}
+                        name="installationDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Data de Instalação</FormLabel>
+                            <FormControl>
+                              <Input type="date" {...field} data-testid="input-equipment-installation-date" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={equipmentForm.control}
+                        name="powerConsumption"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Consumo Elétrico (kWh)</FormLabel>
+                            <FormControl>
+                              <Input type="number" step="0.01" placeholder="Ex: 2.5" {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : null)} data-testid="input-equipment-power-consumption" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={equipmentForm.control}
+                        name="estimatedUsageHours"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Horas de Uso/Dia</FormLabel>
+                            <FormControl>
+                              <Input type="number" step="0.5" placeholder="Ex: 8" {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : null)} data-testid="input-equipment-usage-hours" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <FormField
+                      control={equipmentForm.control}
+                      name="estimatedLifespan"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Vida Útil Estimada (meses)</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="Ex: 120" {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value ? parseInt(e.target.value) : null)} data-testid="input-equipment-lifespan" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={equipmentForm.control}
+                      name="notes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Observações</FormLabel>
+                          <FormControl>
+                            <Textarea placeholder="Informações adicionais..." {...field} data-testid="textarea-equipment-notes" />
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -744,7 +850,7 @@ export default function Maintenance() {
 
             {/* Edit Equipment Dialog */}
             <Dialog open={!!editingEquipment} onOpenChange={(open) => { if (!open) { setEditingEquipment(null); setEquipmentPhotos([]); setEquipmentDocuments([]); } }}>
-              <DialogContent className="sm:max-w-[425px]">
+              <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Editar Equipamento</DialogTitle>
                   <DialogDescription>
@@ -863,6 +969,88 @@ export default function Maintenance() {
                               );
                             })}
                           </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={equipmentForm.control}
+                        name="manufacturer"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Fabricante</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ex: ThyssenKrupp" {...field} data-testid="input-edit-equipment-manufacturer" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={equipmentForm.control}
+                        name="installationDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Data de Instalação</FormLabel>
+                            <FormControl>
+                              <Input type="date" {...field} data-testid="input-edit-equipment-installation-date" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={equipmentForm.control}
+                        name="powerConsumption"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Consumo Elétrico (kWh)</FormLabel>
+                            <FormControl>
+                              <Input type="number" step="0.01" placeholder="Ex: 2.5" {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : null)} data-testid="input-edit-equipment-power-consumption" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={equipmentForm.control}
+                        name="estimatedUsageHours"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Horas de Uso/Dia</FormLabel>
+                            <FormControl>
+                              <Input type="number" step="0.5" placeholder="Ex: 8" {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : null)} data-testid="input-edit-equipment-usage-hours" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <FormField
+                      control={equipmentForm.control}
+                      name="estimatedLifespan"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Vida Útil (meses)</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="Ex: 120" {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value ? parseInt(e.target.value) : null)} data-testid="input-edit-equipment-lifespan" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={equipmentForm.control}
+                      name="notes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Observações</FormLabel>
+                          <FormControl>
+                            <Textarea placeholder="Informações adicionais..." {...field} data-testid="textarea-edit-equipment-notes" />
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -1155,6 +1343,22 @@ export default function Maintenance() {
                           <MapPin className="h-3.5 w-3.5" />
                           {eq.location}
                         </div>
+                        {(eq.powerConsumption || eq.estimatedUsageHours) && (
+                          <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                            {eq.powerConsumption && (
+                              <span className="flex items-center gap-1">
+                                <Zap className="h-3 w-3" />
+                                {eq.powerConsumption} kWh
+                              </span>
+                            )}
+                            {eq.estimatedUsageHours && (
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {eq.estimatedUsageHours}h/dia
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <StatusBadge status={eq.status as any} size="sm" />
