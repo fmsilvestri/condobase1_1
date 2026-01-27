@@ -110,7 +110,10 @@ import {
   type InsertInsurancePolicy,
   type SmartAlert,
   type InsertSmartAlert,
+  type SuccessionPlan,
+  type InsertSuccessionPlan,
   pushSubscriptions as pushSubscriptionsTable,
+  successionPlans as successionPlansTable,
   notificationPreferences as notificationPreferencesTable,
   iotSessions as iotSessionsTable,
   iotDevices as iotDevicesTable,
@@ -1428,6 +1431,29 @@ export class SupabaseStorage implements IStorage {
     await db.delete(meetingMinutesTable)
       .where(eq(meetingMinutesTable.id, id));
     return true;
+  }
+
+  // Succession Plans
+  async getSuccessionPlan(condominiumId: string): Promise<SuccessionPlan | undefined> {
+    const result = await db.select().from(successionPlansTable)
+      .where(eq(successionPlansTable.condominiumId, condominiumId))
+      .limit(1);
+    return result[0];
+  }
+
+  async createSuccessionPlan(plan: InsertSuccessionPlan): Promise<SuccessionPlan> {
+    const result = await db.insert(successionPlansTable)
+      .values(plan)
+      .returning();
+    return result[0];
+  }
+
+  async updateSuccessionPlan(id: string, plan: Partial<InsertSuccessionPlan>): Promise<SuccessionPlan | undefined> {
+    const result = await db.update(successionPlansTable)
+      .set({ ...plan, updatedAt: new Date() })
+      .where(eq(successionPlansTable.id, id))
+      .returning();
+    return result[0];
   }
 
   // Budgets

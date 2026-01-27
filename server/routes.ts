@@ -54,6 +54,7 @@ import {
   insertBudgetSchema,
   insertGovernanceDecisionSchema,
   insertMeetingMinutesSchema,
+  insertSuccessionPlanSchema,
   insertContractSchema,
   insertLegalChecklistSchema,
   insertInsurancePolicySchema,
@@ -1100,6 +1101,57 @@ export async function registerRoutes(
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: "Failed to delete meeting minutes", details: error?.message });
+    }
+  });
+
+  // Succession Plan
+  app.get("/api/governance/succession-plan", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = getCondominiumId(req);
+      if (!condominiumId) {
+        return res.status(400).json({ error: "Condominium ID is required" });
+      }
+      const plan = await storage.getSuccessionPlan(condominiumId);
+      res.json(plan || null);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch succession plan", details: error?.message });
+    }
+  });
+
+  app.post("/api/governance/succession-plan", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = getCondominiumId(req);
+      if (!condominiumId) {
+        return res.status(400).json({ error: "Condominium ID is required" });
+      }
+      const validation = insertSuccessionPlanSchema.safeParse({
+        ...req.body,
+        condominiumId,
+        createdBy: getUserId(req),
+      });
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const plan = await storage.createSuccessionPlan(validation.data);
+      res.status(201).json(plan);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to create succession plan", details: error?.message });
+    }
+  });
+
+  app.patch("/api/governance/succession-plan/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const validation = insertSuccessionPlanSchema.partial().safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      }
+      const plan = await storage.updateSuccessionPlan(req.params.id, validation.data);
+      if (!plan) {
+        return res.status(404).json({ error: "Succession plan not found" });
+      }
+      res.json(plan);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to update succession plan", details: error?.message });
     }
   });
 

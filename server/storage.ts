@@ -79,6 +79,8 @@ import {
   type InsertInsurancePolicy,
   type SmartAlert,
   type InsertSmartAlert,
+  type SuccessionPlan,
+  type InsertSuccessionPlan,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -283,6 +285,11 @@ export interface IStorage {
   createMeetingMinutes(minutes: InsertMeetingMinutes): Promise<MeetingMinutes>;
   updateMeetingMinutes(id: string, minutes: Partial<InsertMeetingMinutes>): Promise<MeetingMinutes | undefined>;
   deleteMeetingMinutes(id: string): Promise<boolean>;
+
+  // Succession Plans
+  getSuccessionPlan(condominiumId: string): Promise<SuccessionPlan | undefined>;
+  createSuccessionPlan(plan: InsertSuccessionPlan): Promise<SuccessionPlan>;
+  updateSuccessionPlan(id: string, plan: Partial<InsertSuccessionPlan>): Promise<SuccessionPlan | undefined>;
 
   // Budgets
   getBudgets(condominiumId?: string, year?: number): Promise<Budget[]>;
@@ -1174,6 +1181,12 @@ export class MemStorage implements IStorage {
   }
   async updateMeetingMinutes(): Promise<MeetingMinutes | undefined> { return undefined; }
   async deleteMeetingMinutes(): Promise<boolean> { return true; }
+
+  async getSuccessionPlan(): Promise<SuccessionPlan | undefined> { return undefined; }
+  async createSuccessionPlan(plan: InsertSuccessionPlan): Promise<SuccessionPlan> {
+    return { ...plan, id: randomUUID(), createdAt: new Date(), updatedAt: new Date() } as SuccessionPlan;
+  }
+  async updateSuccessionPlan(): Promise<SuccessionPlan | undefined> { return undefined; }
 
   async getBudgets(): Promise<Budget[]> { return []; }
   async getBudgetById(): Promise<Budget | undefined> { return undefined; }
