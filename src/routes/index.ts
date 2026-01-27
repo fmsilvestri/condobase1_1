@@ -42,6 +42,7 @@ import {
   faqCategories,
   insertInsurancePolicySchema,
   insertLegalChecklistSchema,
+  insertParcelSchema,
 } from "../../shared/schema";
 
 import { z } from "zod";
@@ -2299,6 +2300,75 @@ router.delete("/legal-checklist/:id", requireSindicoOrAdmin, async (req, res) =>
     res.status(204).send();
   } catch (error: any) {
     res.status(500).json({ error: "Failed to delete checklist item", details: error?.message });
+  }
+});
+
+// Parcel Tracking Routes
+router.get("/parcels", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const parcels = await storage.getParcels(condominiumId || undefined);
+    res.json(parcels);
+  } catch (error: any) {
+    res.status(500).json({ error: "Failed to fetch parcels", details: error?.message });
+  }
+});
+
+router.get("/parcels/:id", requireGestao, async (req, res) => {
+  try {
+    const parcel = await storage.getParcelById(req.params.id);
+    if (!parcel) {
+      return res.status(404).json({ error: "Parcel not found" });
+    }
+    res.json(parcel);
+  } catch (error: any) {
+    res.status(500).json({ error: "Failed to fetch parcel", details: error?.message });
+  }
+});
+
+router.post("/parcels", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condominium ID required" });
+    }
+    const validation = insertParcelSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+    }
+    const data = { ...validation.data, condominiumId };
+    const parcel = await storage.createParcel(data);
+    res.status(201).json(parcel);
+  } catch (error: any) {
+    res.status(500).json({ error: "Failed to create parcel", details: error?.message });
+  }
+});
+
+router.patch("/parcels/:id", requireGestao, async (req, res) => {
+  try {
+    const validation = insertParcelSchema.partial().safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+    }
+    const parcel = await storage.updateParcel(req.params.id, validation.data);
+    if (!parcel) {
+      return res.status(404).json({ error: "Parcel not found" });
+    }
+    res.json(parcel);
+  } catch (error: any) {
+    res.status(500).json({ error: "Failed to update parcel", details: error?.message });
+  }
+});
+
+router.delete("/parcels/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const deleted = await storage.deleteParcel(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ error: "Parcel not found" });
+    }
+    res.status(204).send();
+  } catch (error: any) {
+    res.status(500).json({ error: "Failed to delete parcel", details: error?.message });
   }
 });
 
