@@ -149,10 +149,7 @@ export default function Parcels() {
 
   const createMutation = useMutation({
     mutationFn: async (data: ParcelFormValues) => {
-      return apiRequest("/api/parcels", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", "/api/parcels", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/parcels"] });
@@ -167,10 +164,7 @@ export default function Parcels() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<ParcelFormValues> }) => {
-      return apiRequest(`/api/parcels/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("PATCH", `/api/parcels/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/parcels"] });
@@ -193,10 +187,7 @@ export default function Parcels() {
         updateData.pickedUpAt = new Date().toISOString();
         updateData.pickedUpBy = pickedUpBy;
       }
-      return apiRequest(`/api/parcels/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(updateData),
-      });
+      return apiRequest("PATCH", `/api/parcels/${id}`, updateData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/parcels"] });
@@ -209,7 +200,7 @@ export default function Parcels() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest(`/api/parcels/${id}`, { method: "DELETE" });
+      return apiRequest("DELETE", `/api/parcels/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/parcels"] });
@@ -261,12 +252,12 @@ export default function Parcels() {
   const sendWhatsAppNotification = (parcel: Parcel) => {
     const message = encodeURIComponent(
       `Olá! Você tem uma encomenda aguardando retirada na portaria.\n\n` +
-      `📦 Tipo: ${typeLabels[parcel.type]}\n` +
-      `🏢 Unidade: ${parcel.unit}\n` +
-      `📍 Destinatário: ${parcel.recipientName}\n` +
-      (parcel.carrier ? `🚚 Transportadora: ${parcel.carrier}\n` : "") +
-      (parcel.trackingCode ? `🔢 Código: ${parcel.trackingCode}\n` : "") +
-      `📅 Recebido em: ${format(new Date(parcel.receivedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}\n\n` +
+      `Tipo: ${typeLabels[parcel.type]}\n` +
+      `Unidade: ${parcel.unit}\n` +
+      `Destinatário: ${parcel.recipientName}\n` +
+      (parcel.carrier ? `Transportadora: ${parcel.carrier}\n` : "") +
+      (parcel.trackingCode ? `Código: ${parcel.trackingCode}\n` : "") +
+      `Recebido em: ${format(new Date(parcel.receivedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}\n\n` +
       `Por favor, retire na portaria o mais breve possível.`
     );
     window.open(`https://wa.me/?text=${message}`, "_blank");
