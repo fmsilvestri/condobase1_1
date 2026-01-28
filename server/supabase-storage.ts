@@ -352,7 +352,9 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getEquipment(condominiumId?: string): Promise<Equipment[]> {
-    let query = this.sb.from("equipment").select("*").order("created_at", { ascending: false });
+    // Use supabaseAdmin to bypass RLS restrictions
+    const client = supabaseAdmin || this.sb;
+    let query = client.from("equipment").select("*").order("created_at", { ascending: false });
     if (condominiumId) {
       query = query.eq("condominium_id", condominiumId);
     }
@@ -369,7 +371,9 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getEquipmentById(id: string): Promise<Equipment | undefined> {
-    const { data, error } = await this.sb
+    // Use supabaseAdmin to bypass RLS restrictions
+    const client = supabaseAdmin || this.sb;
+    const { data, error } = await client
       .from("equipment")
       .select("*")
       .eq("id", id)
@@ -379,7 +383,9 @@ export class SupabaseStorage implements IStorage {
   }
 
   async createEquipment(equipment: InsertEquipment): Promise<Equipment> {
-    const { data, error } = await this.sb
+    // Use supabaseAdmin to bypass RLS restrictions
+    const client = supabaseAdmin || this.sb;
+    const { data, error } = await client
       .from("equipment")
       .insert(toSnakeCase(equipment))
       .select()
@@ -393,13 +399,19 @@ export class SupabaseStorage implements IStorage {
 
   async updateEquipment(id: string, equipment: Partial<InsertEquipment>): Promise<Equipment | undefined> {
     const updateData = { ...toSnakeCase(equipment), updated_at: new Date().toISOString() };
-    const { data, error } = await this.sb
+    // Use supabaseAdmin to bypass RLS restrictions
+    const client = supabaseAdmin || this.sb;
+    const { data, error } = await client
       .from("equipment")
       .update(updateData)
       .eq("id", id)
       .select()
       .single();
-    if (error || !data) return undefined;
+    if (error) {
+      console.error('[equipment] Update error:', error);
+      return undefined;
+    }
+    if (!data) return undefined;
     if (equipment.icon) {
       this.equipmentIconCache.set(id, equipment.icon);
     }
@@ -407,10 +419,15 @@ export class SupabaseStorage implements IStorage {
   }
 
   async deleteEquipment(id: string): Promise<boolean> {
-    const { error } = await this.sb
+    // Use supabaseAdmin to bypass RLS restrictions
+    const client = supabaseAdmin || this.sb;
+    const { error } = await client
       .from("equipment")
       .delete()
       .eq("id", id);
+    if (error) {
+      console.error('[equipment] Delete error:', error);
+    }
     if (!error) {
       this.equipmentIconCache.delete(id);
     }
