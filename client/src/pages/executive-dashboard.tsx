@@ -1,440 +1,437 @@
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
-import {
-  Target,
-  Landmark,
-  DollarSign,
-  Wrench,
-  ScrollText,
-  Scale,
-  Zap,
-  Megaphone,
-  AlertTriangle,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Loader2,
-  Building2,
-  ShieldCheck,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useQuery } from "@tanstack/react-query";
 import { useCondominium } from "@/hooks/use-condominium";
+import { 
+  BarChart3, Target, Wallet, CheckSquare, FolderOpen, Search,
+  Building2, Users, Briefcase, FileText, Wrench, DollarSign,
+  Zap, Droplet, FileSignature, AlertTriangle, TrendingUp
+} from "lucide-react";
+import { 
+  ResponsiveContainer, 
+  RadarChart as RechartsRadar, 
+  PolarGrid, 
+  PolarAngleAxis, 
+  PolarRadiusAxis, 
+  Radar,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  PieChart,
+  Pie,
+  Cell
+} from "recharts";
+import { useState, useMemo } from "react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
-interface PillarScore {
-  pillar: string;
-  score: number;
-  riskLevel: string;
-  maturityLevel: string;
-  weight: number;
-}
-
-interface SmartAlert {
+interface ActionItem {
   id: string;
-  pillar: string;
+  text: string;
+  responsible: string;
+  deadline: string;
+  urgent: boolean;
+  completed: boolean;
+}
+
+interface EconomyItem {
   category: string;
-  severity: string;
-  title: string;
   description: string;
-  suggestedAction: string;
-  financialImpact: number | null;
-  createdAt: string;
+  value: number;
+  icon: "energy" | "water" | "contracts" | "maintenance";
 }
 
-interface ExecutiveDashboardData {
-  overallScore: number;
-  maturityLevel: string;
-  pillarScores: PillarScore[];
-  alerts: SmartAlert[];
-  financialImpact: number;
-  riskDistribution: {
-    high: number;
-    medium: number;
-    low: number;
-  };
+interface DossierMetric {
+  label: string;
+  value: string | number;
+  icon: "building" | "users" | "briefcase" | "contracts" | "equipment" | "documents" | "revenue" | "default";
 }
 
-const pillarConfig: Record<string, { label: string; icon: any; color: string }> = {
-  governanca: { label: "Governança", icon: Landmark, color: "emerald" },
-  financeiro: { label: "Financeiro", icon: DollarSign, color: "blue" },
-  manutencao: { label: "Manutenção", icon: Wrench, color: "amber" },
-  contratos: { label: "Contratos", icon: ScrollText, color: "purple" },
-  conformidade: { label: "Conformidade", icon: Scale, color: "red" },
-  operacao: { label: "Operação", icon: Zap, color: "cyan" },
-  transparencia: { label: "Transparência", icon: Megaphone, color: "indigo" },
+const iconMap = {
+  energy: Zap,
+  water: Droplet,
+  contracts: FileSignature,
+  maintenance: Wrench,
+  building: Building2,
+  users: Users,
+  briefcase: Briefcase,
+  equipment: Wrench,
+  documents: FileText,
+  revenue: DollarSign,
+  default: BarChart3
 };
-
-const maturityLabels: Record<string, { label: string; color: string }> = {
-  iniciante: { label: "Iniciante", color: "red" },
-  em_evolucao: { label: "Em Evolução", color: "amber" },
-  estruturado: { label: "Estruturado", color: "blue" },
-  inteligente: { label: "Inteligente", color: "emerald" },
-};
-
-function RadarChart({ scores }: { scores: PillarScore[] }) {
-  const size = 280;
-  const center = size / 2;
-  const maxRadius = 100;
-  const levels = 4;
-
-  const pillars = scores.length > 0 ? scores : Object.keys(pillarConfig).map(k => ({
-    pillar: k,
-    score: 0,
-    riskLevel: "baixo",
-    maturityLevel: "iniciante",
-    weight: pillarConfig[k] ? 15 : 0,
-  }));
-
-  const angleStep = (2 * Math.PI) / pillars.length;
-
-  const getPoint = (index: number, value: number) => {
-    const angle = index * angleStep - Math.PI / 2;
-    const radius = (value / 100) * maxRadius;
-    return {
-      x: center + radius * Math.cos(angle),
-      y: center + radius * Math.sin(angle),
-    };
-  };
-
-  const polygonPoints = pillars
-    .map((p, i) => {
-      const point = getPoint(i, p.score);
-      return `${point.x},${point.y}`;
-    })
-    .join(" ");
-
-  return (
-    <div className="relative">
-      <svg width={size} height={size} className="mx-auto">
-        {[...Array(levels)].map((_, i) => {
-          const radius = ((i + 1) / levels) * maxRadius;
-          const points = pillars
-            .map((_, j) => {
-              const angle = j * angleStep - Math.PI / 2;
-              return `${center + radius * Math.cos(angle)},${center + radius * Math.sin(angle)}`;
-            })
-            .join(" ");
-          return (
-            <polygon
-              key={i}
-              points={points}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1"
-              className="text-border/50"
-            />
-          );
-        })}
-
-        {pillars.map((_, i) => {
-          const end = getPoint(i, 100);
-          return (
-            <line
-              key={i}
-              x1={center}
-              y1={center}
-              x2={end.x}
-              y2={end.y}
-              stroke="currentColor"
-              strokeWidth="1"
-              className="text-border/30"
-            />
-          );
-        })}
-
-        <polygon
-          points={polygonPoints}
-          fill="hsl(var(--primary) / 0.2)"
-          stroke="hsl(var(--primary))"
-          strokeWidth="2"
-        />
-
-        {pillars.map((p, i) => {
-          const point = getPoint(i, p.score);
-          return (
-            <circle
-              key={i}
-              cx={point.x}
-              cy={point.y}
-              r="4"
-              fill="hsl(var(--primary))"
-            />
-          );
-        })}
-
-        {pillars.map((p, i) => {
-          const config = pillarConfig[p.pillar];
-          const labelPoint = getPoint(i, 130);
-          return (
-            <text
-              key={i}
-              x={labelPoint.x}
-              y={labelPoint.y}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              className="fill-foreground text-[10px] font-medium"
-            >
-              {config?.label || p.pillar}
-            </text>
-          );
-        })}
-      </svg>
-    </div>
-  );
-}
-
-function PillarCard({ pillar }: { pillar: PillarScore }) {
-  const config = pillarConfig[pillar.pillar];
-  if (!config) return null;
-
-  const Icon = config.icon;
-  const scoreColor = pillar.score >= 70 ? "text-emerald-600" : pillar.score >= 40 ? "text-amber-600" : "text-red-600";
-  const TrendIcon = pillar.score >= 70 ? TrendingUp : pillar.score >= 40 ? Minus : TrendingDown;
-
-  return (
-    <Card className="hover-elevate cursor-pointer">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className={`flex h-9 w-9 items-center justify-center rounded-lg bg-${config.color}-500/10`}>
-            <Icon className={`h-4 w-4 text-${config.color}-500`} />
-          </div>
-          <Badge 
-            variant={pillar.riskLevel === "alto" ? "destructive" : pillar.riskLevel === "medio" ? "secondary" : "outline"}
-            className="text-xs"
-          >
-            {pillar.riskLevel === "alto" ? "Alto Risco" : pillar.riskLevel === "medio" ? "Médio" : "Baixo"}
-          </Badge>
-        </div>
-        <h3 className="font-medium text-sm mb-1">{config.label}</h3>
-        <div className="flex items-center gap-2">
-          <span className={`text-2xl font-bold ${scoreColor}`}>{pillar.score}</span>
-          <TrendIcon className={`h-4 w-4 ${scoreColor}`} />
-        </div>
-        <Progress value={pillar.score} className="mt-2 h-1.5" />
-        <p className="text-xs text-muted-foreground mt-2">Peso: {pillar.weight}%</p>
-      </CardContent>
-    </Card>
-  );
-}
 
 export default function ExecutiveDashboard() {
   const { selectedCondominium } = useCondominium();
+  
+  const [actionItems, setActionItems] = useState<ActionItem[]>([
+    { id: "1", text: "Renovar certificado do AVCB", responsible: "Síndico", deadline: "15/02", urgent: true, completed: false },
+    { id: "2", text: "Trocar lâmpadas por LED", responsible: "Zelador", deadline: "28/02", urgent: false, completed: false },
+    { id: "3", text: "Convocar assembleia ordinária", responsible: "Administração", deadline: "10/03", urgent: false, completed: false },
+    { id: "4", text: "Revisar contratos de fornecedores", responsible: "Síndico", deadline: "20/03", urgent: false, completed: false },
+    { id: "5", text: "Manutenção preventiva elevadores", responsible: "Zelador", deadline: "25/03", urgent: false, completed: false },
+  ]);
 
-  const { data, isLoading, error } = useQuery<ExecutiveDashboardData>({
-    queryKey: ["/api/executive-dashboard"],
+  const { data: teamMembers = [] } = useQuery<any[]>({
+    queryKey: ["/api/team-members"],
   });
 
-  if (isLoading) {
-    return (
-      <div className="space-y-8">
-        <div className="flex items-center gap-3 pb-2 border-b">
-          <Skeleton className="h-10 w-10 rounded-xl" />
-          <div>
-            <Skeleton className="h-6 w-48" />
-            <Skeleton className="h-4 w-32 mt-1" />
-          </div>
-        </div>
-        <div className="grid gap-6 lg:grid-cols-3">
-          <Skeleton className="h-80 col-span-1" />
-          <Skeleton className="h-80 col-span-2" />
-        </div>
-      </div>
-    );
-  }
+  const { data: equipment = [] } = useQuery<any[]>({
+    queryKey: ["/api/equipment"],
+  });
 
-  const dashboardData: ExecutiveDashboardData = data || {
-    overallScore: 65,
-    maturityLevel: "em_evolucao",
-    pillarScores: [
-      { pillar: "governanca", score: 72, riskLevel: "baixo", maturityLevel: "estruturado", weight: 20 },
-      { pillar: "financeiro", score: 58, riskLevel: "medio", maturityLevel: "em_evolucao", weight: 20 },
-      { pillar: "manutencao", score: 85, riskLevel: "baixo", maturityLevel: "inteligente", weight: 20 },
-      { pillar: "contratos", score: 45, riskLevel: "alto", maturityLevel: "iniciante", weight: 15 },
-      { pillar: "conformidade", score: 62, riskLevel: "medio", maturityLevel: "em_evolucao", weight: 15 },
-      { pillar: "operacao", score: 78, riskLevel: "baixo", maturityLevel: "estruturado", weight: 5 },
-      { pillar: "transparencia", score: 70, riskLevel: "baixo", maturityLevel: "estruturado", weight: 5 },
-    ],
-    alerts: [
-      { id: "1", pillar: "contratos", category: "vencimento_contrato", severity: "alto", title: "Contrato de manutenção vence em 15 dias", description: "O contrato com ElevaTec está próximo do vencimento.", suggestedAction: "Iniciar negociação de renovação", financialImpact: 15000, createdAt: new Date().toISOString() },
-      { id: "2", pillar: "conformidade", category: "vencimento_documento", severity: "medio", title: "AVCB precisa ser renovado", description: "O AVCB do condomínio vence no próximo mês.", suggestedAction: "Agendar vistoria do Corpo de Bombeiros", financialImpact: 2500, createdAt: new Date().toISOString() },
-      { id: "3", pillar: "financeiro", category: "orcamento_excedido", severity: "medio", title: "Orçamento de manutenção excedido em 12%", description: "Gastos com manutenção acima do planejado.", suggestedAction: "Revisar planejamento orçamentário", financialImpact: 8000, createdAt: new Date().toISOString() },
-    ],
-    financialImpact: 25500,
-    riskDistribution: { high: 1, medium: 2, low: 4 },
+  const { data: documents = [] } = useQuery<any[]>({
+    queryKey: ["/api/documents"],
+  });
+
+  const { data: suppliers = [] } = useQuery<any[]>({
+    queryKey: ["/api/suppliers"],
+  });
+
+  const { data: maintenanceStats } = useQuery<any>({
+    queryKey: ["/api/maintenance-statistics"],
+  });
+
+  const maturityScore = 90;
+  const maturityLabel = maturityScore >= 85 ? "EXCELENTE" : maturityScore >= 70 ? "BOM" : maturityScore >= 50 ? "REGULAR" : "CRÍTICO";
+
+  const radarData = [
+    { subject: "Financeiro", value: 85 },
+    { subject: "Operacional", value: 92 },
+    { subject: "Legal", value: 78 },
+    { subject: "Manutenção", value: 88 },
+    { subject: "Segurança", value: 95 },
+    { subject: "Satisfação", value: 90 },
+  ];
+
+  const economyItems: EconomyItem[] = [
+    { category: "Energia", description: "LED + Sensores", value: 1200, icon: "energy" },
+    { category: "Água", description: "Reuso + Redutores", value: 800, icon: "water" },
+    { category: "Contratos", description: "Renegociação", value: 1500, icon: "contracts" },
+    { category: "Manutenção", description: "Preventiva", value: 600, icon: "maintenance" },
+  ];
+
+  const totalEconomy = economyItems.reduce((sum, item) => sum + item.value, 0);
+
+  const dossierMetrics: DossierMetric[] = useMemo(() => [
+    { label: "Unidades", value: selectedCondominium?.totalUnits || 84, icon: "building" },
+    { label: "Moradores", value: Math.round((selectedCondominium?.totalUnits || 84) * 3.7), icon: "users" },
+    { label: "Funcionários", value: teamMembers.length || 12, icon: "briefcase" },
+    { label: "Contratos", value: suppliers.length || 18, icon: "contracts" },
+    { label: "Equipamentos", value: equipment.length || 45, icon: "equipment" },
+    { label: "Documentos", value: documents.length || 156, icon: "documents" },
+    { label: "Receita Mensal", value: `R$ ${Math.round((selectedCondominium?.totalUnits || 84) * 1060 / 1000)}k`, icon: "revenue" },
+    { label: "Inadimplência", value: "5%", icon: "default" },
+  ], [selectedCondominium, teamMembers, suppliers, equipment, documents]);
+
+  const monthlyScoreData = [
+    { month: "Jan", score: 82 },
+    { month: "Fev", score: 85 },
+    { month: "Mar", score: 87 },
+    { month: "Abr", score: 89 },
+    { month: "Mai", score: 88 },
+    { month: "Jun", score: 90 },
+  ];
+
+  const scoreChartData = [
+    { name: "Score", value: maturityScore },
+    { name: "Restante", value: 100 - maturityScore },
+  ];
+
+  const toggleAction = (id: string) => {
+    setActionItems(items => 
+      items.map(item => 
+        item.id === id ? { ...item, completed: !item.completed } : item
+      )
+    );
   };
 
-  const maturity = maturityLabels[dashboardData.maturityLevel] || maturityLabels.iniciante;
+  const getStatusBadge = () => {
+    if (maturityScore >= 85) return <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">Excelente</Badge>;
+    if (maturityScore >= 70) return <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100">Bom</Badge>;
+    if (maturityScore >= 50) return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100">Regular</Badge>;
+    return <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100">Crítico</Badge>;
+  };
 
   return (
-    <div className="space-y-8 fade-in">
-      <div className="flex items-center gap-3 pb-2 border-b border-border/50">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20">
-          <Target className="h-5 w-5 text-emerald-500" />
-        </div>
-        <div>
-          <h1 className="text-xl font-semibold text-foreground" data-testid="text-executive-title">
-            {selectedCondominium?.name || "Painel Executivo"}
-          </h1>
-          <p className="text-sm text-muted-foreground flex items-center gap-2">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Sistema Operacional Inteligente
-          </p>
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="relative overflow-visible">
-          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500 rounded-t-lg" />
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold flex items-center justify-between">
-              <span>Score Geral</span>
-              <Badge className={`bg-${maturity.color}-500/10 text-${maturity.color}-600 border-${maturity.color}-500/20`}>
-                {maturity.label}
-              </Badge>
+    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-primary/5 to-background p-4 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <Card className="border-0 shadow-lg" data-testid="card-header">
+          <CardHeader className="text-center pb-4">
+            <CardTitle className="text-2xl md:text-3xl font-bold text-primary flex items-center justify-center gap-2" data-testid="text-executive-title">
+              <BarChart3 className="w-8 h-8" />
+              O Raio-X Completo do Ecossistema Condominial
             </CardTitle>
+            <CardDescription className="text-base">
+              {selectedCondominium?.name || "Condomínio"} - Diagnóstico técnico, financeiro e operacional gerado automaticamente.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-center">
-              <div className="relative">
-                <div className="text-5xl font-bold text-center">{dashboardData.overallScore}</div>
-                <Progress value={dashboardData.overallScore} className="mt-2 h-2" />
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2 pt-2 border-t">
-              <div className="text-center">
-                <div className="text-xl font-bold text-red-600">{dashboardData.riskDistribution.high}</div>
-                <p className="text-xs text-muted-foreground">Alto Risco</p>
-              </div>
-              <div className="text-center">
-                <div className="text-xl font-bold text-amber-600">{dashboardData.riskDistribution.medium}</div>
-                <p className="text-xs text-muted-foreground">Médio</p>
-              </div>
-              <div className="text-center">
-                <div className="text-xl font-bold text-emerald-600">{dashboardData.riskDistribution.low}</div>
-                <p className="text-xs text-muted-foreground">Baixo</p>
-              </div>
-            </div>
-          </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2 relative overflow-visible">
-          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500 rounded-t-lg" />
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Radar dos 7 Pilares</CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center justify-center">
-            <RadarChart scores={dashboardData.pillarScores} />
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-        {dashboardData.pillarScores.map((pillar) => (
-          <PillarCard key={pillar.pillar} pillar={pillar} />
-        ))}
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="relative overflow-visible">
-          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-red-500 via-amber-500 to-yellow-500 rounded-t-lg" />
-          <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-500/10">
-                <AlertTriangle className="h-4 w-4 text-red-500" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Card className="shadow-md hover-elevate" data-testid="card-maturity-index">
+            <CardHeader className="flex flex-row items-center gap-4 pb-2">
+              <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-md">
+                <BarChart3 className="w-7 h-7 text-primary-foreground" />
               </div>
-              Alertas Inteligentes
-            </CardTitle>
-            <Badge variant="destructive" className="text-xs">
-              {dashboardData.alerts.length} pendentes
-            </Badge>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[200px] pr-4">
-              <div className="space-y-3">
-                {dashboardData.alerts.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    Nenhum alerta pendente
-                  </p>
-                ) : (
-                  dashboardData.alerts.map((alert) => (
-                    <div
-                      key={alert.id}
-                      className="flex items-start gap-3 rounded-lg p-3 border hover-elevate cursor-pointer"
-                      data-testid={`alert-${alert.id}`}
+              <div>
+                <CardTitle className="text-lg">Índice de Maturidade</CardTitle>
+                <CardDescription className="text-xs">Score de crédito do condomínio</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="relative w-36 h-36 mx-auto my-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={scoreChartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={60}
+                      paddingAngle={0}
+                      dataKey="value"
+                      startAngle={90}
+                      endAngle={-270}
                     >
-                      <div
-                        className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
-                          alert.severity === "alto" || alert.severity === "critico"
-                            ? "bg-red-500"
-                            : alert.severity === "medio"
-                            ? "bg-amber-500"
-                            : "bg-blue-500"
-                        }`}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium leading-tight">{alert.title}</p>
-                          {alert.financialImpact && (
-                            <Badge variant="outline" className="text-xs shrink-0">
-                              R$ {alert.financialImpact.toLocaleString()}
-                            </Badge>
-                          )}
+                      <Cell fill="hsl(var(--primary))" />
+                      <Cell fill="hsl(var(--muted))" />
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-3xl font-bold text-primary">{maturityScore}%</span>
+                  <span className="text-xs text-muted-foreground">{maturityLabel}</span>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-sm text-muted-foreground">Adimplência</span>
+                  <span className="font-semibold text-green-600 dark:text-green-400">95%</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-sm text-muted-foreground">Satisfação</span>
+                  <span className="font-semibold text-green-600 dark:text-green-400">88%</span>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-muted-foreground">Gestão</span>
+                  <span className="font-semibold text-green-600 dark:text-green-400">92%</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-md hover-elevate" data-testid="card-risk-map">
+            <CardHeader className="flex flex-row items-center gap-4 pb-2">
+              <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-md">
+                <Target className="w-7 h-7 text-primary-foreground" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Mapa de Riscos</CardTitle>
+                <CardDescription className="text-xs">Operacionais, legais e financeiros</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsRadar cx="50%" cy="50%" outerRadius="70%" data={radarData}>
+                    <PolarGrid stroke="hsl(var(--muted-foreground) / 0.3)" />
+                    <PolarAngleAxis 
+                      dataKey="subject" 
+                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                    />
+                    <PolarRadiusAxis 
+                      angle={30} 
+                      domain={[0, 100]} 
+                      tick={false}
+                    />
+                    <Radar
+                      name="Nível"
+                      dataKey="value"
+                      stroke="hsl(var(--primary))"
+                      fill="hsl(var(--primary))"
+                      fillOpacity={0.2}
+                      strokeWidth={2}
+                    />
+                  </RechartsRadar>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-md hover-elevate" data-testid="card-economy">
+            <CardHeader className="flex flex-row items-center gap-4 pb-2">
+              <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-md">
+                <Wallet className="w-7 h-7 text-primary-foreground" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Oportunidades de Economia</CardTitle>
+                <CardDescription className="text-xs">Redução clara de custos</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {economyItems.map((item, index) => {
+                  const Icon = iconMap[item.icon];
+                  return (
+                    <div 
+                      key={index}
+                      className="flex justify-between items-center p-3 bg-primary/5 rounded-lg"
+                      data-testid={`economy-item-${index}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-4 h-4 text-primary" />
+                        <div>
+                          <div className="text-sm font-medium">{item.category}</div>
+                          <div className="text-xs text-muted-foreground">{item.description}</div>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">{alert.description}</p>
-                        {alert.suggestedAction && (
-                          <p className="text-xs text-primary mt-1 font-medium">
-                            Sugestão: {alert.suggestedAction}
-                          </p>
-                        )}
+                      </div>
+                      <span className="font-bold text-green-600 dark:text-green-400">
+                        R$ {item.value.toLocaleString("pt-BR")}/mês
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
+                <div className="text-sm text-muted-foreground">Economia Potencial Total</div>
+                <div className="text-2xl font-bold text-green-700 dark:text-green-400">
+                  R$ {totalEconomy.toLocaleString("pt-BR")}/mês
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  R$ {(totalEconomy * 12).toLocaleString("pt-BR")}/ano
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-md hover-elevate" data-testid="card-action-plan">
+            <CardHeader className="flex flex-row items-center gap-4 pb-2">
+              <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-md">
+                <CheckSquare className="w-7 h-7 text-primary-foreground" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Plano de Ação</CardTitle>
+                <CardDescription className="text-xs">O que fazer, por quem e quando</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {actionItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`flex items-center gap-3 p-3 rounded-lg border-l-4 transition-opacity ${
+                      item.urgent 
+                        ? "bg-red-50 dark:bg-red-900/20 border-l-red-500" 
+                        : "bg-muted/50 border-l-primary"
+                    } ${item.completed ? "opacity-50" : ""}`}
+                    data-testid={`action-item-${item.id}`}
+                  >
+                    <Checkbox
+                      checked={item.completed}
+                      onCheckedChange={() => toggleAction(item.id)}
+                      data-testid={`checkbox-action-${item.id}`}
+                    />
+                    <div className="flex-1">
+                      <div className={`text-sm ${item.completed ? "line-through" : ""}`}>
+                        {item.text}
+                      </div>
+                      <div className="text-xs text-muted-foreground italic">
+                        {item.responsible} - Até {item.deadline}
                       </div>
                     </div>
-                  ))
-                )}
+                    {item.urgent && (
+                      <AlertTriangle className="w-4 h-4 text-red-500" />
+                    )}
+                  </div>
+                ))}
               </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="relative overflow-visible">
-          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 rounded-t-lg" />
-          <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/10">
-                <DollarSign className="h-4 w-4 text-blue-500" />
+          <Card className="shadow-md hover-elevate md:col-span-2" data-testid="card-dossier">
+            <CardHeader className="flex flex-row items-center gap-4 pb-2">
+              <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-md">
+                <FolderOpen className="w-7 h-7 text-primary-foreground" />
               </div>
-              Impacto Financeiro Estimado
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-center py-4">
-              <div className="text-center">
-                <p className="text-3xl font-bold text-red-600">
-                  R$ {dashboardData.financialImpact.toLocaleString()}
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Total de riscos identificados
-                </p>
+              <div>
+                <CardTitle className="text-lg">Dossiê Permanente</CardTitle>
+                <CardDescription className="text-xs">A base para uma sucessão segura</CardDescription>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-              <Link href="/financeiro" className="block">
-                <div className="rounded-lg p-3 border hover-elevate cursor-pointer text-center">
-                  <DollarSign className="h-5 w-5 mx-auto mb-1 text-blue-500" />
-                  <p className="text-sm font-medium">Ver Financeiro</p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {dossierMetrics.map((metric, index) => {
+                  const Icon = iconMap[metric.icon] || iconMap.default;
+                  return (
+                    <div 
+                      key={index}
+                      className="text-center p-4 bg-muted/50 rounded-lg"
+                      data-testid={`dossier-metric-${index}`}
+                    >
+                      <Icon className="w-8 h-8 mx-auto mb-2 text-primary" />
+                      <div className="text-xs text-muted-foreground mb-1">{metric.label}</div>
+                      <div className="text-xl font-bold">{metric.value}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-md hover-elevate" data-testid="card-diagnostic">
+            <CardHeader className="flex flex-row items-center gap-4 pb-2">
+              <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-md">
+                <Search className="w-7 h-7 text-primary-foreground" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Diagnóstico ImobCore</CardTitle>
+                <CardDescription className="text-xs">Análise centralizada</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-48 mb-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyScoreData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground) / 0.2)" />
+                    <XAxis 
+                      dataKey="month" 
+                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                    />
+                    <YAxis 
+                      domain={[0, 100]}
+                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                    />
+                    <Bar 
+                      dataKey="score" 
+                      fill="hsl(var(--primary))" 
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-sm text-muted-foreground">Status Geral</span>
+                  {getStatusBadge()}
                 </div>
-              </Link>
-              <Link href="/contratos" className="block">
-                <div className="rounded-lg p-3 border hover-elevate cursor-pointer text-center">
-                  <ScrollText className="h-5 w-5 mx-auto mb-1 text-purple-500" />
-                  <p className="text-sm font-medium">Ver Contratos</p>
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-sm text-muted-foreground">Última Atualização</span>
+                  <span className="font-medium text-sm">
+                    {format(new Date(), "dd/MM/yyyy, HH:mm", { locale: ptBR })}
+                  </span>
                 </div>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-muted-foreground">Próxima Análise</span>
+                  <span className="font-medium text-sm">01/02/2026</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

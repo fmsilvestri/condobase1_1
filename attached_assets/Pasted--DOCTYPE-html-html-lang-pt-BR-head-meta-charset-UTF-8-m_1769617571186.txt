@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Ecossistema Condominial</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .card-icon {
+            font-size: 48px;
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .card-title {
+            flex: 1;
+        }
+
+        .card-title h3 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+
+        .card-title p {
+            color: #999;
+            font-size: 13px;
+        }
+
+        .card-content {
+            margin-top: 15px;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .metric-value {
+            font-weight: bold;
+            font-size: 18px;
+            color: #333;
+        }
+
+        .metric-value.positive {
+            color: #4CAF50;
+        }
+
+        .metric-value.negative {
+            color: #f44336;
+        }
+
+        .score-circle {
+            width: 150px;
+            height: 150px;
+            margin: 20px auto;
+            position: relative;
+        }
+
+        .score-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .score-number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .score-label {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 250px;
+            margin-top: 15px;
+        }
+
+        .action-list {
+            list-style: none;
+        }
+
+        .action-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .action-item.urgent {
+            border-left-color: #f44336;
+            background: #ffebee;
+        }
+
+        .action-checkbox {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .action-text {
+            flex: 1;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .action-who {
+            font-size: 12px;
+            color: #999;
+            font-style: italic;
+        }
+
+        .risk-radar {
+            height: 300px;
+        }
+
+        .economy-items {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .economy-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #f0f7ff;
+            border-radius: 8px;
+        }
+
+        .economy-title {
+            font-size: 14px;
+            color: #333;
+        }
+
+        .economy-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .large-card {
+            grid-column: span 2;
+        }
+
+        @media (max-width: 968px) {
+            .large-card {
+                grid-column: span 1;
+            }
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-excellent {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-good {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-critical {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .dossier-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+        }
+
+        .dossier-item {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .dossier-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .dossier-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .dossier-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📊 O Raio-X Completo do Ecossistema Condominial</h1>
+            <p class="subtitle">Um diagnóstico técnico, financeiro e operacional gerado automaticamente pela plataforma.</p>
+        </div>
+
+        <!-- Dashboard Grid -->
+        <div class="dashboard-grid">
+            <!-- Card 1: Índice de Maturidade (IMC) -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">📊</div>
+                    <div class="card-title">
+                        <h3>Índice de Maturidade</h3>
+                        <p>Score de crédito do condomínio</p>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="score-circle">
+                        <canvas id="scoreChart"></canvas>
+                        <div class="score-text">
+                            <div class="score-number">90%</div>
+                            <div class="score-label">EXCELENTE</div>
+                        </div>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Adimplência</span>
+                        <span class="metric-value positive">95%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Satisfação</span>
+                        <span class="metric-value positive">88%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Gestão</span>
+                        <span class="metric-value positive">92%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 2: Mapa de Riscos -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🎯</div>
+                    <div class="card-title">
+                        <h3>Mapa de Riscos</h3>
+                        <p>Operacionais, legais e financeiros</p>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="risk-radar">
+                        <canvas id="radarChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 3: Oportunidades de Economia -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">💰</div>
+                    <div class="card-title">
+                        <h3>Oportunidades de Economia</h3>
+                        <p>Redução clara de custos</p>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="economy-items">
+                        <div class="economy-item">
+                            <div>
+                                <div class="economy-title">⚡ Energia</div>
+                                <small style="color: #666;">LED + Sensores</small>
+                            </div>
+                            <div class="economy-value">R$ 1.200/mês</div>
+                        </div>
+                        <div class="economy-item">
+                            <div>
+                                <div class="economy-title">💧 Água</div>
+                                <small style="color: #666;">Reuso + Redutores</small>
+                            </div>
+                            <div class="economy-value">R$ 800/mês</div>
+                        </div>
+                        <div class="economy-item">
+                            <div>
+                                <div class="economy-title">📝 Contratos</div>
+                                <small style="color: #666;">Renegociação</small>
+                            </div>
+                            <div class="economy-value">R$ 1.500/mês</div>
+                        </div>
+                        <div class="economy-item">
+                            <div>
+                                <div class="economy-title">🔧 Manutenção</div>
+                                <small style="color: #666;">Preventiva</small>
+                            </div>
+                            <div class="economy-value">R$ 600/mês</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 20px; text-align: center; padding: 15px; background: #e8f5e9; border-radius: 8px;">
+                        <div style="font-size: 14px; color: #666;">Economia Potencial Total</div>
+                        <div style="font-size: 28px; font-weight: bold; color: #2e7d32;">R$ 4.100/mês</div>
+                        <div style="font-size: 12px; color: #666;">R$ 49.200/ano</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 4: Plano de Ação -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">✅</div>
+                    <div class="card-title">
+                        <h3>Plano de Ação</h3>
+                        <p>O que fazer, por quem e quando</p>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <ul class="action-list">
+                        <li class="action-item urgent">
+                            <input type="checkbox" class="action-checkbox">
+                            <div>
+                                <div class="action-text">Renovar certificado do AVCB</div>
+                                <div class="action-who">Síndico • Até 15/02</div>
+                            </div>
+                        </li>
+                        <li class="action-item">
+                            <input type="checkbox" class="action-checkbox">
+                            <div>
+                                <div class="action-text">Trocar lâmpadas por LED</div>
+                                <div class="action-who">Zelador • Até 28/02</div>
+                            </div>
+                        </li>
+                        <li class="action-item">
+                            <input type="checkbox" class="action-checkbox">
+                            <div>
+                                <div class="action-text">Convocar assembleia ordinária</div>
+                                <div class="action-who">Administração • Até 10/03</div>
+                            </div>
+                        </li>
+                        <li class="action-item">
+                            <input type="checkbox" class="action-checkbox">
+                            <div>
+                                <div class="action-text">Revisar contratos de fornecedores</div>
+                                <div class="action-who">Síndico • Até 20/03</div>
+                            </div>
+                        </li>
+                        <li class="action-item">
+                            <input type="checkbox" class="action-checkbox">
+                            <div>
+                                <div class="action-text">Manutenção preventiva elevadores</div>
+                                <div class="action-who">Zelador • Até 25/03</div>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Card 5: Dossiê Permanente (Large) -->
+            <div class="card large-card">
+                <div class="card-header">
+                    <div class="card-icon">📁</div>
+                    <div class="card-title">
+                        <h3>Dossiê Permanente</h3>
+                        <p>A base para uma sucessão segura</p>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="dossier-grid">
+                        <div class="dossier-item">
+                            <div class="dossier-icon">🏢</div>
+                            <div class="dossier-label">Unidades</div>
+                            <div class="dossier-value">84</div>
+                        </div>
+                        <div class="dossier-item">
+                            <div class="dossier-icon">👥</div>
+                            <div class="dossier-label">Moradores</div>
+                            <div class="dossier-value">312</div>
+                        </div>
+                        <div class="dossier-item">
+                            <div class="dossier-icon">💼</div>
+                            <div class="dossier-label">Funcionários</div>
+                            <div class="dossier-value">12</div>
+                        </div>
+                        <div class="dossier-item">
+                            <div class="dossier-icon">📋</div>
+                            <div class="dossier-label">Contratos</div>
+                            <div class="dossier-value">18</div>
+                        </div>
+                        <div class="dossier-item">
+                            <div class="dossier-icon">🔧</div>
+                            <div class="dossier-label">Equipamentos</div>
+                            <div class="dossier-value">45</div>
+                        </div>
+                        <div class="dossier-item">
+                            <div class="dossier-icon">📄</div>
+                            <div class="dossier-label">Documentos</div>
+                            <div class="dossier-value">156</div>
+                        </div>
+                        <div class="dossier-item">
+                            <div class="dossier-icon">💰</div>
+                            <div class="dossier-label">Receita Mensal</div>
+                            <div class="dossier-value">R$ 89k</div>
+                        </div>
+                        <div class="dossier-item">
+                            <div class="dossier-icon">📊</div>
+                            <div class="dossier-label">Inadimplência</div>
+                            <div class="dossier-value">5%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 6: Diagnóstico ImobCore -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🔍</div>
+                    <div class="card-title">
+                        <h3>Diagnóstico ImobCore</h3>
+                        <p>Análise centralizada</p>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="chart-container">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <div class="metric">
+                            <span class="metric-label">Status Geral</span>
+                            <span class="status-badge status-excellent">Excelente</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Última Atualização</span>
+                            <span class="metric-value">Hoje, 14:32</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Próxima Análise</span>
+                            <span class="metric-value">01/02/2026</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Score Chart (Doughnut)
+        const scoreCtx = document.getElementById('scoreChart').getContext('2d');
+        new Chart(scoreCtx, {
+            type: 'doughnut',
+            data: {
+                datasets: [{
+                    data: [90, 10],
+                    backgroundColor: ['#667eea', '#e0e0e0'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                cutout: '75%',
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false }
+                }
+            }
+        });
+
+        // Radar Chart
+        const radarCtx = document.getElementById('radarChart').getContext('2d');
+        new Chart(radarCtx, {
+            type: 'radar',
+            data: {
+                labels: ['Financeiro', 'Operacional', 'Legal', 'Manutenção', 'Segurança', 'Satisfação'],
+                datasets: [{
+                    label: 'Nível de Risco',
+                    data: [85, 92, 78, 88, 95, 90],
+                    backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                    borderColor: '#667eea',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#667eea',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: { display: false },
+                        grid: { color: '#e0e0e0' }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        // Status Chart (Bar)
+        const statusCtx = document.getElementById('statusChart').getContext('2d');
+        new Chart(statusCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
+                datasets: [{
+                    label: 'Score Mensal',
+                    data: [82, 85, 87, 89, 88, 90],
+                    backgroundColor: '#667eea',
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100
+                    }
+                }
+            }
+        });
+
+        // Interatividade dos checkboxes
+        document.querySelectorAll('.action-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const item = this.closest('.action-item');
+                if (this.checked) {
+                    item.style.opacity = '0.5';
+                    item.querySelector('.action-text').style.textDecoration = 'line-through';
+                } else {
+                    item.style.opacity = '1';
+                    item.querySelector('.action-text').style.textDecoration = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
