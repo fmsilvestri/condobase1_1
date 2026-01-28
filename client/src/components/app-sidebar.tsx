@@ -58,7 +58,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useModulePermissions, moduleKeyMap } from "@/hooks/use-module-permissions";
 import { useCondominium } from "@/hooks/use-condominium";
-import logoImage from "@assets/imobcore-logo.png";
+import logoImage from "@assets/imobcore-logo-new.png";
 
 const pillarModules = [
   {
