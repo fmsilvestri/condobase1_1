@@ -2,9 +2,9 @@
  * eWeLink Service - Integration with Sonoff Cloud API
  * 
  * This service handles authentication and device control via the eWeLink Cloud API.
- * Uses the official ewelink-api-next library for reliable authentication.
+ * Uses the ewelink-api library for reliable authentication.
  * 
- * API Documentation reference: https://coolkit-technologies.github.io/eWeLink-API/
+ * API Documentation reference: https://github.com/skydiver/ewelink-api
  */
 
 import crypto from 'crypto';
@@ -15,15 +15,13 @@ const APP_SECRET = process.env.EWELINK_APP_SECRET || '8CWzxwKIfniMDuzMhqjplN7LY4
 
 // In-memory token storage per user session
 interface UserSession {
-  accessToken: string;
-  refreshToken: string;
+  email: string;
   region: string;
-  userId: string;
   expiresAt: number;
-  client?: any;
+  connection?: any;
 }
 
-// Store sessions by a session key (could be user email or session ID)
+// Store sessions by a session key
 const sessions = new Map<string, UserSession>();
 
 // Device interface
@@ -42,12 +40,13 @@ const REGION_MAP: Record<string, string> = {
   eu: 'eu',
   as: 'as',
   cn: 'cn',
-  br: 'us', // Brazil uses US region
-  sa: 'us', // South America uses US region
+  br: 'us',
+  brasil: 'us',
+  sa: 'us',
 };
 
 /**
- * Login to eWeLink using official library
+ * Login to eWeLink using ewelink-api library
  */
 export async function ewelinkLogin(
   email: string,
@@ -59,27 +58,24 @@ export async function ewelinkLogin(
   console.log(`[eWeLink] Attempting login for ${email} to region ${mappedRegion}`);
   
   try {
-    // Dynamic import of ewelink-api-next
-    const eWeLink = await import('ewelink-api-next');
+    // Dynamic import of ewelink-api
+    const ewelink = require('ewelink-api');
     
-    // Create client
-    const client = new eWeLink.WebAPI({
-      appId: APP_ID,
-      appSecret: APP_SECRET,
-      region: mappedRegion as 'us' | 'eu' | 'as' | 'cn',
-    });
-
-    // Perform login
-    const response = await client.user.login({
-      account: email,
+    // Create connection with APP_ID and APP_SECRET
+    const connection = new ewelink({
+      email: email,
       password: password,
-      areaCode: '+55', // Brazil country code
+      region: mappedRegion,
+      APP_ID: APP_ID,
+      APP_SECRET: APP_SECRET,
     });
 
-    console.log(`[eWeLink] Login response:`, JSON.stringify(response, null, 2));
+    // Test connection by getting credentials
+    const credentials = await connection.getCredentials();
+    
+    console.log(`[eWeLink] Login response:`, JSON.stringify(credentials, null, 2));
 
-    if (response.error !== 0) {
-      // Map common error codes to user-friendly messages
+    if (credentials.error) {
       const errorMessages: Record<number, string> = {
         400: 'Parâmetros inválidos',
         401: 'Email ou senha incorretos',
@@ -93,23 +89,18 @@ export async function ewelinkLogin(
       
       return {
         success: false,
-        message: errorMessages[response.error] || `Erro eWeLink: ${response.msg || response.error}`,
+        message: errorMessages[credentials.error] || `Erro eWeLink: ${credentials.msg || credentials.error}`,
       };
     }
 
-    // Store session with client instance
+    // Store session with connection instance
     const sessionKey = crypto.randomBytes(16).toString('hex');
     
-    // Set the token on the client for future requests
-    client.at = response.data.at;
-    
     sessions.set(sessionKey, {
-      accessToken: response.data.at,
-      refreshToken: response.data.rt,
+      email: email,
       region: mappedRegion,
-      userId: response.data.user?.apikey || '',
-      expiresAt: Date.now() + (response.data.atExpiredTime || 86400) * 1000,
-      client: client,
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+      connection: connection,
     });
 
     console.log(`[eWeLink] Login successful, session created: ${sessionKey.substring(0, 8)}...`);
@@ -169,45 +160,44 @@ export async function ewelinkGetDevices(sessionKey: string): Promise<{
   }
 
   try {
-    const client = session.client;
-    if (!client) {
+    const connection = session.connection;
+    if (!connection) {
       return {
         success: false,
-        message: 'Cliente não inicializado. Faça login novamente.',
+        message: 'Conexão não inicializada. Faça login novamente.',
       };
     }
     
     // Get devices
-    const response = await client.device.getAllThings();
+    const deviceList = await connection.getDevices();
     
-    console.log(`[eWeLink] Get devices response:`, JSON.stringify(response, null, 2));
+    console.log(`[eWeLink] Get devices response:`, JSON.stringify(deviceList, null, 2));
 
-    if (response.error !== 0) {
+    if (deviceList.error) {
       return {
         success: false,
-        message: `Erro ao obter dispositivos: ${response.msg || response.error}`,
+        message: `Erro ao obter dispositivos: ${deviceList.msg || deviceList.error}`,
       };
     }
 
     // Map devices to our format
-    const devices: EwelinkDevice[] = (response.data?.thingList || []).map((thing: any) => {
-      const item = thing.itemData || thing;
+    const devices: EwelinkDevice[] = (deviceList || []).map((device: any) => {
       let state: 'on' | 'off' | 'unknown' = 'unknown';
       
       // Try to get switch state from different possible locations
-      if (item.params?.switch) {
-        state = item.params.switch;
-      } else if (item.params?.switches?.[0]?.switch) {
-        state = item.params.switches[0].switch;
+      if (device.params?.switch) {
+        state = device.params.switch;
+      } else if (device.params?.switches?.[0]?.switch) {
+        state = device.params.switches[0].switch;
       }
       
       return {
-        deviceid: item.deviceid || '',
-        name: item.name || 'Dispositivo sem nome',
+        deviceid: device.deviceid || '',
+        name: device.name || 'Dispositivo sem nome',
         state,
-        online: item.online ?? true,
-        brandName: item.brandName || item.extra?.brandName || '',
-        productModel: item.productModel || item.extra?.productModel || '',
+        online: device.online ?? true,
+        brandName: device.brandName || device.extra?.brandName || '',
+        productModel: device.productModel || device.extra?.productModel || '',
       };
     });
 
@@ -243,26 +233,20 @@ export async function ewelinkControlDevice(
   }
 
   try {
-    const client = session.client;
-    if (!client) {
+    const connection = session.connection;
+    if (!connection) {
       return {
         success: false,
-        message: 'Cliente não inicializado. Faça login novamente.',
+        message: 'Conexão não inicializada. Faça login novamente.',
       };
     }
     
-    // Control device
-    const response = await client.device.setThingStatus({
-      id: deviceId,
-      type: 1,
-      params: {
-        switch: action,
-      },
-    });
+    // Control device using setDevicePowerState
+    const response = await connection.setDevicePowerState(deviceId, action);
 
     console.log(`[eWeLink] Control device response:`, JSON.stringify(response, null, 2));
 
-    if (response.error !== 0) {
+    if (response.error) {
       return {
         success: false,
         message: `Erro ao controlar dispositivo: ${response.msg || response.error}`,
