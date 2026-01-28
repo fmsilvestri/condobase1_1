@@ -3310,7 +3310,8 @@ export class SupabaseStorage implements IStorage {
   // ========== ACTIVITY TEMPLATES ==========
 
   async getActivityTemplates(condominiumId?: string, funcao?: string): Promise<any[]> {
-    let query = supabase.from("activity_templates").select("*").eq("is_active", true).order("ordem");
+    const client = supabaseAdmin || supabase;
+    let query = client.from("activity_templates").select("*").eq("is_active", true).order("ordem");
     if (condominiumId) query = query.eq("condominium_id", condominiumId);
     if (funcao) query = query.eq("funcao", funcao);
     const { data, error } = await query;
@@ -3322,7 +3323,8 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getActivityTemplateById(id: string): Promise<any | null> {
-    const { data, error } = await supabase.from("activity_templates").select("*").eq("id", id).single();
+    const client = supabaseAdmin || supabase;
+    const { data, error } = await client.from("activity_templates").select("*").eq("id", id).single();
     if (error) return null;
     return toCamelCase(data);
   }
@@ -3352,7 +3354,8 @@ export class SupabaseStorage implements IStorage {
   // ========== ACTIVITY LISTS ==========
 
   async getActivityLists(condominiumId?: string, membroId?: string): Promise<any[]> {
-    let query = supabase.from("activity_lists").select("*").order("data", { ascending: false });
+    const client = supabaseAdmin || supabase;
+    let query = client.from("activity_lists").select("*").order("data", { ascending: false });
     if (condominiumId) query = query.eq("condominium_id", condominiumId);
     if (membroId) query = query.eq("team_member_id", membroId);
     const { data, error } = await query;
@@ -3364,7 +3367,8 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getActivityListById(id: string): Promise<any | null> {
-    const { data, error } = await supabase.from("activity_lists").select("*").eq("id", id).single();
+    const client = supabaseAdmin || supabase;
+    const { data, error } = await client.from("activity_lists").select("*").eq("id", id).single();
     if (error) return null;
     return toCamelCase(data);
   }
@@ -3394,7 +3398,8 @@ export class SupabaseStorage implements IStorage {
   // ========== ACTIVITY LIST ITEMS ==========
 
   async getActivityListItems(listaId: string): Promise<any[]> {
-    const { data, error } = await supabase.from("activity_list_items").select("*").eq("activity_list_id", listaId).order("ordem");
+    const client = supabaseAdmin || supabase;
+    const { data, error } = await client.from("activity_list_items").select("*").eq("activity_list_id", listaId).order("ordem");
     if (error) {
       console.error("Error fetching activity list items:", error);
       return [];
