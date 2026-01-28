@@ -10,6 +10,7 @@ import {
   notifyNewAnnouncement,
   notifyMaintenanceUpdate
 } from "./push-notifications";
+import { sendWhatsAppMessage } from "./twilio-client";
 import jwt from "jsonwebtoken";
 import { 
   condominiumContextMiddleware, 
@@ -4789,24 +4790,161 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/marketplace/contratacoes", requireAuth, async (req, res) => {
+  app.post("/api/marketplace/contratacoes", requireAuth, requireCondominium, async (req, res) => {
     try {
+      // Validate input with schema
+      const validationSchema = insertContratacaoSchema.pick({ 
+        ofertaId: true, 
+        fornecedorId: true, 
+        observacoes: true, 
+        valor: true 
+      });
+      const parsed = validationSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Dados invalidos", details: parsed.error.flatten() });
+      }
+      const { ofertaId, fornecedorId, observacoes, valor } = parsed.data;
+      
+      // Validate required fields
+      if (!ofertaId || !fornecedorId) {
+        return res.status(400).json({ error: "ofertaId e fornecedorId sao obrigatorios" });
+      }
+      
+      // Validate oferta exists, belongs to fornecedor, and is in same condominium
+      const oferta = await storage.getMarketplaceOfertaById(ofertaId);
+      if (!oferta) {
+        return res.status(404).json({ error: "Oferta nao encontrada" });
+      }
+      if (oferta.condominiumId !== req.condominiumId) {
+        return res.status(403).json({ error: "Oferta nao pertence a este condominio" });
+      }
+      if (oferta.fornecedorId !== fornecedorId) {
+        return res.status(400).json({ error: "Oferta nao pertence a este fornecedor" });
+      }
+      
+      // Validate fornecedor exists, is approved, and is in same condominium
+      const fornecedor = await storage.getMarketplaceFornecedorById(fornecedorId);
+      if (!fornecedor) {
+        return res.status(404).json({ error: "Fornecedor nao encontrado" });
+      }
+      if (fornecedor.condominiumId !== req.condominiumId) {
+        return res.status(403).json({ error: "Fornecedor nao pertence a este condominio" });
+      }
+      if (fornecedor.status !== "aprovado") {
+        return res.status(400).json({ error: "Fornecedor nao esta aprovado" });
+      }
+      
       const contratacao = await storage.createMarketplaceContratacao({ 
-        ...req.body, 
+        ofertaId,
+        fornecedorId,
+        observacoes,
+        valor,
         moradorId: req.userId,
         condominiumId: req.condominiumId,
         status: "solicitado"
       });
+      
+      // Send WhatsApp notification to provider
+      try {
+        if (fornecedor.whatsapp) {
+          await sendWhatsAppMessage({
+            to: fornecedor.whatsapp,
+            body: `Nova solicitacao de servico!\n\nServico: ${oferta.titulo || "Servico"}\nValor: R$ ${contratacao.valor || "A combinar"}\n\nAcesse o painel de fornecedor para confirmar ou recusar.`
+          });
+        }
+      } catch (notifError) {
+        console.error("Erro ao enviar notificacao WhatsApp:", notifError);
+      }
+      
       res.status(201).json(contratacao);
     } catch (error: any) {
       res.status(500).json({ error: "Falha ao criar contratacao" });
     }
   });
 
-  app.patch("/api/marketplace/contratacoes/:id/status", requireAuth, async (req, res) => {
+  app.patch("/api/marketplace/contratacoes/:id/status", requireAuth, requireCondominium, async (req, res) => {
     try {
       const { status } = req.body;
+      const validStatuses = ["solicitado", "confirmado", "em_execucao", "concluido", "cancelado"];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ error: "Status invalido" });
+      }
+      
+      const oldContratacao = await storage.getMarketplaceContratacaoById(req.params.id);
+      if (!oldContratacao) {
+        return res.status(404).json({ error: "Contratacao nao encontrada" });
+      }
+      
+      // Verify condominium scope
+      if (oldContratacao.condominiumId !== req.condominiumId) {
+        return res.status(403).json({ error: "Contratacao nao pertence a este condominio" });
+      }
+      
+      // Role-based authorization for status changes
+      const userId = req.userId;
+      const userRole = req.userCondominiumRole;
+      const isMorador = oldContratacao.moradorId === userId;
+      
+      // Get the provider linked to the current user (if any)
+      const userFornecedor = await storage.getMarketplaceFornecedorByUserId(userId || "");
+      // Only count as fornecedor if this user's provider profile matches the contract's provider
+      const isAssignedFornecedor = userFornecedor?.id === oldContratacao.fornecedorId;
+      const isAdmin = userRole === "admin" || userRole === "sindico";
+      
+      // Providers can: confirm, start execution, complete
+      // Moradores can: cancel their own contracts
+      // Assigned providers can: cancel contracts assigned to them
+      // Admins can: any status
+      if (!isAdmin) {
+        if (["confirmado", "em_execucao", "concluido"].includes(status) && !isAssignedFornecedor) {
+          return res.status(403).json({ error: "Apenas o fornecedor pode atualizar para este status" });
+        }
+        if (status === "cancelado" && !isMorador && !isAssignedFornecedor) {
+          return res.status(403).json({ error: "Nao autorizado a cancelar esta contratacao" });
+        }
+      }
+      
       const contratacao = await storage.updateMarketplaceContratacao(req.params.id, { status });
+      
+      // Send WhatsApp notifications based on status change
+      try {
+        const statusMessages: Record<string, { toMorador?: string; toFornecedor?: string }> = {
+          confirmado: { toMorador: "Sua solicitacao de servico foi confirmada pelo fornecedor! O servico sera executado em breve." },
+          em_execucao: { toMorador: "O servico que voce contratou esta em execucao." },
+          concluido: { 
+            toMorador: "O servico foi concluido! Por favor, avalie o fornecedor no marketplace.",
+            toFornecedor: "Servico marcado como concluido. Aguarde a avaliacao do morador."
+          },
+          cancelado: { 
+            toMorador: "Sua solicitacao de servico foi cancelada.",
+            toFornecedor: "A contratacao foi cancelada pelo morador."
+          }
+        };
+        
+        const messages = statusMessages[status];
+        if (messages && contratacao) {
+          // Notify morador (use whatsapp field from morador profile if available, fallback to telefone)
+          if (messages.toMorador && oldContratacao.moradorId) {
+            const morador = await storage.getUserById(oldContratacao.moradorId);
+            const profile = morador ? await storage.getMoradorProfileByUserId(morador.id) : null;
+            const whatsappNumber = (profile as any)?.whatsapp || profile?.telefone;
+            if (whatsappNumber) {
+              await sendWhatsAppMessage({ to: whatsappNumber, body: messages.toMorador });
+            }
+          }
+          
+          // Notify fornecedor
+          if (messages.toFornecedor && oldContratacao.fornecedorId) {
+            const fornecedorData = await storage.getMarketplaceFornecedorById(oldContratacao.fornecedorId);
+            if (fornecedorData?.whatsapp) {
+              await sendWhatsAppMessage({ to: fornecedorData.whatsapp, body: messages.toFornecedor });
+            }
+          }
+        }
+      } catch (notifError) {
+        console.error("Erro ao enviar notificacao WhatsApp:", notifError);
+      }
+      
       res.json(contratacao);
     } catch (error: any) {
       res.status(500).json({ error: "Falha ao atualizar status" });
