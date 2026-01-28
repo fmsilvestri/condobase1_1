@@ -82,7 +82,16 @@ const createListFormSchema = z.object({
   observacoes: z.string().optional(),
 });
 
+const createTemplateFormSchema = z.object({
+  titulo: z.string().min(2, "Título deve ter pelo menos 2 caracteres"),
+  descricao: z.string().optional(),
+  funcao: z.string().min(1, "Selecione uma função"),
+  area: z.string().optional(),
+  tempoEstimado: z.coerce.number().optional().nullable(),
+});
+
 type CreateListFormData = z.infer<typeof createListFormSchema>;
+type CreateTemplateFormData = z.infer<typeof createTemplateFormSchema>;
 
 interface ActivityTemplate {
   id: string;
@@ -172,6 +181,18 @@ const prioridadeColors: Record<string, string> = {
   urgente: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 };
 
+const roleLabels: Record<string, string> = {
+  zelador: "Zelador",
+  porteiro: "Porteiro",
+  faxineiro: "Faxineiro",
+  jardineiro: "Jardineiro",
+  manutencao: "Manutenção",
+  administrativo: "Administrativo",
+  seguranca: "Segurança",
+  piscineiro: "Piscineiro",
+  outro: "Outro",
+};
+
 export default function ActivityManagement() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -182,6 +203,7 @@ export default function ActivityManagement() {
   const [selectedTemplates, setSelectedTemplates] = useState<ActivityTemplate[]>([]);
   const [viewListDialog, setViewListDialog] = useState<ActivityList | null>(null);
   const [whatsappDialog, setWhatsappDialog] = useState<{ list: ActivityList; url: string; message: string } | null>(null);
+  const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
 
   const form = useForm<CreateListFormData>({
     resolver: zodResolver(createListFormSchema),
@@ -192,6 +214,17 @@ export default function ActivityManagement() {
       turno: "manha",
       prioridade: "normal",
       observacoes: "",
+    },
+  });
+
+  const templateForm = useForm<CreateTemplateFormData>({
+    resolver: zodResolver(createTemplateFormSchema),
+    defaultValues: {
+      titulo: "",
+      descricao: "",
+      funcao: "",
+      area: "",
+      tempoEstimado: null,
     },
   });
 
@@ -272,6 +305,25 @@ export default function ActivityManagement() {
       toast({ title: "Erro ao gerar mensagem", description: error.message, variant: "destructive" });
     },
   });
+
+  const createTemplateMutation = useMutation({
+    mutationFn: async (data: CreateTemplateFormData) => {
+      return apiRequest("POST", "/api/activity-templates", data);
+    },
+    onSuccess: () => {
+      toast({ title: "Atividade criada com sucesso!" });
+      queryClient.invalidateQueries({ queryKey: ["/api/activity-templates"] });
+      templateForm.reset();
+      setIsTemplateDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao criar atividade", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleTemplateSubmit = (data: CreateTemplateFormData) => {
+    createTemplateMutation.mutate(data);
+  };
 
   const handleSubmit = (data: CreateListFormData) => {
     if (selectedTemplates.length === 0) {
@@ -501,13 +553,24 @@ export default function ActivityManagement() {
                     <CardTitle>Atividades Disponíveis</CardTitle>
                     <CardDescription>
                       {selectedFuncao
-                        ? `Mostrando atividades para: ${selectedFuncao}`
+                        ? `Mostrando atividades para: ${roleLabels[selectedFuncao] || selectedFuncao}`
                         : "Selecione um membro para filtrar"}
                     </CardDescription>
                   </div>
-                  <Badge variant="secondary" data-testid="badge-selecionadas">
-                    {selectedTemplates.length} selecionadas
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" data-testid="badge-selecionadas">
+                      {selectedTemplates.length} selecionadas
+                    </Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsTemplateDialogOpen(true)}
+                      data-testid="button-nova-atividade"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Nova Atividade
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -518,11 +581,15 @@ export default function ActivityManagement() {
                     ))}
                   </div>
                 ) : templates.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    {selectedFuncao
-                      ? "Nenhuma atividade cadastrada para esta função"
-                      : "Selecione um membro da equipe"}
-                  </div>
+                  <EmptyState
+                    icon={ClipboardList}
+                    title="Nenhuma atividade cadastrada"
+                    description={selectedFuncao ? `Crie atividades para ${roleLabels[selectedFuncao] || selectedFuncao}` : "Selecione um membro e crie atividades"}
+                    action={{
+                      label: "Criar Atividade",
+                      onClick: () => setIsTemplateDialogOpen(true)
+                    }}
+                  />
                 ) : (
                   <div className="space-y-2 max-h-[400px] overflow-y-auto">
                     {templates.map((template) => {
@@ -872,6 +939,127 @@ export default function ActivityManagement() {
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Nova Atividade</DialogTitle>
+            <DialogDescription>
+              Cadastre uma nova atividade para atribuir à equipe
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...templateForm}>
+            <form onSubmit={templateForm.handleSubmit(handleTemplateSubmit)} className="space-y-4">
+              <FormField
+                control={templateForm.control}
+                name="titulo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Título da Atividade *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: Limpeza do hall de entrada" {...field} data-testid="input-template-titulo" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={templateForm.control}
+                name="funcao"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Função *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-template-funcao">
+                          <SelectValue placeholder="Selecione a função" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {teamMemberRoles.map((role) => (
+                          <SelectItem key={role} value={role} data-testid={`option-funcao-${role}`}>
+                            {roleLabels[role] || role}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={templateForm.control}
+                name="descricao"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descrição</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Descreva a atividade..." {...field} data-testid="textarea-template-descricao" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={templateForm.control}
+                  name="area"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Local/Área</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex: Hall de entrada" {...field} data-testid="input-template-area" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={templateForm.control}
+                  name="tempoEstimado"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tempo (min)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="Ex: 30"
+                          {...field}
+                          value={field.value ?? ""}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                          data-testid="input-template-tempo"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    templateForm.reset();
+                    setIsTemplateDialogOpen(false);
+                  }}
+                  data-testid="button-cancelar-template"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createTemplateMutation.isPending}
+                  data-testid="button-salvar-template"
+                >
+                  {createTemplateMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Salvar
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>
