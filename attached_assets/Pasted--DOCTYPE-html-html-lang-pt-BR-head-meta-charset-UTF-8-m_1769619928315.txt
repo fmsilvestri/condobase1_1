@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Atividades - Templates e Envio</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://html2canvas.googlecode.com/files/html2canvas.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            transform: translateY(-2px);
+        }
+
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .templates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .template-card {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .template-card:hover {
+            border-color: #667eea;
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .template-card.selected {
+            border-color: #4CAF50;
+            background: #f1f8f4;
+        }
+
+        .template-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+        }
+
+        .template-titulo {
+            font-weight: bold;
+            font-size: 18px;
+            color: #333;
+        }
+
+        .template-badge {
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+            background: #667eea;
+        }
+
+        .template-descricao {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .template-info {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            font-size: 13px;
+            color: #999;
+        }
+
+        .template-info-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-whatsapp {
+            background: #25D366;
+            color: white;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .membros-selection {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .membro-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .membro-item:hover {
+            background: #e9ecef;
+        }
+
+        .membro-item.selected {
+            background: #d4edda;
+            border: 2px solid #4CAF50;
+        }
+
+        .membro-checkbox {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .membro-info {
+            flex: 1;
+        }
+
+        .membro-nome {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .membro-funcao {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .membro-whatsapp {
+            font-size: 12px;
+            color: #25D366;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-pendente {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-concluido {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-enviando {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #4CAF50;
+            transition: width 0.3s;
+        }
+
+        .historico-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .historico-table th,
+        .historico-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .historico-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .historico-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            width: 90%;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .close-modal {
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .close-modal:hover {
+            color: #333;
+        }
+
+        .pdf-preview {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            background: #f8f9fa;
+            margin-top: 20px;
+        }
+
+        #pdfContainer {
+            max-height: 500px;
+            overflow-y: auto;
+            background: white;
+            padding: 20px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .alert-warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📋 Gestão de Atividades</h1>
+            <p>Crie listas prontas, replique e envie via WhatsApp em PDF</p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="mudarTab('templates')">
+                📚 Templates de Listas
+            </button>
+            <button class="tab" onclick="mudarTab('envio')">
+                📤 Enviar em Lote
+            </button>
+            <button class="tab" onclick="mudarTab('historico')">
+                📊 Histórico
+            </button>
+        </div>
+
+        <!-- Tab: Templates -->
+        <div id="tab-templates" class="tab-content active">
+            <div class="section">
+                <h2>📚 Templates de Listas Prontas</h2>
+                <p>Selecione um template para visualizar ou usar</p>
+
+                <div class="form-row" style="margin-top: 20px;">
+                    <div class="form-group">
+                        <label>Filtrar por Função:</label>
+                        <select id="filtroFuncao" onchange="filtrarTemplates()">
+                            <option value="">Todas</option>
+                            <option value="Zelador">Zelador</option>
+                            <option value="Faxineiro">Faxineiro</option>
+                            <option value="Porteiro">Porteiro</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Filtrar por Periodicidade:</label>
+                        <select id="filtroPeriodicidade" onchange="filtrarTemplates()">
+                            <option value="">Todas</option>
+                            <option value="diaria">Diária</option>
+                            <option value="semanal">Semanal</option>
+                            <option value="mensal">Mensal</option>
+                            <option value="eventual">Eventual</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="templatesContainer" class="templates-grid">
+                    <!-- Templates serão carregados aqui -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Envio em Lote -->
+        <div id="tab-envio" class="tab-content">
+            <div class="section">
+                <h2>📤 Enviar Lista em Lote</h2>
+                
+                <div class="alert alert-info">
+                    <strong>ℹ️ Como funciona:</strong> Selecione um template, escolha os funcionários e envie a lista de atividades em PDF via WhatsApp para todos ao mesmo tempo.
+                </div>
+
+                <form id="formEnvioLote">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Template: *</label>
+                            <select id="templateEnvio" required>
+                                <option value="">Selecione um template...</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Data de Execução: *</label>
+                            <input type="date" id="dataExecucaoEnvio" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Turno: *</label>
+                            <select id="turnoEnvio" required>
+                                <option value="manha">Manhã</option>
+                                <option value="tarde">Tarde</option>
+                                <option value="noite">Noite</option>
+                                <option value="integral">Integral</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Observações Gerais:</label>
+                        <textarea id="observacoesEnvio" rows="3" placeholder="Observações que aparecerão em todas as listas..."></textarea>
+                    </div>
+
+                    <div class="membros-selection">
+                        <h3>Selecionar Funcionários:</h3>
+                        <p style="color: #666; margin-bottom: 15px;">Marque os funcionários que receberão a lista</p>
+                        <div id="membrosContainer">
+                            <!-- Membros serão carregados aqui -->
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 30px; display: flex; gap: 10px;">
+                        <button type="button" class="btn btn-primary" onclick="visualizarPDF()">
+                            👁️ Visualizar PDF
+                        </button>
+                        <button type="submit" class="btn btn-whatsapp">
+                            📱 Gerar PDFs e Enviar WhatsApp
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tab: Histórico -->
+        <div id="tab-historico" class="tab-content">
+            <div class="section">
+                <h2>📊 Histórico de Envios</h2>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="statTotal">0</div>
+                        <div class="stat-label">Total Enviados</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="statMes">0</div>
+                        <div class="stat-label">Este Mês</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="statSucesso">0%</div>
+                        <div class="stat-label">Taxa de Sucesso</div>
+                    </div>
+                </div>
+
+                <table class="historico-table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Template</th>
+                            <th>Destinatários</th>
+                            <th>Enviados</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historicoTableBody">
+                        <!-- Histórico será carregado aqui -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Preview PDF -->
+    <div id="modalPDF" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3>👁️ Preview do PDF</h3>
+                <span class="close-modal" onclick="fecharModal()">&times;</span>
+            </div>
+            <div class="pdf-preview">
+                <div id="pdfContainer"></div>
+            </div>
+            <button class="btn btn-primary" style="width: 100%; margin-top: 20px;" onclick="baixarPDF()">
+                💾 Baixar PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="js_templates_envio_lote.js"></script>
+    
+    <script>
+        // Variáveis globais
+        let templateSelecionado = null;
+        let membrosSelecionados = [];
+        let templates = [];
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', () => {
+            carregarTemplatesUI();
+            carregarMembros();
+            carregarHistorico();
+            setDataPadrao();
+        });
+
+        // Carregar templates na UI
+        async function carregarTemplatesUI() {
+            templates = await carregarTemplates();
+            exibirTemplates(templates);
+            popularSelectTemplates(templates);
+        }
+
+        // Exibir templates
+        function exibirTemplates(templates) {
+            const container = document.getElementById('templatesContainer');
+            container.innerHTML = '';
+
+            templates.forEach(template => {
+                const card = criarCardTemplate(template);
+                container.appendChild(card);
+            });
+        }
+
+        // Criar card de template
+        function criarCardTemplate(template) {
+            const card = document.createElement('div');
+            card.className = 'template-card';
+            card.onclick = () => selecionarTemplate(template.id, card);
+
+            card.innerHTML = `
+                <div class="template-header">
+                    <div class="template-titulo">${template.nome}</div>
+                    <span class="template-badge">${template.funcao}</span>
+                </div>
+                <div class="template-descricao">${template.descricao || ''}</div>
+                <div class="template-info">
+                    <span class="template-info-item">
+                        📅 ${template.periodicidade}
+                    </span>
+                    <span class="template-info-item">
+                        ⏰ ${template.turno_padrao}
+                    </span>
+                    <span class="template-info-item">
+                        📊 Usado ${template.uso_count}x
+                    </span>
+                </div>
+            `;
+
+            return card;
+        }
+
+        // Selecionar template
+        function selecionarTemplate(templateId, card) {
+            document.querySelectorAll('.template-card').forEach(c => {
+                c.classList.remove('selected');
+            });
+            card.classList.add('selected');
+            templateSelecionado = templateId;
+        }
+
+        // Popular select de templates
+        function popularSelectTemplates(templates) {
+            const select = document.getElementById('templateEnvio');
+            select.innerHTML = '<option value="">Selecione...</option>';
+            
+            templates.forEach(template => {
+                const option = document.createElement('option');
+                option.value = template.id;
+                option.textContent = `${template.nome} (${template.funcao})`;
+                select.appendChild(option);
+            });
+        }
+
+        // Carregar membros
+        async function carregarMembros() {
+            const { data, error } = await supabase
+                .from('membros_equipe')
+                .select('*')
+                .eq('status', 'ativo')
+                .order('nome');
+
+            if (!error && data) {
+                exibirMembros(data);
+            }
+        }
+
+        // Exibir membros
+        function exibirMembros(membros) {
+            const container = document.getElementById('membrosContainer');
+            container.innerHTML = '';
+
+            membros.forEach(membro => {
+                const item = document.createElement('div');
+                item.className = 'membro-item';
+                item.onclick = () => toggleMembro(membro.id, item);
+
+                item.innerHTML = `
+                    <input type="checkbox" class="membro-checkbox" data-membro-id="${membro.id}">
+                    <div class="membro-info">
+                        <div class="membro-nome">${membro.nome}</div>
+                        <div class="membro-funcao">${membro.funcao}</div>
+                        ${membro.whatsapp ? `<div class="membro-whatsapp">📱 ${membro.whatsapp}</div>` : ''}
+                    </div>
+                `;
+
+                container.appendChild(item);
+            });
+        }
+
+        // Toggle seleção de membro
+        function toggleMembro(membroId, item) {
+            const checkbox = item.querySelector('.membro-checkbox');
+            checkbox.checked = !checkbox.checked;
+            
+            if (checkbox.checked) {
+                item.classList.add('selected');
+                membrosSelecionados.push(membroId);
+            } else {
+                item.classList.remove('selected');
+                membrosSelecionados = membrosSelecionados.filter(id => id !== membroId);
+            }
+        }
+
+        // Visualizar PDF
+        function visualizarPDF() {
+            alert('Preview do PDF será implementado aqui');
+            document.getElementById('modalPDF').classList.add('active');
+        }
+
+        // Fechar modal
+        function fecharModal() {
+            document.getElementById('modalPDF').classList.remove('active');
+        }
+
+        // Mudar tab
+        function mudarTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`tab-${tab}`).classList.add('active');
+        }
+
+        // Set data padrão
+        function setDataPadrao() {
+            const hoje = new Date().toISOString().split('T')[0];
+            document.getElementById('dataExecucaoEnvio').value = hoje;
+        }
+
+        // Filtrar templates
+        function filtrarTemplates() {
+            const funcao = document.getElementById('filtroFuncao').value;
+            const periodicidade = document.getElementById('filtroPeriodicidade').value;
+            
+            let filtrados = templates;
+            
+            if (funcao) {
+                filtrados = filtrados.filter(t => t.funcao === funcao);
+            }
+            
+            if (periodicidade) {
+                filtrados = filtrados.filter(t => t.periodicidade === periodicidade);
+            }
+            
+            exibirTemplates(filtrados);
+        }
+
+        // Submit do formulário
+        document.getElementById('formEnvioLote').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (membrosSelecionados.length === 0) {
+                alert('Selecione pelo menos um funcionário');
+                return;
+            }
+
+            const dados = {
+                templateId: document.getElementById('templateEnvio').value,
+                membrosIds: membrosSelecionados,
+                dataExecucao: document.getElementById('dataExecucaoEnvio').value,
+                turno: document.getElementById('turnoEnvio').value,
+                observacoes: document.getElementById('observacoesEnvio').value
+            };
+
+            const resultado = await enviarListasEmLote(dados);
+            
+            if (resultado.sucesso) {
+                alert('Listas enviadas com sucesso!');
+                location.reload();
+            } else {
+                alert('Erro: ' + resultado.erro);
+            }
+        });
+
+        // Carregar histórico (placeholder)
+        function carregarHistorico() {
+            // Implementar busca do histórico
+        }
+    </script>
+</body>
+</html>

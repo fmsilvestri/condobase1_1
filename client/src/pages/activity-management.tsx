@@ -27,6 +27,12 @@ import {
   FileText,
   Upload,
   GripVertical,
+  Users,
+  Filter,
+  History,
+  Copy,
+  Download,
+  MapPin,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -72,6 +78,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useCondominium } from "@/hooks/use-condominium";
@@ -93,6 +107,7 @@ const createTemplateFormSchema = z.object({
   funcao: z.string().min(1, "Selecione uma função"),
   area: z.string().optional(),
   tempoEstimado: z.coerce.number().optional().nullable(),
+  periodicidade: z.string().optional(),
 });
 
 type CreateListFormData = z.infer<typeof createListFormSchema>;
@@ -109,6 +124,7 @@ interface ActivityTemplate {
   equipamentosNecessarios: string[] | null;
   checklist: { items: string[] } | null;
   tempoEstimado: number | null;
+  periodicidade: string | null;
   ordem: number;
   categoria: { id: string; nome: string; cor: string } | null;
 }
@@ -208,17 +224,29 @@ const roleLabels: Record<string, string> = {
   outro: "Outro",
 };
 
+const periodicidadeLabels: Record<string, string> = {
+  diaria: "Diária",
+  semanal: "Semanal",
+  mensal: "Mensal",
+  eventual: "Eventual",
+};
+
 export default function ActivityManagement() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { selectedCondominium } = useCondominium();
-  const [activeTab, setActiveTab] = useState("criar");
+  const [activeTab, setActiveTab] = useState("templates");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFuncao, setSelectedFuncao] = useState<string>("");
+  const [selectedPeriodicidade, setSelectedPeriodicidade] = useState<string>("");
+  const [selectedTemplate, setSelectedTemplate] = useState<ActivityTemplate | null>(null);
   const [selectedTemplates, setSelectedTemplates] = useState<ActivityTemplate[]>([]);
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [viewListDialog, setViewListDialog] = useState<ActivityList | null>(null);
   const [whatsappDialog, setWhatsappDialog] = useState<{ list: ActivityList; url: string; message: string } | null>(null);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
+  const [isBatchSending, setIsBatchSending] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [customTasks, setCustomTasks] = useState<CustomTask[]>([]);
   const [isAddingCustomTask, setIsAddingCustomTask] = useState(false);
   const [newCustomTask, setNewCustomTask] = useState<Omit<CustomTask, "id">>({
@@ -229,11 +257,10 @@ export default function ActivityManagement() {
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const form = useForm<CreateListFormData>({
-    resolver: zodResolver(createListFormSchema),
+  const batchForm = useForm<CreateListFormData>({
+    resolver: zodResolver(createListFormSchema.omit({ membroId: true })),
     defaultValues: {
       titulo: "",
-      membroId: "",
       dataExecucao: new Date().toISOString().split("T")[0],
       turno: "manha",
       prioridade: "normal",
@@ -249,6 +276,7 @@ export default function ActivityManagement() {
       funcao: "",
       area: "",
       tempoEstimado: null,
+      periodicidade: "",
     },
   });
 
@@ -258,11 +286,13 @@ export default function ActivityManagement() {
   });
 
   const { data: templates = [], isLoading: loadingTemplates } = useQuery<ActivityTemplate[]>({
-    queryKey: ["/api/activity-templates", selectedFuncao],
+    queryKey: ["/api/activity-templates", selectedFuncao, selectedPeriodicidade],
     queryFn: async () => {
-      const url = selectedFuncao 
-        ? `/api/activity-templates?funcao=${selectedFuncao}`
-        : "/api/activity-templates";
+      let url = "/api/activity-templates";
+      const params = new URLSearchParams();
+      if (selectedFuncao) params.append("funcao", selectedFuncao);
+      if (selectedPeriodicidade) params.append("periodicidade", selectedPeriodicidade);
+      if (params.toString()) url += `?${params.toString()}`;
       const headers = getAuthHeaders();
       const res = await fetch(url, { headers });
       if (!res.ok) throw new Error("Failed to fetch templates");
@@ -289,10 +319,6 @@ export default function ActivityManagement() {
       toast({ title: "Lista criada com sucesso!" });
       queryClient.invalidateQueries({ queryKey: ["/api/activity-lists"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activity-statistics"] });
-      form.reset();
-      setSelectedTemplates([]);
-      setCustomTasks([]);
-      setActiveTab("listas");
     },
     onError: (error: any) => {
       toast({ title: "Erro ao criar lista", description: error.message, variant: "destructive" });
@@ -336,13 +362,13 @@ export default function ActivityManagement() {
       return apiRequest("POST", "/api/activity-templates", data);
     },
     onSuccess: () => {
-      toast({ title: "Atividade criada com sucesso!" });
+      toast({ title: "Template criado com sucesso!" });
       queryClient.invalidateQueries({ queryKey: ["/api/activity-templates"] });
       templateForm.reset();
       setIsTemplateDialogOpen(false);
     },
     onError: (error: any) => {
-      toast({ title: "Erro ao criar atividade", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao criar template", description: error.message, variant: "destructive" });
     },
   });
 
@@ -350,12 +376,67 @@ export default function ActivityManagement() {
     createTemplateMutation.mutate(data);
   };
 
-  const handleSubmit = (data: CreateListFormData) => {
+  const handleBatchSend = async () => {
     if (selectedTemplates.length === 0 && customTasks.length === 0) {
-      toast({ title: "Adicione pelo menos uma atividade ou tarefa", variant: "destructive" });
+      toast({ title: "Selecione pelo menos um template", variant: "destructive" });
       return;
     }
-    createListMutation.mutate({ ...data, atividades: selectedTemplates, tarefasPersonalizadas: customTasks });
+    if (selectedMembers.length === 0) {
+      toast({ title: "Selecione pelo menos um funcionário", variant: "destructive" });
+      return;
+    }
+
+    const isValid = await batchForm.trigger();
+    if (!isValid) {
+      toast({ title: "Preencha os campos obrigatórios corretamente", variant: "destructive" });
+      return;
+    }
+
+    const formData = batchForm.getValues();
+    if (!formData.dataExecucao) {
+      toast({ title: "Selecione a data de execução", variant: "destructive" });
+      return;
+    }
+
+    setIsBatchSending(true);
+    setBatchProgress({ current: 0, total: selectedMembers.length });
+
+    const results = { success: 0, error: 0 };
+
+    for (let i = 0; i < selectedMembers.length; i++) {
+      const membroId = selectedMembers[i];
+      const member = teamMembers.find(m => m.id === membroId);
+      
+      try {
+        await createListMutation.mutateAsync({
+          ...formData,
+          membroId,
+          titulo: formData.titulo || `Lista ${member?.name || ""} - ${new Date(formData.dataExecucao).toLocaleDateString("pt-BR")}`,
+          atividades: selectedTemplates,
+          tarefasPersonalizadas: customTasks,
+        });
+        results.success++;
+      } catch (err) {
+        results.error++;
+      }
+      setBatchProgress({ current: i + 1, total: selectedMembers.length });
+    }
+
+    setIsBatchSending(false);
+    setBatchProgress({ current: 0, total: 0 });
+    
+    toast({
+      title: "Envio em lote concluído",
+      description: `${results.success} sucesso, ${results.error} erro`,
+    });
+
+    if (results.success > 0) {
+      setSelectedTemplates([]);
+      setSelectedMembers([]);
+      setCustomTasks([]);
+      batchForm.reset();
+      setActiveTab("historico");
+    }
   };
 
   const handleAddCustomTask = () => {
@@ -401,110 +482,124 @@ export default function ActivityManagement() {
     const pageWidth = doc.internal.pageSize.getWidth();
     let y = 20;
 
-    // Title
+    doc.setFillColor(102, 126, 234);
+    doc.rect(0, 0, pageWidth, 40, "F");
+    
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
-    doc.text(list.titulo, pageWidth / 2, y, { align: "center" });
-    y += 10;
-
-    // Header info
+    doc.text(list.titulo, pageWidth / 2, 18, { align: "center" });
+    
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     const dataFormatada = new Date(list.dataExecucao).toLocaleDateString("pt-BR");
-    doc.text(`Data: ${dataFormatada} | Turno: ${turnoLabels[list.turno]} | Prioridade: ${prioridadeLabels[list.prioridade]}`, pageWidth / 2, y, { align: "center" });
-    y += 15;
+    doc.text(`Data: ${dataFormatada} | Turno: ${turnoLabels[list.turno]} | Prioridade: ${prioridadeLabels[list.prioridade]}`, pageWidth / 2, 30, { align: "center" });
+    
+    y = 50;
+    doc.setTextColor(0, 0, 0);
 
-    // Tasks
-    doc.setFontSize(12);
+    doc.setFillColor(245, 245, 245);
+    doc.rect(10, y, pageWidth - 20, 25, "F");
+    
+    doc.setFontSize(10);
+    doc.text(`Funcionário: ${list.membro?.name || "N/A"}`, 15, y + 8);
+    doc.text(`Função: ${list.membro?.role || "N/A"}`, 15, y + 16);
+    y += 35;
+
+    if (list.observacoes) {
+      doc.setFillColor(232, 245, 233);
+      const obsLines = doc.splitTextToSize(list.observacoes, pageWidth - 40);
+      const obsHeight = obsLines.length * 5 + 15;
+      doc.rect(10, y, pageWidth - 20, obsHeight, "F");
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("Observações:", 15, y + 8);
+      doc.setFont("helvetica", "normal");
+      doc.text(obsLines, 15, y + 16);
+      y += obsHeight + 10;
+    }
+
+    doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("Atividades:", 15, y);
-    y += 8;
+    doc.setTextColor(102, 126, 234);
+    doc.text("Atividades", 15, y);
+    y += 10;
+    doc.setTextColor(0, 0, 0);
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       
-      // Check if we need a new page
-      if (y > 270) {
+      if (y > 260) {
         doc.addPage();
         y = 20;
       }
 
+      doc.setDrawColor(200, 200, 200);
+      doc.setFillColor(255, 255, 255);
+      
+      let itemHeight = 25;
+      if (item.descricao) itemHeight += 8;
+      if (item.instrucoes) itemHeight += 15;
+      if (item.area) itemHeight += 6;
+      if (item.fotos && item.fotos.length > 0) itemHeight += 50;
+      
+      doc.roundedRect(10, y, pageWidth - 20, itemHeight, 3, 3, "FD");
+
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text(`${i + 1}. ${item.titulo}`, 15, y);
-      y += 6;
+      doc.text(`${i + 1}. ${item.titulo}`, 15, y + 8);
+      let itemY = y + 14;
 
-      doc.setFontSize(10);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
 
       if (item.descricao) {
-        const descLines = doc.splitTextToSize(`Descrição: ${item.descricao}`, pageWidth - 35);
-        doc.text(descLines, 20, y);
-        y += descLines.length * 5;
+        doc.setTextColor(100, 100, 100);
+        doc.text(item.descricao.substring(0, 80), 15, itemY);
+        itemY += 6;
       }
 
       if (item.area) {
-        doc.text(`Local: ${item.area}`, 20, y);
-        y += 5;
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Local: ${item.area}`, 15, itemY);
+        itemY += 6;
       }
 
       if (item.instrucoes) {
-        const instrLines = doc.splitTextToSize(`Instruções: ${item.instrucoes}`, pageWidth - 35);
-        doc.text(instrLines, 20, y);
-        y += instrLines.length * 5;
+        doc.setFillColor(240, 247, 255);
+        doc.rect(15, itemY, pageWidth - 35, 12, "F");
+        doc.setTextColor(0, 0, 0);
+        const instrLines = doc.splitTextToSize(`Instruções: ${item.instrucoes}`, pageWidth - 40);
+        doc.text(instrLines.slice(0, 2), 17, itemY + 6);
+        itemY += 14;
       }
 
-      // Embed photos if present
       if (item.fotos && item.fotos.length > 0) {
         for (const foto of item.fotos) {
-          // Check if we need a new page for the image
-          if (y > 220) {
+          if (itemY > 220) {
             doc.addPage();
-            y = 20;
+            itemY = 20;
           }
           try {
-            // Detect format from data URL
             let format = "JPEG";
-            if (foto.startsWith("data:image/png")) {
-              format = "PNG";
-            } else if (foto.startsWith("data:image/gif")) {
-              format = "GIF";
-            } else if (foto.startsWith("data:image/webp")) {
-              format = "WEBP";
-            }
-            // Add image (50x40 size for reasonable fit)
-            doc.addImage(foto, format, 20, y, 50, 40);
-            y += 45;
+            if (foto.startsWith("data:image/png")) format = "PNG";
+            doc.addImage(foto, format, 15, itemY, 40, 30);
+            itemY += 35;
           } catch (imgErr) {
-            // If image fails, just note it
-            doc.text(`[Imagem não carregada]`, 20, y);
-            y += 5;
+            doc.text("[Imagem]", 15, itemY);
+            itemY += 8;
           }
         }
       }
 
-      // Checkbox placeholder
-      doc.rect(20, y, 4, 4);
-      doc.text("Concluído", 27, y + 3);
-      y += 10;
+      doc.rect(pageWidth - 25, y + 5, 4, 4);
+      y += itemHeight + 5;
     }
 
-    // Observations
-    if (list.observacoes) {
-      if (y > 250) {
-        doc.addPage();
-        y = 20;
-      }
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.text("Observações:", 15, y);
-      y += 6;
-      doc.setFont("helvetica", "normal");
-      const obsLines = doc.splitTextToSize(list.observacoes, pageWidth - 30);
-      doc.text(obsLines, 15, y);
-    }
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: "center" });
 
-    // Download or create blob for sharing
     const pdfBlob = doc.output("blob");
     const pdfUrl = URL.createObjectURL(pdfBlob);
     
@@ -520,21 +615,8 @@ export default function ActivityManagement() {
 
       const { pdfBlob, fileName } = await generatePDF(list, items);
 
-      // Get team member WhatsApp
       const membro = teamMembers.find(m => m.id === list.membroId);
-      if (!membro?.whatsapp) {
-        // Just download the PDF if no WhatsApp
-        const url = URL.createObjectURL(pdfBlob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = fileName;
-        a.click();
-        URL.revokeObjectURL(url);
-        toast({ title: "PDF gerado! Membro não tem WhatsApp cadastrado." });
-        return;
-      }
-
-      // Download PDF
+      
       const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement("a");
       a.href = url;
@@ -542,14 +624,17 @@ export default function ActivityManagement() {
       a.click();
       URL.revokeObjectURL(url);
 
-      // Open WhatsApp
-      const telefone = membro.whatsapp.replace(/\D/g, "");
-      const dataFormatada = new Date(list.dataExecucao).toLocaleDateString("pt-BR");
-      const mensagem = `*Lista de Atividades*\n*${list.titulo}*\nData: ${dataFormatada}\nTurno: ${turnoLabels[list.turno]}\n\nPor favor, confira o PDF anexado com as atividades do dia.`;
-      const whatsappUrl = `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
-      
-      toast({ title: "PDF baixado! Abrindo WhatsApp..." });
-      setTimeout(() => window.open(whatsappUrl, "_blank"), 500);
+      if (membro?.whatsapp) {
+        const telefone = membro.whatsapp.replace(/\D/g, "");
+        const dataFormatada = new Date(list.dataExecucao).toLocaleDateString("pt-BR");
+        const mensagem = `*Lista de Atividades*\n*${list.titulo}*\nData: ${dataFormatada}\nTurno: ${turnoLabels[list.turno]}\n\nPor favor, confira o PDF anexado com as atividades do dia.`;
+        const whatsappUrl = `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
+        
+        toast({ title: "PDF baixado! Abrindo WhatsApp..." });
+        setTimeout(() => window.open(whatsappUrl, "_blank"), 500);
+      } else {
+        toast({ title: "PDF gerado! Membro não tem WhatsApp cadastrado." });
+      }
     } catch (error: any) {
       toast({ title: "Erro ao gerar PDF", description: error.message, variant: "destructive" });
     }
@@ -565,12 +650,22 @@ export default function ActivityManagement() {
     });
   };
 
-  const handleMemberChange = (membroId: string) => {
-    form.setValue("membroId", membroId);
-    const member = teamMembers.find(m => m.id === membroId);
-    if (member) {
-      setSelectedFuncao(member.role);
-    }
+  const toggleMember = (membroId: string) => {
+    setSelectedMembers(prev => {
+      if (prev.includes(membroId)) {
+        return prev.filter(id => id !== membroId);
+      }
+      return [...prev, membroId];
+    });
+  };
+
+  const selectAllMembers = () => {
+    const activeIds = activeMembers.map(m => m.id);
+    setSelectedMembers(activeIds);
+  };
+
+  const deselectAllMembers = () => {
+    setSelectedMembers([]);
   };
 
   const filteredLists = lists.filter(list => {
@@ -581,7 +676,18 @@ export default function ActivityManagement() {
     );
   });
 
+  const filteredTemplates = templates.filter(t => {
+    if (searchQuery) {
+      return t.titulo.toLowerCase().includes(searchQuery.toLowerCase());
+    }
+    return true;
+  });
+
   const activeMembers = teamMembers.filter(m => m.status === "ativo");
+
+  const sentLists = lists.filter(l => l.enviadoWhatsapp).sort((a, b) => 
+    new Date(b.dataEnvioWhatsapp || b.createdAt).getTime() - new Date(a.dataEnvioWhatsapp || a.createdAt).getTime()
+  );
 
   if (!selectedCondominium) {
     return (
@@ -599,94 +705,319 @@ export default function ActivityManagement() {
     <div className="p-6 space-y-6">
       <PageHeader
         title="Gestão de Atividades"
-        description="Crie e distribua listas de atividades para a equipe"
+        description="Crie listas prontas, replique e envie via WhatsApp em PDF"
         icon={ClipboardList}
       />
 
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white border-0" data-testid="stat-total-templates">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="text-4xl font-bold" data-testid="value-total-templates">{templates.length}</div>
+              <div className="text-sm opacity-90 mt-1">Templates</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0" data-testid="stat-listas-enviadas">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="text-4xl font-bold" data-testid="value-listas-enviadas">{sentLists.length}</div>
+              <div className="text-sm opacity-90 mt-1">Listas Enviadas</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-blue-500 to-cyan-600 text-white border-0" data-testid="stat-funcionarios">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="text-4xl font-bold" data-testid="value-funcionarios">{activeMembers.length}</div>
+              <div className="text-sm opacity-90 mt-1">Funcionários Ativos</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-orange-500 to-amber-600 text-white border-0" data-testid="stat-taxa-conclusao">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="text-4xl font-bold" data-testid="value-taxa-conclusao">{stats?.percentualConclusao || 0}%</div>
+              <div className="text-sm opacity-90 mt-1">Taxa de Conclusão</div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="criar" data-testid="tab-criar-lista">
-            <Plus className="w-4 h-4 mr-2" />
-            Criar Lista
-          </TabsTrigger>
-          <TabsTrigger value="listas" data-testid="tab-minhas-listas">
+          <TabsTrigger value="templates" data-testid="tab-templates">
             <ListChecks className="w-4 h-4 mr-2" />
-            Minhas Listas
+            Templates de Listas
           </TabsTrigger>
-          <TabsTrigger value="estatisticas" data-testid="tab-estatisticas">
-            <BarChart3 className="w-4 h-4 mr-2" />
-            Estatísticas
+          <TabsTrigger value="envio" data-testid="tab-envio">
+            <Send className="w-4 h-4 mr-2" />
+            Enviar em Lote
+          </TabsTrigger>
+          <TabsTrigger value="historico" data-testid="tab-historico">
+            <History className="w-4 h-4 mr-2" />
+            Histórico
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="criar" className="space-y-6 mt-6">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Dados da Lista</CardTitle>
-                <CardDescription>Preencha as informações básicas</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...form}>
-                  <form className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="titulo"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Título da Lista</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Ex: Limpeza Bloco A - Manhã"
-                              {...field}
-                              data-testid="input-titulo-lista"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+        <TabsContent value="templates" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <CardTitle>Templates de Listas Prontas</CardTitle>
+                  <CardDescription>Selecione um template para visualizar ou usar</CardDescription>
+                </div>
+                <Button onClick={() => setIsTemplateDialogOpen(true)} data-testid="button-novo-template">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Novo Template
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-6">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Filtrar por Função:</label>
+                  <Select value={selectedFuncao || "all"} onValueChange={(v) => setSelectedFuncao(v === "all" ? "" : v)}>
+                    <SelectTrigger data-testid="select-filtro-funcao">
+                      <SelectValue placeholder="Todas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {teamMemberRoles.map(role => (
+                        <SelectItem key={role} value={role} data-testid={`filter-funcao-${role}`}>{roleLabels[role] || role}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Filtrar por Periodicidade:</label>
+                  <Select value={selectedPeriodicidade || "all"} onValueChange={(v) => setSelectedPeriodicidade(v === "all" ? "" : v)}>
+                    <SelectTrigger data-testid="select-filtro-periodicidade">
+                      <SelectValue placeholder="Todas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {Object.entries(periodicidadeLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value} data-testid={`filter-periodicidade-${value}`}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Buscar:</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar templates..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                      data-testid="input-search-templates"
                     />
+                  </div>
+                </div>
+              </div>
 
-                    <FormField
-                      control={form.control}
-                      name="membroId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Responsável</FormLabel>
-                          <Select
-                            value={field.value}
-                            onValueChange={handleMemberChange}
+              {loadingTemplates ? (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-40" />
+                  ))}
+                </div>
+              ) : filteredTemplates.length === 0 ? (
+                <EmptyState
+                  icon={ClipboardList}
+                  title="Nenhum template encontrado"
+                  description="Crie templates de atividades para sua equipe"
+                  action={{
+                    label: "Criar Template",
+                    onClick: () => setIsTemplateDialogOpen(true)
+                  }}
+                />
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {filteredTemplates.map((template) => {
+                    const isSelected = selectedTemplates.some(t => t.id === template.id);
+                    return (
+                      <Card
+                        key={template.id}
+                        className={`cursor-pointer transition-all hover-elevate ${
+                          isSelected ? "ring-2 ring-primary bg-primary/5" : ""
+                        }`}
+                        onClick={() => toggleTemplate(template)}
+                        data-testid={`template-card-${template.id}`}
+                      >
+                        <CardContent className="pt-4">
+                          <div className="flex items-start justify-between gap-2 mb-3">
+                            <h3 className="font-semibold text-lg line-clamp-2" data-testid={`template-titulo-${template.id}`}>
+                              {template.titulo}
+                            </h3>
+                            <Badge className="shrink-0" data-testid={`template-badge-${template.id}`}>
+                              {roleLabels[template.funcao] || template.funcao}
+                            </Badge>
+                          </div>
+                          
+                          {template.descricao && (
+                            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                              {template.descricao}
+                            </p>
+                          )}
+                          
+                          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                            {template.area && (
+                              <span className="flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                {template.area}
+                              </span>
+                            )}
+                            {template.tempoEstimado && (
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {template.tempoEstimado} min
+                              </span>
+                            )}
+                            {template.periodicidade && (
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {periodicidadeLabels[template.periodicidade] || template.periodicidade}
+                              </span>
+                            )}
+                          </div>
+
+                          {isSelected && (
+                            <div className="mt-3 flex items-center gap-2 text-sm text-primary font-medium">
+                              <CheckCircle className="w-4 h-4" />
+                              Selecionado
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+
+              {selectedTemplates.length > 0 && (
+                <div className="mt-6 p-4 bg-primary/10 rounded-lg flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-primary" />
+                    <span className="font-medium">{selectedTemplates.length} template(s) selecionado(s)</span>
+                  </div>
+                  <Button onClick={() => setActiveTab("envio")} data-testid="button-ir-para-envio">
+                    Ir para Envio em Lote
+                    <Send className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="envio" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Enviar Lista em Lote</CardTitle>
+              <CardDescription>
+                Selecione os funcionários, configure a lista e envie via WhatsApp
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg text-sm">
+                <strong>Dica:</strong> Selecione um template na aba anterior, depois escolha os funcionários para enviar a mesma lista para todos.
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold flex items-center gap-2">
+                      <Users className="w-5 h-5" />
+                      Selecionar Funcionários
+                    </h3>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={selectAllMembers} data-testid="button-selecionar-todos">
+                        Todos
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={deselectAllMembers} data-testid="button-limpar-selecao">
+                        Limpar
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="border rounded-lg max-h-[400px] overflow-y-auto">
+                    {loadingMembers ? (
+                      <div className="p-4 space-y-2">
+                        {[1, 2, 3].map(i => <Skeleton key={i} className="h-16" />)}
+                      </div>
+                    ) : activeMembers.length === 0 ? (
+                      <div className="p-4 text-center text-muted-foreground">
+                        Nenhum funcionário ativo
+                      </div>
+                    ) : (
+                      activeMembers.map(member => {
+                        const isSelected = selectedMembers.includes(member.id);
+                        return (
+                          <div
+                            key={member.id}
+                            className={`p-3 flex items-center gap-3 cursor-pointer border-b last:border-b-0 transition-colors ${
+                              isSelected ? "bg-green-50 dark:bg-green-950" : "hover:bg-secondary/50"
+                            }`}
+                            onClick={() => toggleMember(member.id)}
+                            data-testid={`membro-item-${member.id}`}
                           >
-                            <FormControl>
-                              <SelectTrigger data-testid="select-membro">
-                                <SelectValue placeholder="Selecione um membro" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {activeMembers.map((member) => (
-                                <SelectItem key={member.id} value={member.id} data-testid={`select-item-membro-${member.id}`}>
-                                  {member.name} - {member.role}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                            <Checkbox
+                              checked={isSelected}
+                              className="pointer-events-none"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate" data-testid={`membro-nome-${member.id}`}>
+                                {member.name}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {roleLabels[member.role] || member.role}
+                              </div>
+                              {member.whatsapp && (
+                                <div className="text-xs text-green-600 flex items-center gap-1">
+                                  <MessageCircle className="w-3 h-3" />
+                                  {member.whatsapp}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                  
+                  {selectedMembers.length > 0 && (
+                    <div className="text-sm text-muted-foreground">
+                      {selectedMembers.length} funcionário(s) selecionado(s)
+                    </div>
+                  )}
+                </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-4">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <FileText className="w-5 h-5" />
+                    Configuração da Lista
+                  </h3>
+                  
+                  <Form {...batchForm}>
+                    <form className="space-y-4">
                       <FormField
-                        control={form.control}
-                        name="dataExecucao"
+                        control={batchForm.control}
+                        name="titulo"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Data de Execução</FormLabel>
+                            <FormLabel>Título (opcional)</FormLabel>
                             <FormControl>
                               <Input
-                                type="date"
+                                placeholder="Ex: Atividades do Dia"
                                 {...field}
-                                data-testid="input-data-execucao"
+                                data-testid="input-batch-titulo"
                               />
                             </FormControl>
                             <FormMessage />
@@ -694,23 +1025,60 @@ export default function ActivityManagement() {
                         )}
                       />
 
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={batchForm.control}
+                          name="dataExecucao"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Data de Execução</FormLabel>
+                              <FormControl>
+                                <Input type="date" {...field} data-testid="input-batch-data" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={batchForm.control}
+                          name="turno"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Turno</FormLabel>
+                              <Select value={field.value} onValueChange={field.onChange}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-batch-turno">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {Object.entries(turnoLabels).map(([value, label]) => (
+                                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
                       <FormField
-                        control={form.control}
-                        name="turno"
+                        control={batchForm.control}
+                        name="prioridade"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Turno</FormLabel>
+                            <FormLabel>Prioridade</FormLabel>
                             <Select value={field.value} onValueChange={field.onChange}>
                               <FormControl>
-                                <SelectTrigger data-testid="select-turno">
+                                <SelectTrigger data-testid="select-batch-prioridade">
                                   <SelectValue />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {Object.entries(turnoLabels).map(([value, label]) => (
-                                  <SelectItem key={value} value={value} data-testid={`select-item-turno-${value}`}>
-                                    {label}
-                                  </SelectItem>
+                                {Object.entries(prioridadeLabels).map(([value, label]) => (
+                                  <SelectItem key={value} value={value}>{label}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
@@ -718,594 +1086,240 @@ export default function ActivityManagement() {
                           </FormItem>
                         )}
                       />
-                    </div>
 
-                    <FormField
-                      control={form.control}
-                      name="prioridade"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Prioridade</FormLabel>
-                          <Select value={field.value} onValueChange={field.onChange}>
+                      <FormField
+                        control={batchForm.control}
+                        name="observacoes"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Observações</FormLabel>
                             <FormControl>
-                              <SelectTrigger data-testid="select-prioridade">
-                                <SelectValue />
-                              </SelectTrigger>
+                              <Textarea
+                                placeholder="Instruções adicionais..."
+                                rows={3}
+                                {...field}
+                                data-testid="input-batch-observacoes"
+                              />
                             </FormControl>
-                            <SelectContent>
-                              {Object.entries(prioridadeLabels).map(([value, label]) => (
-                                <SelectItem key={value} value={value} data-testid={`select-item-prioridade-${value}`}>
-                                  {label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </form>
+                  </Form>
 
-                    <FormField
-                      control={form.control}
-                      name="observacoes"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Observações</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Instruções adicionais..."
-                              rows={3}
-                              {...field}
-                              data-testid="input-observacoes"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between gap-4 flex-wrap">
-                  <div>
-                    <CardTitle>Atividades Disponíveis</CardTitle>
-                    <CardDescription>
-                      {selectedFuncao
-                        ? `Mostrando atividades para: ${roleLabels[selectedFuncao] || selectedFuncao}`
-                        : "Selecione um membro para filtrar"}
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" data-testid="badge-selecionadas">
-                      {selectedTemplates.length} selecionadas
-                    </Badge>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsTemplateDialogOpen(true)}
-                      data-testid="button-nova-atividade"
-                    >
-                      <Plus className="w-4 h-4 mr-1" />
-                      Nova Atividade
-                    </Button>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-sm">Templates Selecionados:</h4>
+                      <Badge variant="secondary">{selectedTemplates.length}</Badge>
+                    </div>
+                    {selectedTemplates.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        Nenhum template selecionado. Vá para a aba Templates para selecionar.
+                      </p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {selectedTemplates.map(t => (
+                          <Badge
+                            key={t.id}
+                            variant="outline"
+                            className="cursor-pointer"
+                            onClick={() => toggleTemplate(t)}
+                          >
+                            {t.titulo}
+                            <X className="w-3 h-3 ml-1" />
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                {loadingTemplates ? (
-                  <div className="space-y-2">
-                    {[1, 2, 3].map((i) => (
-                      <Skeleton key={i} className="h-16 w-full" />
-                    ))}
-                  </div>
-                ) : templates.length === 0 ? (
-                  <EmptyState
-                    icon={ClipboardList}
-                    title="Nenhuma atividade cadastrada"
-                    description={selectedFuncao ? `Crie atividades para ${roleLabels[selectedFuncao] || selectedFuncao}` : "Selecione um membro e crie atividades"}
-                    action={{
-                      label: "Criar Atividade",
-                      onClick: () => setIsTemplateDialogOpen(true)
-                    }}
-                  />
-                ) : (
-                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                    {templates.map((template) => {
-                      const isSelected = selectedTemplates.some(t => t.id === template.id);
-                      return (
-                        <div
-                          key={template.id}
-                          className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                            isSelected
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover-elevate"
-                          }`}
-                          onClick={() => toggleTemplate(template)}
-                          data-testid={`template-item-${template.id}`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="mt-0.5">
-                              {isSelected ? (
-                                <CheckSquare className="w-5 h-5 text-primary" />
-                              ) : (
-                                <Square className="w-5 h-5 text-muted-foreground" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-medium" data-testid={`template-titulo-${template.id}`}>{template.titulo}</span>
-                                {template.categoria && (
-                                  <Badge variant="outline" className="text-xs" data-testid={`template-categoria-${template.id}`}>
-                                    {template.categoria.nome}
-                                  </Badge>
-                                )}
-                              </div>
-                              {template.area && (
-                                <p className="text-sm text-muted-foreground mt-1" data-testid={`template-area-${template.id}`}>
-                                  Local: {template.area}
-                                </p>
-                              )}
-                              {template.tempoEstimado && (
-                                <p className="text-sm text-muted-foreground" data-testid={`template-tempo-${template.id}`}>
-                                  Tempo estimado: {template.tempoEstimado} min
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+              </div>
 
-          {/* Custom Tasks Section */}
+              {isBatchSending && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Enviando...</span>
+                    <span>{batchProgress.current} / {batchProgress.total}</span>
+                  </div>
+                  <div className="w-full bg-secondary rounded-full h-2">
+                    <div
+                      className="bg-primary h-2 rounded-full transition-all"
+                      style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedMembers([]);
+                    setSelectedTemplates([]);
+                    batchForm.reset();
+                  }}
+                  disabled={isBatchSending}
+                  data-testid="button-limpar-envio"
+                >
+                  Limpar
+                </Button>
+                <Button
+                  onClick={handleBatchSend}
+                  disabled={isBatchSending || selectedTemplates.length === 0 || selectedMembers.length === 0}
+                  data-testid="button-enviar-lote"
+                >
+                  {isBatchSending ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4 mr-2" />
+                  )}
+                  Criar e Enviar ({selectedMembers.length} listas)
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="historico" className="space-y-6 mt-6">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                  <CardTitle>Tarefas Personalizadas</CardTitle>
-                  <CardDescription>Adicione tarefas específicas com descrição detalhada e fotos</CardDescription>
+                  <CardTitle>Histórico de Listas</CardTitle>
+                  <CardDescription>Visualize todas as listas criadas e enviadas</CardDescription>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsAddingCustomTask(true)}
-                  data-testid="button-adicionar-tarefa"
-                >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Adicionar Tarefa
-                </Button>
+                <div className="relative w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                    data-testid="input-search-historico"
+                  />
+                </div>
               </div>
             </CardHeader>
             <CardContent>
-              {isAddingCustomTask && (
-                <div className="border rounded-lg p-4 mb-4 space-y-4 bg-secondary/20">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Título da Tarefa *</label>
-                      <Input
-                        placeholder="Ex: Limpeza do corredor"
-                        value={newCustomTask.titulo}
-                        onChange={(e) => setNewCustomTask(prev => ({ ...prev, titulo: e.target.value }))}
-                        data-testid="input-tarefa-titulo"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Descrição</label>
-                      <Input
-                        placeholder="Descrição detalhada"
-                        value={newCustomTask.descricao}
-                        onChange={(e) => setNewCustomTask(prev => ({ ...prev, descricao: e.target.value }))}
-                        data-testid="input-tarefa-descricao"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Instruções</label>
-                    <Textarea
-                      placeholder="Passo a passo de como executar a tarefa..."
-                      rows={3}
-                      value={newCustomTask.instrucoes}
-                      onChange={(e) => setNewCustomTask(prev => ({ ...prev, instrucoes: e.target.value }))}
-                      data-testid="input-tarefa-instrucoes"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Fotos de Referência</label>
-                    <div className="flex flex-wrap gap-2 items-center">
-                      {newCustomTask.fotos.map((foto, idx) => (
-                        <div key={idx} className="relative">
-                          <img src={foto} alt={`Foto ${idx + 1}`} className="w-20 h-20 object-cover rounded border" />
-                          <button
-                            type="button"
-                            onClick={() => handleRemovePhoto(idx)}
-                            className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center"
-                            data-testid={`button-remover-foto-${idx}`}
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png"
-                        ref={fileInputRef}
-                        onChange={handlePhotoUpload}
-                        className="hidden"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => fileInputRef.current?.click()}
-                        data-testid="button-upload-foto"
-                      >
-                        <Upload className="w-4 h-4 mr-1" />
-                        Foto
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 justify-end">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setNewCustomTask({ titulo: "", descricao: "", instrucoes: "", fotos: [] });
-                        setIsAddingCustomTask(false);
-                      }}
-                      data-testid="button-cancelar-tarefa"
-                    >
-                      Cancelar
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleAddCustomTask}
-                      data-testid="button-salvar-tarefa"
-                    >
-                      Salvar Tarefa
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {customTasks.length > 0 ? (
+              {loadingLists ? (
                 <div className="space-y-2">
-                  {customTasks.map((task, idx) => (
-                    <div key={task.id} className="p-3 border rounded-lg bg-background" data-testid={`custom-task-${task.id}`}>
-                      <div className="flex items-start gap-3">
-                        <GripVertical className="w-5 h-5 text-muted-foreground mt-0.5" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{idx + 1}. {task.titulo}</span>
-                            {task.fotos.length > 0 && (
-                              <Badge variant="outline" className="text-xs">
-                                <Image className="w-3 h-3 mr-1" />
-                                {task.fotos.length}
-                              </Badge>
-                            )}
-                          </div>
-                          {task.descricao && (
-                            <p className="text-sm text-muted-foreground mt-1">{task.descricao}</p>
-                          )}
-                          {task.instrucoes && (
-                            <p className="text-xs text-muted-foreground mt-1 italic">{task.instrucoes}</p>
-                          )}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveCustomTask(task.id)}
-                          data-testid={`button-remover-tarefa-${task.id}`}
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                  {[1, 2, 3].map(i => <Skeleton key={i} className="h-16" />)}
                 </div>
-              ) : !isAddingCustomTask && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Nenhuma tarefa personalizada adicionada
-                </p>
+              ) : filteredLists.length === 0 ? (
+                <EmptyState
+                  icon={History}
+                  title="Nenhuma lista encontrada"
+                  description="Crie listas na aba de envio em lote"
+                />
+              ) : (
+                <div className="rounded-lg border overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Título</TableHead>
+                        <TableHead>Funcionário</TableHead>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>WhatsApp</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredLists.map(list => (
+                        <TableRow key={list.id} data-testid={`historico-row-${list.id}`}>
+                          <TableCell className="font-medium">
+                            <span className="line-clamp-1" data-testid={`historico-titulo-${list.id}`}>
+                              {list.titulo}
+                            </span>
+                          </TableCell>
+                          <TableCell data-testid={`historico-membro-${list.id}`}>
+                            {list.membro?.name || "N/A"}
+                          </TableCell>
+                          <TableCell data-testid={`historico-data-${list.id}`}>
+                            {new Date(list.dataExecucao).toLocaleDateString("pt-BR")}
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={statusColors[list.status]} data-testid={`historico-status-${list.id}`}>
+                              {statusLabels[list.status]}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {list.enviadoWhatsapp ? (
+                              <Badge variant="outline" className="text-green-600" data-testid={`historico-enviado-${list.id}`}>
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Enviado
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">Pendente</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setViewListDialog(list)}
+                                data-testid={`button-ver-${list.id}`}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleSharePDF(list)}
+                                data-testid={`button-pdf-${list.id}`}
+                              >
+                                <Download className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => sendWhatsAppMutation.mutate(list.id)}
+                                disabled={!list.membro?.whatsapp}
+                                data-testid={`button-whatsapp-${list.id}`}
+                              >
+                                <MessageCircle className="w-4 h-4" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-destructive"
+                                    data-testid={`button-delete-${list.id}`}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Excluir lista?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Esta ação não pode ser desfeita.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => deleteListMutation.mutate(list.id)}
+                                      className="bg-destructive text-destructive-foreground"
+                                    >
+                                      Excluir
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>
-
-          {(selectedTemplates.length > 0 || customTasks.length > 0) && (
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  Resumo: {selectedTemplates.length + customTasks.length} atividades
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {selectedTemplates.map((template) => (
-                    <Badge
-                      key={template.id}
-                      variant="secondary"
-                      className="cursor-pointer"
-                      onClick={() => toggleTemplate(template)}
-                      data-testid={`selected-template-${template.id}`}
-                    >
-                      {template.titulo}
-                      <X className="w-3 h-3 ml-1" />
-                    </Badge>
-                  ))}
-                  {customTasks.map((task) => (
-                    <Badge
-                      key={task.id}
-                      variant="default"
-                      className="cursor-pointer"
-                      onClick={() => handleRemoveCustomTask(task.id)}
-                      data-testid={`selected-custom-${task.id}`}
-                    >
-                      {task.titulo}
-                      <X className="w-3 h-3 ml-1" />
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <div className="flex justify-end gap-3">
-            <Button
-              variant="outline"
-              onClick={() => {
-                form.reset();
-                setSelectedTemplates([]);
-                setCustomTasks([]);
-              }}
-              data-testid="button-limpar-form"
-            >
-              Limpar
-            </Button>
-            <Button
-              onClick={form.handleSubmit(handleSubmit)}
-              disabled={createListMutation.isPending || (selectedTemplates.length === 0 && customTasks.length === 0)}
-              data-testid="button-criar-lista"
-            >
-              {createListMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Criar Lista
-            </Button>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="listas" className="space-y-6 mt-6">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar listas..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-                data-testid="input-search-listas"
-              />
-            </div>
-          </div>
-
-          {loadingLists ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-48" />
-              ))}
-            </div>
-          ) : filteredLists.length === 0 ? (
-            <EmptyState
-              icon={ClipboardList}
-              title="Nenhuma lista encontrada"
-              description="Crie uma nova lista de atividades"
-              action={{
-                label: "Criar Lista",
-                onClick: () => setActiveTab("criar")
-              }}
-            />
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredLists.map((list) => (
-                <Card key={list.id} className="hover-elevate" data-testid={`card-lista-${list.id}`}>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-base line-clamp-2" data-testid={`text-lista-titulo-${list.id}`}>{list.titulo}</CardTitle>
-                      <Badge className={statusColors[list.status]} data-testid={`badge-status-${list.id}`}>
-                        {statusLabels[list.status]}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <User className="w-4 h-4" />
-                      <span data-testid={`text-membro-${list.id}`}>{list.membro?.name || "Sem responsável"}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="w-4 h-4" />
-                      <span data-testid={`text-data-${list.id}`}>
-                        {new Date(list.dataExecucao).toLocaleDateString("pt-BR")} - {turnoLabels[list.turno]}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className={prioridadeColors[list.prioridade]} variant="outline" data-testid={`badge-prioridade-${list.id}`}>
-                        {prioridadeLabels[list.prioridade]}
-                      </Badge>
-                      {list.enviadoWhatsapp && (
-                        <Badge variant="outline" className="text-green-600" data-testid={`badge-enviado-${list.id}`}>
-                          <MessageCircle className="w-3 h-3 mr-1" />
-                          Enviado
-                        </Badge>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-2 border-t flex-wrap">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setViewListDialog(list)}
-                        data-testid={`button-ver-lista-${list.id}`}
-                      >
-                        <Eye className="w-4 h-4 mr-1" />
-                        Ver
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleSharePDF(list)}
-                        data-testid={`button-pdf-${list.id}`}
-                      >
-                        <FileText className="w-4 h-4 mr-1" />
-                        PDF
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => sendWhatsAppMutation.mutate(list.id)}
-                        disabled={sendWhatsAppMutation.isPending || !list.membro?.whatsapp}
-                        data-testid={`button-whatsapp-${list.id}`}
-                      >
-                        {sendWhatsAppMutation.isPending ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Send className="w-4 h-4 mr-1" />
-                        )}
-                        WhatsApp
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="text-destructive"
-                            data-testid={`button-delete-lista-${list.id}`}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Excluir lista?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Esta ação não pode ser desfeita.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel data-testid={`button-cancel-delete-${list.id}`}>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => deleteListMutation.mutate(list.id)}
-                              className="bg-destructive text-destructive-foreground"
-                              data-testid={`button-confirm-delete-${list.id}`}
-                            >
-                              Excluir
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="estatisticas" className="space-y-6 mt-6">
-          {loadingStats ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {[1, 2, 3, 4].map((i) => (
-                <Skeleton key={i} className="h-32" />
-              ))}
-            </div>
-          ) : stats ? (
-            <>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card data-testid="stat-total-listas">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Total de Listas
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold" data-testid="value-total-listas">{stats.totalListas}</div>
-                  </CardContent>
-                </Card>
-
-                <Card data-testid="stat-pendentes">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-yellow-500" />
-                      Pendentes
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-yellow-600" data-testid="value-pendentes">{stats.listasPendentes}</div>
-                  </CardContent>
-                </Card>
-
-                <Card data-testid="stat-em-andamento">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-blue-500" />
-                      Em Andamento
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-blue-600" data-testid="value-em-andamento">{stats.listasEmAndamento}</div>
-                  </CardContent>
-                </Card>
-
-                <Card data-testid="stat-concluidas">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Concluídas
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-green-600" data-testid="value-concluidas">{stats.listasConcluidas}</div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card data-testid="stat-atividades">
-                <CardHeader>
-                  <CardTitle>Progresso Geral</CardTitle>
-                  <CardDescription data-testid="text-progresso-descricao">
-                    {stats.atividadesConcluidas} de {stats.totalAtividades} atividades concluídas
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Taxa de Conclusão</span>
-                      <span className="font-bold" data-testid="value-percentual">{stats.percentualConclusao}%</span>
-                    </div>
-                    <div className="w-full bg-secondary rounded-full h-4">
-                      <div
-                        className="bg-primary h-4 rounded-full transition-all"
-                        style={{ width: `${stats.percentualConclusao}%` }}
-                        data-testid="progress-bar"
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
-          ) : (
-            <EmptyState
-              icon={BarChart3}
-              title="Sem dados"
-              description="Crie algumas listas para ver as estatísticas"
-            />
-          )}
         </TabsContent>
       </Tabs>
 
@@ -1328,7 +1342,7 @@ export default function ActivityManagement() {
                 <pre className="whitespace-pre-wrap text-sm font-mono" data-testid="text-whatsapp-message">{whatsappDialog.message}</pre>
               </div>
               <Button
-                className="w-full"
+                className="w-full bg-green-600 hover:bg-green-700"
                 onClick={() => {
                   window.open(whatsappDialog.url, "_blank");
                   setWhatsappDialog(null);
@@ -1346,9 +1360,9 @@ export default function ActivityManagement() {
       <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Nova Atividade</DialogTitle>
+            <DialogTitle>Novo Template de Atividade</DialogTitle>
             <DialogDescription>
-              Cadastre uma nova atividade para atribuir à equipe
+              Cadastre um novo template para usar nas listas
             </DialogDescription>
           </DialogHeader>
           <Form {...templateForm}>
@@ -1438,6 +1452,28 @@ export default function ActivityManagement() {
                   )}
                 />
               </div>
+              <FormField
+                control={templateForm.control}
+                name="periodicidade"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Periodicidade</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-template-periodicidade">
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {Object.entries(periodicidadeLabels).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <DialogFooter>
                 <Button
                   type="button"
@@ -1466,6 +1502,7 @@ export default function ActivityManagement() {
     </div>
   );
 }
+
 
 function ViewListDialog({ list, onClose }: { list: ActivityList | null; onClose: () => void }) {
   const { data: items = [], isLoading } = useQuery<ActivityListItem[]>({

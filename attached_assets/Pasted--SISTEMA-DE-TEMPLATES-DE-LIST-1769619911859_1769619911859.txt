@@ -1,0 +1,636 @@
+// ================================================================
+// SISTEMA DE TEMPLATES DE LISTAS E ENVIO EM LOTE VIA WHATSAPP
+// Com geração automática de PDF
+// ================================================================
+
+// ============================================================
+// 1. CARREGAR TEMPLATES DISPONÍVEIS
+// ============================================================
+
+async function carregarTemplates(funcao = null) {
+    try {
+        let query = supabase
+            .from('templates_listas')
+            .select(`
+                *,
+                itens:templates_listas_itens(
+                    *,
+                    atividade:atividades_templates(*)
+                )
+            `)
+            .eq('ativo', true);
+
+        if (funcao) {
+            query = query.eq('funcao', funcao);
+        }
+
+        const { data, error } = await query.order('nome');
+
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        console.error('Erro ao carregar templates:', error);
+        return [];
+    }
+}
+
+// ============================================================
+// 2. CRIAR LISTA A PARTIR DE TEMPLATE
+// ============================================================
+
+async function criarListaDeTemplate(templateId, dados) {
+    try {
+        console.log('📋 Criando lista do template:', templateId);
+
+        // Buscar template
+        const { data: template, error: erroTemplate } = await supabase
+            .from('templates_listas')
+            .select(`
+                *,
+                itens:templates_listas_itens(
+                    *,
+                    atividade:atividades_templates(*)
+                )
+            `)
+            .eq('id', templateId)
+            .single();
+
+        if (erroTemplate) throw erroTemplate;
+
+        // Criar a lista
+        const { data: lista, error: erroLista } = await supabase
+            .from('listas_atividades')
+            .insert([{
+                membro_id: dados.membroId,
+                titulo: dados.titulo || template.nome,
+                descricao: dados.descricao || template.descricao,
+                data_execucao: dados.dataExecucao,
+                turno: dados.turno || template.turno_padrao,
+                prioridade: dados.prioridade || template.prioridade_padrao,
+                observacoes: dados.observacoes || template.observacoes_padrao,
+                template_origem_id: templateId
+            }])
+            .select()
+            .single();
+
+        if (erroLista) throw erroLista;
+
+        // Adicionar itens
+        const itens = template.itens.map((item, index) => ({
+            lista_id: lista.id,
+            atividade_template_id: item.atividade_template_id,
+            titulo: item.atividade.titulo,
+            descricao: item.atividade.descricao,
+            instrucoes: item.atividade.instrucoes,
+            equipamentos_necessarios: item.atividade.equipamentos_necessarios,
+            checklist: item.atividade.checklist,
+            ordem: index
+        }));
+
+        const { error: erroItens } = await supabase
+            .from('lista_atividades_itens')
+            .insert(itens);
+
+        if (erroItens) throw erroItens;
+
+        // Atualizar contador de uso do template
+        await supabase.rpc('increment_template_usage', { template_id: templateId });
+
+        console.log('✅ Lista criada com sucesso!');
+        return { sucesso: true, lista };
+
+    } catch (error) {
+        console.error('❌ Erro ao criar lista:', error);
+        return { sucesso: false, erro: error.message };
+    }
+}
+
+// ============================================================
+// 3. REPLICAR LISTA PARA MÚLTIPLOS FUNCIONÁRIOS
+// ============================================================
+
+async function replicarListaParaFuncionarios(templateId, configuracao) {
+    try {
+        console.log('📤 Replicando lista para múltiplos funcionários...');
+
+        const { 
+            membrosIds, 
+            dataExecucao, 
+            turno, 
+            observacoes 
+        } = configuracao;
+
+        const resultados = {
+            sucesso: [],
+            erro: []
+        };
+
+        for (const membroId of membrosIds) {
+            const resultado = await criarListaDeTemplate(templateId, {
+                membroId,
+                dataExecucao,
+                turno,
+                observacoes
+            });
+
+            if (resultado.sucesso) {
+                resultados.sucesso.push({
+                    membroId,
+                    listaId: resultado.lista.id
+                });
+            } else {
+                resultados.erro.push({
+                    membroId,
+                    erro: resultado.erro
+                });
+            }
+        }
+
+        console.log(`✅ Replicação concluída: ${resultados.sucesso.length} sucesso, ${resultados.erro.length} erro`);
+        return resultados;
+
+    } catch (error) {
+        console.error('❌ Erro na replicação:', error);
+        return { erro: error.message };
+    }
+}
+
+// ============================================================
+// 4. GERAR PDF DA LISTA DE ATIVIDADES
+// ============================================================
+
+async function gerarPDFLista(listaId) {
+    try {
+        console.log('📄 Gerando PDF da lista:', listaId);
+
+        // Buscar dados completos da lista
+        const { data: lista, error: erroLista } = await supabase
+            .from('listas_atividades')
+            .select(`
+                *,
+                membro:membros_equipe(*),
+                itens:lista_atividades_itens(*)
+            `)
+            .eq('id', listaId)
+            .single();
+
+        if (erroLista) throw erroLista;
+
+        // Gerar HTML para o PDF
+        const html = gerarHTMLParaPDF(lista);
+
+        // Chamar API para converter HTML em PDF
+        // (Você precisará de um serviço como jsPDF, pdfmake, ou uma API externa)
+        const pdfBlob = await converterHTMLParaPDF(html);
+
+        // Upload do PDF para storage
+        const nomeArquivo = `lista_${listaId}_${Date.now()}.pdf`;
+        const { data: upload, error: erroUpload } = await supabase
+            .storage
+            .from('atividades-pdf')
+            .upload(nomeArquivo, pdfBlob);
+
+        if (erroUpload) throw erroUpload;
+
+        // Obter URL pública
+        const { data: urlData } = supabase
+            .storage
+            .from('atividades-pdf')
+            .getPublicUrl(nomeArquivo);
+
+        const pdfUrl = urlData.publicUrl;
+
+        // Atualizar lista com informação do PDF
+        await supabase
+            .from('listas_atividades')
+            .update({
+                pdf_gerado: true,
+                pdf_url: pdfUrl,
+                pdf_gerado_em: new Date().toISOString()
+            })
+            .eq('id', listaId);
+
+        console.log('✅ PDF gerado:', pdfUrl);
+        return { sucesso: true, pdfUrl };
+
+    } catch (error) {
+        console.error('❌ Erro ao gerar PDF:', error);
+        return { sucesso: false, erro: error.message };
+    }
+}
+
+// ============================================================
+// 5. GERAR HTML PARA PDF
+// ============================================================
+
+function gerarHTMLParaPDF(lista) {
+    const dataFormatada = new Date(lista.data_execucao).toLocaleDateString('pt-BR');
+    
+    let html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #667eea;
+            margin: 0;
+        }
+        .info-box {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .label {
+            font-weight: bold;
+            color: #666;
+        }
+        .atividade {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            page-break-inside: avoid;
+        }
+        .atividade-titulo {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .atividade-descricao {
+            color: #666;
+            margin-bottom: 10px;
+        }
+        .checklist {
+            margin-top: 10px;
+        }
+        .checklist-item {
+            padding: 5px 0;
+            border-bottom: 1px dotted #ddd;
+        }
+        .checklist-item:before {
+            content: "☐ ";
+            font-size: 18px;
+            margin-right: 8px;
+        }
+        .equipamentos {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #ddd;
+            text-align: center;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📋 ${lista.titulo}</h1>
+        <p>${lista.descricao || ''}</p>
+    </div>
+    
+    <div class="info-box">
+        <div class="info-row">
+            <span class="label">👤 Funcionário:</span>
+            <span>${lista.membro.nome}</span>
+        </div>
+        <div class="info-row">
+            <span class="label">💼 Função:</span>
+            <span>${lista.membro.funcao}</span>
+        </div>
+        <div class="info-row">
+            <span class="label">📅 Data:</span>
+            <span>${dataFormatada}</span>
+        </div>
+        <div class="info-row">
+            <span class="label">⏰ Turno:</span>
+            <span>${formatarTurno(lista.turno)}</span>
+        </div>
+        <div class="info-row">
+            <span class="label">⚠️ Prioridade:</span>
+            <span>${lista.prioridade.toUpperCase()}</span>
+        </div>
+    </div>
+    
+    ${lista.observacoes ? `
+    <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+        <strong>📝 Observações:</strong><br>
+        ${lista.observacoes}
+    </div>
+    ` : ''}
+    
+    <h2 style="color: #667eea; margin-top: 30px;">Atividades</h2>
+    `;
+
+    lista.itens.forEach((item, index) => {
+        html += `
+    <div class="atividade">
+        <div class="atividade-titulo">${index + 1}. ${item.titulo}</div>
+        ${item.descricao ? `<div class="atividade-descricao">${item.descricao}</div>` : ''}
+        
+        ${item.instrucoes ? `
+        <div style="background: #f0f7ff; padding: 10px; border-radius: 5px; margin: 10px 0;">
+            <strong>📖 Instruções:</strong><br>
+            ${item.instrucoes}
+        </div>
+        ` : ''}
+        
+        ${item.equipamentos_necessarios && item.equipamentos_necessarios.length > 0 ? `
+        <div class="equipamentos">
+            <strong>🧰 Equipamentos:</strong> ${item.equipamentos_necessarios.join(', ')}
+        </div>
+        ` : ''}
+        
+        ${item.checklist && item.checklist.items ? `
+        <div class="checklist">
+            <strong>✓ Checklist:</strong>
+            ${item.checklist.items.map(check => `
+                <div class="checklist-item">${check}</div>
+            `).join('')}
+        </div>
+        ` : ''}
+    </div>
+        `;
+    });
+
+    html += `
+    <div class="footer">
+        <p>Documento gerado automaticamente pelo Sistema de Gestão de Condomínios</p>
+        <p>Data de geração: ${new Date().toLocaleString('pt-BR')}</p>
+    </div>
+</body>
+</html>
+    `;
+
+    return html;
+}
+
+// ============================================================
+// 6. CONVERTER HTML PARA PDF (usando jsPDF)
+// ============================================================
+
+async function converterHTMLParaPDF(html) {
+    // Opção 1: Usar jsPDF + html2canvas (frontend)
+    // Opção 2: Usar uma API externa como html-pdf-node
+    // Opção 3: Usar Puppeteer no backend
+    
+    // Exemplo simplificado com jsPDF:
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Converter HTML para PDF
+    await doc.html(html, {
+        callback: function(doc) {
+            return doc;
+        },
+        x: 10,
+        y: 10,
+        width: 190,
+        windowWidth: 800
+    });
+    
+    return doc.output('blob');
+}
+
+// ============================================================
+// 7. ENVIAR LISTA VIA WHATSAPP EM LOTE
+// ============================================================
+
+async function enviarListasEmLote(configuracao) {
+    try {
+        console.log('📱 Iniciando envio em lote...');
+
+        const {
+            templateId,
+            membrosIds,
+            dataExecucao,
+            turno,
+            observacoes
+        } = configuracao;
+
+        // Criar lote
+        const { data: lote, error: erroLote } = await supabase
+            .from('envios_whatsapp_lote')
+            .insert([{
+                nome_lote: `Envio ${new Date().toLocaleDateString('pt-BR')}`,
+                template_lista_id: templateId,
+                total_destinatarios: membrosIds.length,
+                status: 'pendente'
+            }])
+            .select()
+            .single();
+
+        if (erroLote) throw erroLote;
+
+        // Processar cada membro
+        for (const membroId of membrosIds) {
+            // 1. Criar lista
+            const resultadoLista = await criarListaDeTemplate(templateId, {
+                membroId,
+                dataExecucao,
+                turno,
+                observacoes
+            });
+
+            if (!resultadoLista.sucesso) {
+                // Registrar erro
+                await supabase
+                    .from('envios_whatsapp_lote_membros')
+                    .insert([{
+                        lote_id: lote.id,
+                        membro_id: membroId,
+                        status: 'erro',
+                        erro_mensagem: resultadoLista.erro
+                    }]);
+                continue;
+            }
+
+            // 2. Gerar PDF
+            const resultadoPDF = await gerarPDFLista(resultadoLista.lista.id);
+
+            if (!resultadoPDF.sucesso) {
+                await supabase
+                    .from('envios_whatsapp_lote_membros')
+                    .insert([{
+                        lote_id: lote.id,
+                        membro_id: membroId,
+                        lista_id: resultadoLista.lista.id,
+                        status: 'erro',
+                        erro_mensagem: 'Erro ao gerar PDF: ' + resultadoPDF.erro
+                    }]);
+                continue;
+            }
+
+            // 3. Enviar WhatsApp
+            const resultadoEnvio = await enviarPDFWhatsApp(
+                membroId,
+                resultadoPDF.pdfUrl,
+                resultadoLista.lista
+            );
+
+            // 4. Registrar envio
+            await supabase
+                .from('envios_whatsapp_lote_membros')
+                .insert([{
+                    lote_id: lote.id,
+                    membro_id: membroId,
+                    lista_id: resultadoLista.lista.id,
+                    pdf_url: resultadoPDF.pdfUrl,
+                    status: resultadoEnvio.sucesso ? 'enviado' : 'erro',
+                    erro_mensagem: resultadoEnvio.erro || null,
+                    data_envio: resultadoEnvio.sucesso ? new Date().toISOString() : null
+                }]);
+        }
+
+        // Atualizar status do lote
+        const { data: membrosEnviados } = await supabase
+            .from('envios_whatsapp_lote_membros')
+            .select('*')
+            .eq('lote_id', lote.id);
+
+        await supabase
+            .from('envios_whatsapp_lote')
+            .update({
+                status: 'concluido',
+                total_enviados: membrosEnviados.filter(m => m.status === 'enviado').length,
+                total_erros: membrosEnviados.filter(m => m.status === 'erro').length,
+                data_fim_envio: new Date().toISOString()
+            })
+            .eq('id', lote.id);
+
+        console.log('✅ Envio em lote concluído!');
+        return { sucesso: true, loteId: lote.id };
+
+    } catch (error) {
+        console.error('❌ Erro no envio em lote:', error);
+        return { sucesso: false, erro: error.message };
+    }
+}
+
+// ============================================================
+// 8. ENVIAR PDF VIA WHATSAPP
+// ============================================================
+
+async function enviarPDFWhatsApp(membroId, pdfUrl, lista) {
+    try {
+        // Buscar dados do membro
+        const { data: membro } = await supabase
+            .from('membros_equipe')
+            .select('*')
+            .eq('id', membroId)
+            .single();
+
+        if (!membro || !membro.whatsapp) {
+            throw new Error('Membro sem WhatsApp cadastrado');
+        }
+
+        // Formatar número
+        const numero = membro.whatsapp.replace(/\D/g, '');
+
+        // Gerar mensagem
+        const mensagem = `
+*📋 Nova Lista de Atividades*
+
+Olá ${membro.nome}!
+
+Você recebeu uma nova lista de atividades:
+📌 *${lista.titulo}*
+📅 Data: ${new Date(lista.data_execucao).toLocaleDateString('pt-BR')}
+⏰ Turno: ${formatarTurno(lista.turno)}
+
+📄 Acesse o PDF completo: ${pdfUrl}
+
+_Mensagem automática do Sistema de Gestão_
+        `.trim();
+
+        // Abrir WhatsApp
+        const url = `https://wa.me/55${numero}?text=${encodeURIComponent(mensagem)}`;
+        window.open(url, '_blank');
+
+        // Registrar envio
+        await supabase
+            .from('whatsapp_envios')
+            .insert([{
+                lista_id: lista.id,
+                membro_id: membroId,
+                numero_whatsapp: numero,
+                mensagem: mensagem,
+                status: 'enviado'
+            }]);
+
+        return { sucesso: true };
+
+    } catch (error) {
+        console.error('Erro ao enviar WhatsApp:', error);
+        return { sucesso: false, erro: error.message };
+    }
+}
+
+// ============================================================
+// FUNÇÕES AUXILIARES
+// ============================================================
+
+function formatarTurno(turno) {
+    const turnos = {
+        'manha': 'Manhã ☀️',
+        'tarde': 'Tarde 🌤️',
+        'noite': 'Noite 🌙',
+        'integral': 'Integral 🕐'
+    };
+    return turnos[turno] || turno;
+}
+
+// ============================================================
+// EXPORTAR FUNÇÕES
+// ============================================================
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        carregarTemplates,
+        criarListaDeTemplate,
+        replicarListaParaFuncionarios,
+        gerarPDFLista,
+        enviarListasEmLote,
+        enviarPDFWhatsApp
+    };
+}
+
+console.log(`
+╔════════════════════════════════════════════╗
+║  SISTEMA DE TEMPLATES E ENVIO EM LOTE     ║
+╚════════════════════════════════════════════╝
+
+✅ Templates de listas prontas
+✅ Replicação para múltiplos funcionários
+✅ Geração automática de PDF
+✅ Envio em lote via WhatsApp
+
+Funções disponíveis:
+- carregarTemplates(funcao)
+- criarListaDeTemplate(templateId, dados)
+- replicarListaParaFuncionarios(templateId, config)
+- enviarListasEmLote(config)
+`);
