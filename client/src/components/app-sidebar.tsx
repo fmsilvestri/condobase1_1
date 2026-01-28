@@ -150,6 +150,11 @@ const mainModules = [
     icon: UserCog,
   },
   {
+    title: "Gestão de Atividades",
+    url: "/gestao-atividades",
+    icon: ClipboardList,
+  },
+  {
     title: "Encomendas",
     url: "/encomendas",
     icon: Package,

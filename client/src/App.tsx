@@ -53,6 +53,7 @@ import MarketplaceRelatorios from "@/pages/marketplace-relatorios";
 import MarketplaceCampanhas from "@/pages/marketplace-campanhas";
 import TaxasCobrancas from "@/pages/taxas-cobrancas";
 import GestaoLocacoes from "@/pages/gestao-locacoes";
+import ActivityManagement from "@/pages/activity-management";
 
 function Router() {
   return (
@@ -88,6 +89,7 @@ function Router() {
       <Route path="/taxas-cobrancas" component={TaxasCobrancas} />
       <Route path="/gestao-locacoes" component={GestaoLocacoes} />
       <Route path="/equipe" component={TeamManagement} />
+      <Route path="/gestao-atividades" component={ActivityManagement} />
       <Route path="/encomendas" component={Parcels} />
       <Route path="/moradores" component={Moradores} />
       <Route path="/marketplace-admin" component={MarketplaceAdmin} />
