@@ -1,0 +1,116 @@
+// ============================================
+// CÓDIGO JAVASCRIPT CORRETO PARA O REPLIT
+// ============================================
+
+// Exemplo de função para cadastrar hóspede
+async function cadastrarHospede(dados) {
+  try {
+    // ✅ CORRETO: Usar snake_case (igual ao PostgreSQL)
+    const { data, error } = await supabase
+      .from('hospedagens')
+      .insert([
+        {
+          condominium_id: dados.condominiumId,
+          nome_hospede: dados.nomeHospede,
+          cpf: dados.cpf,
+          telefone: dados.telefone,
+          placa_veiculo: dados.placaVeiculo,
+          modelo_veiculo: dados.modeloVeiculo,
+          cor_veiculo: dados.corVeiculo,
+          data_entrada: dados.dataEntrada || new Date().toISOString(),
+          observacoes: dados.observacoes
+        }
+      ])
+      .select();
+
+    if (error) {
+      console.error('Erro ao cadastrar:', error);
+      throw error;
+    }
+
+    console.log('Hóspede cadastrado com sucesso:', data);
+    return data;
+
+  } catch (err) {
+    console.error('Erro:', err);
+    throw err;
+  }
+}
+
+// ============================================
+// EXEMPLO DE USO
+// ============================================
+
+// Exemplo de como chamar a função
+const novoHospede = {
+  condominiumId: 'uuid-do-condominio',
+  nomeHospede: 'João Silva',
+  cpf: '123.456.789-00',
+  telefone: '(11) 98765-4321',
+  placaVeiculo: 'ABC-1234',
+  modeloVeiculo: 'Gol',
+  corVeiculo: 'Preto',
+  observacoes: 'Visitante'
+};
+
+cadastrarHospede(novoHospede)
+  .then(resultado => {
+    console.log('Sucesso!', resultado);
+  })
+  .catch(erro => {
+    console.error('Falha ao cadastrar:', erro);
+  });
+
+// ============================================
+// VERIFICAÇÃO DE ERRO COMUM
+// ============================================
+
+// ❌ ERRADO - Não faça assim:
+const errado = {
+  condominiumId: 'xxx',      // camelCase não funciona
+  nomeHospede: 'xxx',         // camelCase não funciona
+  corVeiculo: 'xxx'           // camelCase não funciona
+};
+
+// ✅ CORRETO - Faça assim:
+const correto = {
+  condominium_id: 'xxx',      // snake_case funciona
+  nome_hospede: 'xxx',         // snake_case funciona
+  cor_veiculo: 'xxx'           // snake_case funciona
+};
+
+// ============================================
+// EXEMPLO DE FORMULÁRIO HTML + JAVASCRIPT
+// ============================================
+
+// Se você estiver usando um formulário HTML:
+document.getElementById('formHospede').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const dados = {
+    condominium_id: document.getElementById('condominium_id').value,
+    nome_hospede: document.getElementById('nome_hospede').value,
+    cpf: document.getElementById('cpf').value,
+    telefone: document.getElementById('telefone').value,
+    placa_veiculo: document.getElementById('placa_veiculo').value,
+    modelo_veiculo: document.getElementById('modelo_veiculo').value,
+    cor_veiculo: document.getElementById('cor_veiculo').value,
+    observacoes: document.getElementById('observacoes').value
+  };
+  
+  try {
+    const { data, error } = await supabase
+      .from('hospedagens')
+      .insert([dados])
+      .select();
+      
+    if (error) throw error;
+    
+    alert('Hóspede cadastrado com sucesso!');
+    e.target.reset();
+    
+  } catch (error) {
+    console.error('Erro:', error);
+    alert('Erro ao cadastrar: ' + error.message);
+  }
+});

@@ -74,6 +74,7 @@ import {
   insertContratacaoSchema,
   insertAvaliacaoSchema,
   insertVeiculoSchema,
+  insertHospedagemSchema,
 } from "@shared/schema";
 
 import { z } from "zod";
@@ -3000,6 +3001,114 @@ export async function registerRoutes(
       await storage.deleteMaintenanceDocument(req.params.id);
       res.status(204).send();
     } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===========================
+  // HOSPEDAGENS (GESTÃO DE LOCAÇÕES)
+  // ===========================
+  app.get("/api/hospedagens", async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      const hospedagens = await storage.getHospedagens(condominiumId);
+      res.json(hospedagens);
+    } catch (error: any) {
+      console.error("[GET /api/hospedagens] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/hospedagens/:id", async (req, res) => {
+    try {
+      const hospedagem = await storage.getHospedagemById(req.params.id);
+      if (!hospedagem) {
+        return res.status(404).json({ error: "Hospedagem não encontrada" });
+      }
+      res.json(hospedagem);
+    } catch (error: any) {
+      console.error("[GET /api/hospedagens/:id] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/hospedagens", async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      const validatedData = insertHospedagemSchema.parse({
+        ...req.body,
+        condominiumId,
+      });
+      const hospedagem = await storage.createHospedagem(validatedData);
+      res.status(201).json(hospedagem);
+    } catch (error: any) {
+      console.error("[POST /api/hospedagens] Error:", error);
+      res.status(400).json({ error: "Dados inválidos", details: error.message });
+    }
+  });
+
+  app.patch("/api/hospedagens/:id", async (req, res) => {
+    try {
+      const validatedData = insertHospedagemSchema.partial().parse(req.body);
+      const hospedagem = await storage.updateHospedagem(req.params.id, validatedData);
+      res.json(hospedagem);
+    } catch (error: any) {
+      console.error("[PATCH /api/hospedagens/:id] Error:", error);
+      res.status(400).json({ error: "Dados inválidos", details: error.message });
+    }
+  });
+
+  app.delete("/api/hospedagens/:id", async (req, res) => {
+    try {
+      await storage.deleteHospedagem(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("[DELETE /api/hospedagens/:id] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  const boasVindasSchema = z.object({
+    mensagem: z.string().min(1, "Mensagem é obrigatória"),
+    urlVideo: z.string().url().optional().nullable(),
+    urlRegimento: z.string().url().optional().nullable(),
+  });
+
+  app.post("/api/hospedagens/:id/enviar-boas-vindas", async (req, res) => {
+    try {
+      const validatedData = boasVindasSchema.parse(req.body);
+      const hospedagem = await storage.getHospedagemById(req.params.id);
+      
+      if (!hospedagem) {
+        return res.status(404).json({ error: "Hospedagem não encontrada" });
+      }
+      
+      // Update hospedagem with custom message and mark as sent
+      const updatedHospedagem = await storage.updateHospedagem(req.params.id, {
+        mensagemPersonalizada: validatedData.mensagem,
+        urlVideoExplicativo: validatedData.urlVideo || null,
+        urlRegimentoInterno: validatedData.urlRegimento || null,
+        boasVindasEnviadas: true,
+        dataEnvioBoasVindas: new Date(),
+      });
+      
+      // Send WhatsApp message if phone is available
+      if (hospedagem.telefoneHospede) {
+        try {
+          const telefoneFormatado = hospedagem.telefoneHospede.replace(/\D/g, "");
+          await sendWhatsAppMessage(`+${telefoneFormatado}`, validatedData.mensagem);
+        } catch (twilioError) {
+          console.error("[enviar-boas-vindas] Twilio error:", twilioError);
+          // Continue even if Twilio fails
+        }
+      }
+      
+      res.json(updatedHospedagem);
+    } catch (error: any) {
+      console.error("[POST /api/hospedagens/:id/enviar-boas-vindas] Error:", error);
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "Dados inválidos", details: error.message });
+      }
       res.status(500).json({ error: error.message });
     }
   });
