@@ -3310,21 +3310,21 @@ export class SupabaseStorage implements IStorage {
   // ========== ACTIVITY TEMPLATES ==========
 
   async getActivityTemplates(condominiumId?: string, funcao?: string): Promise<any[]> {
-    let query = supabase.from("activity_templates").select("*, categoria:activity_categories(*)").eq("is_active", true).order("ordem");
+    let query = supabase.from("activity_templates").select("*").eq("is_active", true).order("ordem");
     if (condominiumId) query = query.eq("condominium_id", condominiumId);
     if (funcao) query = query.eq("funcao", funcao);
     const { data, error } = await query;
-    if (error) return [];
-    return (data || []).map((item: any) => ({
-      ...toCamelCase(item),
-      categoria: item.categoria ? toCamelCase(item.categoria) : null
-    }));
+    if (error) {
+      console.error("Error fetching activity templates:", error);
+      return [];
+    }
+    return (data || []).map((item: any) => toCamelCase(item));
   }
 
   async getActivityTemplateById(id: string): Promise<any | null> {
-    const { data, error } = await supabase.from("activity_templates").select("*, categoria:activity_categories(*)").eq("id", id).single();
+    const { data, error } = await supabase.from("activity_templates").select("*").eq("id", id).single();
     if (error) return null;
-    return { ...toCamelCase(data), categoria: data.categoria ? toCamelCase(data.categoria) : null };
+    return toCamelCase(data);
   }
 
   async createActivityTemplate(template: any): Promise<any> {
@@ -3352,21 +3352,21 @@ export class SupabaseStorage implements IStorage {
   // ========== ACTIVITY LISTS ==========
 
   async getActivityLists(condominiumId?: string, membroId?: string): Promise<any[]> {
-    let query = supabase.from("activity_lists").select("*, membro:team_members(*)").order("data_execucao", { ascending: false });
+    let query = supabase.from("activity_lists").select("*").order("data", { ascending: false });
     if (condominiumId) query = query.eq("condominium_id", condominiumId);
-    if (membroId) query = query.eq("membro_id", membroId);
+    if (membroId) query = query.eq("team_member_id", membroId);
     const { data, error } = await query;
-    if (error) return [];
-    return (data || []).map((item: any) => ({
-      ...toCamelCase(item),
-      membro: item.membro ? toCamelCase(item.membro) : null
-    }));
+    if (error) {
+      console.error("Error fetching activity lists:", error);
+      return [];
+    }
+    return (data || []).map((item: any) => toCamelCase(item));
   }
 
   async getActivityListById(id: string): Promise<any | null> {
-    const { data, error } = await supabase.from("activity_lists").select("*, membro:team_members(*)").eq("id", id).single();
+    const { data, error } = await supabase.from("activity_lists").select("*").eq("id", id).single();
     if (error) return null;
-    return { ...toCamelCase(data), membro: data.membro ? toCamelCase(data.membro) : null };
+    return toCamelCase(data);
   }
 
   async createActivityList(list: any): Promise<any> {
@@ -3387,15 +3387,18 @@ export class SupabaseStorage implements IStorage {
 
   async deleteActivityList(id: string): Promise<void> {
     const client = supabaseAdmin || supabase;
-    await client.from("activity_list_items").delete().eq("lista_id", id);
+    await client.from("activity_list_items").delete().eq("activity_list_id", id);
     await client.from("activity_lists").delete().eq("id", id);
   }
 
   // ========== ACTIVITY LIST ITEMS ==========
 
   async getActivityListItems(listaId: string): Promise<any[]> {
-    const { data, error } = await supabase.from("activity_list_items").select("*").eq("lista_id", listaId).order("ordem");
-    if (error) return [];
+    const { data, error } = await supabase.from("activity_list_items").select("*").eq("activity_list_id", listaId).order("ordem");
+    if (error) {
+      console.error("Error fetching activity list items:", error);
+      return [];
+    }
     return (data || []).map((item: any) => toCamelCase(item));
   }
 
