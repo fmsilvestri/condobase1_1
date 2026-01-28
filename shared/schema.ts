@@ -2093,3 +2093,180 @@ export const insertConfiguracoesLocacaoSchema = createInsertSchema(configuracoes
 
 export type InsertConfiguracoesLocacao = z.infer<typeof insertConfiguracoesLocacaoSchema>;
 export type ConfiguracoesLocacao = typeof configuracoesLocacao.$inferSelect;
+
+// ========== MARKETPLACE ==========
+
+export const statusFornecedorOptions = ["pendente", "aprovado", "rejeitado", "suspenso"] as const;
+export type StatusFornecedor = (typeof statusFornecedorOptions)[number];
+
+export const tipoPrecoOptions = ["fixo", "hora", "orcamento", "negociavel"] as const;
+export type TipoPreco = (typeof tipoPrecoOptions)[number];
+
+export const statusContratacaoOptions = ["solicitado", "confirmado", "em_execucao", "concluido", "cancelado"] as const;
+export type StatusContratacao = (typeof statusContratacaoOptions)[number];
+
+// Marketplace Categories
+export const marketplaceCategorias = pgTable("marketplace_categorias", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  nome: text("nome").notNull(),
+  descricao: text("descricao"),
+  icone: text("icone"),
+  ativo: boolean("ativo").default(true),
+  ordem: integer("ordem").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMarketplaceCategoriaSchema = createInsertSchema(marketplaceCategorias).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMarketplaceCategoria = z.infer<typeof insertMarketplaceCategoriaSchema>;
+export type MarketplaceCategoria = typeof marketplaceCategorias.$inferSelect;
+
+// Marketplace Fornecedores (Providers)
+export const marketplaceFornecedores = pgTable("marketplace_fornecedores", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  nomeComercial: text("nome_comercial").notNull(),
+  descricao: text("descricao"),
+  telefone: text("telefone"),
+  whatsapp: text("whatsapp"),
+  email: text("email"),
+  endereco: text("endereco"),
+  documento: text("documento"),
+  status: text("status").notNull().$type<StatusFornecedor>().default("pendente"),
+  avaliacaoMedia: real("avaliacao_media").default(0),
+  totalAvaliacoes: integer("total_avaliacoes").default(0),
+  aprovadoPor: uuid("aprovado_por"),
+  aprovadoEm: timestamp("aprovado_em"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMarketplaceFornecedorSchema = createInsertSchema(marketplaceFornecedores).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  aprovadoEm: true,
+});
+
+export type InsertMarketplaceFornecedor = z.infer<typeof insertMarketplaceFornecedorSchema>;
+export type MarketplaceFornecedor = typeof marketplaceFornecedores.$inferSelect;
+
+// Marketplace Services (Types of services)
+export const marketplaceServicos = pgTable("marketplace_servicos", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  categoriaId: uuid("categoria_id").references(() => marketplaceCategorias.id),
+  nome: text("nome").notNull(),
+  descricao: text("descricao"),
+  ativo: boolean("ativo").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMarketplaceServicoSchema = createInsertSchema(marketplaceServicos).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMarketplaceServico = z.infer<typeof insertMarketplaceServicoSchema>;
+export type MarketplaceServico = typeof marketplaceServicos.$inferSelect;
+
+// Marketplace Ofertas (Offers from providers)
+export const marketplaceOfertas = pgTable("marketplace_ofertas", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  fornecedorId: uuid("fornecedor_id").notNull().references(() => marketplaceFornecedores.id),
+  servicoId: uuid("servico_id").references(() => marketplaceServicos.id),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao"),
+  preco: real("preco"),
+  tipoPreco: text("tipo_preco").$type<TipoPreco>().default("fixo"),
+  disponivel: boolean("disponivel").default(true),
+  destaque: boolean("destaque").default(false),
+  imagemUrl: text("imagem_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMarketplaceOfertaSchema = createInsertSchema(marketplaceOfertas).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMarketplaceOferta = z.infer<typeof insertMarketplaceOfertaSchema>;
+export type MarketplaceOferta = typeof marketplaceOfertas.$inferSelect;
+
+// Marketplace Contratações (Hiring/Bookings)
+export const marketplaceContratacoes = pgTable("marketplace_contratacoes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ofertaId: uuid("oferta_id").references(() => marketplaceOfertas.id),
+  fornecedorId: uuid("fornecedor_id").notNull().references(() => marketplaceFornecedores.id),
+  moradorId: uuid("morador_id").notNull(),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  status: text("status").notNull().$type<StatusContratacao>().default("solicitado"),
+  valor: real("valor"),
+  observacoes: text("observacoes"),
+  dataAgendada: timestamp("data_agendada"),
+  dataConclusao: timestamp("data_conclusao"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMarketplaceContratacaoSchema = createInsertSchema(marketplaceContratacoes, {
+  dataAgendada: z.coerce.date().optional().nullable(),
+  dataConclusao: z.coerce.date().optional().nullable(),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMarketplaceContratacao = z.infer<typeof insertMarketplaceContratacaoSchema>;
+export type MarketplaceContratacao = typeof marketplaceContratacoes.$inferSelect;
+
+// Marketplace Avaliações (Reviews)
+export const marketplaceAvaliacoes = pgTable("marketplace_avaliacoes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  contratacaoId: uuid("contratacao_id").notNull().references(() => marketplaceContratacoes.id),
+  fornecedorId: uuid("fornecedor_id").notNull().references(() => marketplaceFornecedores.id),
+  moradorId: uuid("morador_id").notNull(),
+  nota: integer("nota").notNull(),
+  comentario: text("comentario"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMarketplaceAvaliacaoSchema = createInsertSchema(marketplaceAvaliacoes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertMarketplaceAvaliacao = z.infer<typeof insertMarketplaceAvaliacaoSchema>;
+export type MarketplaceAvaliacao = typeof marketplaceAvaliacoes.$inferSelect;
+
+// Marketplace Comissões (Commissions)
+export const marketplaceComissoes = pgTable("marketplace_comissoes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  categoriaId: uuid("categoria_id").references(() => marketplaceCategorias.id),
+  percentual: real("percentual").default(0),
+  valorFixo: real("valor_fixo").default(0),
+  ativo: boolean("ativo").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMarketplaceComissaoSchema = createInsertSchema(marketplaceComissoes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMarketplaceComissao = z.infer<typeof insertMarketplaceComissaoSchema>;
+export type MarketplaceComissao = typeof marketplaceComissoes.$inferSelect;
