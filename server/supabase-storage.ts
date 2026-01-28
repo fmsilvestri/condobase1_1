@@ -402,22 +402,33 @@ export class SupabaseStorage implements IStorage {
     try {
       const updateData: Record<string, any> = {};
       
-      // Map camelCase to snake_case for database columns
+      // Map fields - handle empty strings and type conversions
       if (equipment.name !== undefined) updateData.name = equipment.name;
       if (equipment.category !== undefined) updateData.category = equipment.category;
       if (equipment.location !== undefined) updateData.location = equipment.location;
-      if (equipment.description !== undefined) updateData.description = equipment.description;
+      if (equipment.description !== undefined) updateData.description = equipment.description || null;
       if (equipment.photos !== undefined) updateData.photos = equipment.photos;
       if (equipment.status !== undefined) updateData.status = equipment.status;
-      if (equipment.icon !== undefined) updateData.icon = equipment.icon;
-      if (equipment.manufacturer !== undefined) updateData.manufacturer = equipment.manufacturer;
-      if (equipment.installationDate !== undefined) updateData.installationDate = equipment.installationDate;
-      if (equipment.estimatedLifespan !== undefined) updateData.estimatedLifespan = equipment.estimatedLifespan;
-      if (equipment.powerConsumption !== undefined) updateData.powerConsumption = equipment.powerConsumption;
-      if (equipment.estimatedUsageHours !== undefined) updateData.estimatedUsageHours = equipment.estimatedUsageHours;
-      if (equipment.notes !== undefined) updateData.notes = equipment.notes;
+      if (equipment.icon !== undefined) updateData.icon = equipment.icon || null;
+      if (equipment.manufacturer !== undefined) updateData.manufacturer = equipment.manufacturer || null;
+      
+      // Handle installationDate - convert string to Date or null
+      if (equipment.installationDate !== undefined) {
+        if (equipment.installationDate && typeof equipment.installationDate === 'string' && equipment.installationDate.trim() !== '') {
+          updateData.installationDate = new Date(equipment.installationDate);
+        } else if (equipment.installationDate instanceof Date) {
+          updateData.installationDate = equipment.installationDate;
+        } else {
+          updateData.installationDate = null;
+        }
+      }
+      
+      if (equipment.estimatedLifespan !== undefined) updateData.estimatedLifespan = equipment.estimatedLifespan || null;
+      if (equipment.powerConsumption !== undefined) updateData.powerConsumption = equipment.powerConsumption || null;
+      if (equipment.estimatedUsageHours !== undefined) updateData.estimatedUsageHours = equipment.estimatedUsageHours || null;
+      if (equipment.notes !== undefined) updateData.notes = equipment.notes || null;
       if (equipment.documents !== undefined) updateData.documents = equipment.documents;
-      if (equipment.supplierId !== undefined) updateData.supplierId = equipment.supplierId;
+      if (equipment.supplierId !== undefined) updateData.supplierId = equipment.supplierId || null;
       
       updateData.updatedAt = new Date();
 
