@@ -72,9 +72,9 @@ interface Hospedagem {
   unidade: string;
   bloco: string | null;
   nomeHospede: string;
-  telefoneHospede: string | null;
-  emailHospede: string | null;
-  documentoHospede: string | null;
+  telefone: string | null;
+  email: string | null;
+  cpf: string | null;
   quantidadeHospedes: number;
   plataforma: string | null;
   codigoReserva: string | null;
@@ -95,9 +95,9 @@ interface Hospedagem {
 
 const hospedagemSchema = z.object({
   nomeHospede: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-  telefoneHospede: z.string().optional(),
-  emailHospede: z.string().email("Email inválido").optional().or(z.literal("")),
-  documentoHospede: z.string().optional(),
+  telefone: z.string().optional(),
+  email: z.string().email("Email inválido").optional().or(z.literal("")),
+  cpf: z.string().optional(),
   quantidadeHospedes: z.coerce.number().min(1).default(1),
   unidade: z.string().min(1, "Unidade é obrigatória"),
   bloco: z.string().optional(),
@@ -136,9 +136,9 @@ export default function GestaoLocacoesPage() {
     resolver: zodResolver(hospedagemSchema),
     defaultValues: {
       nomeHospede: "",
-      telefoneHospede: "",
-      emailHospede: "",
-      documentoHospede: "",
+      telefone: "",
+      email: "",
+      cpf: "",
       quantidadeHospedes: 1,
       unidade: "",
       bloco: "",
@@ -246,9 +246,9 @@ export default function GestaoLocacoesPage() {
       setEditingHospedagem(hospedagem);
       hospedagemForm.reset({
         nomeHospede: hospedagem.nomeHospede,
-        telefoneHospede: hospedagem.telefoneHospede || "",
-        emailHospede: hospedagem.emailHospede || "",
-        documentoHospede: hospedagem.documentoHospede || "",
+        telefone: hospedagem.telefone || "",
+        email: hospedagem.email || "",
+        cpf: hospedagem.cpf || "",
         quantidadeHospedes: hospedagem.quantidadeHospedes || 1,
         unidade: hospedagem.unidade,
         bloco: hospedagem.bloco || "",
@@ -310,7 +310,7 @@ export default function GestaoLocacoesPage() {
     }
   };
 
-  const getPlataformaBadge = (plataforma: string) => {
+  const getPlataformaBadge = (plataforma: string | null) => {
     switch (plataforma) {
       case "airbnb":
         return <Badge variant="secondary" data-testid="badge-plataforma-airbnb">Airbnb</Badge>;
@@ -395,7 +395,7 @@ export default function GestaoLocacoesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-count-pendentes">
-              {hospedagensAtivas.filter(h => !h.boasVindasEnviadas && h.telefoneHospede).length}
+              {hospedagensAtivas.filter(h => !h.boasVindasEnviadas && h.telefone).length}
             </div>
             <p className="text-xs text-muted-foreground">aguardando boas-vindas</p>
           </CardContent>
@@ -467,7 +467,7 @@ export default function GestaoLocacoesPage() {
                               <CheckCircle className="w-3 h-3 mr-1" />
                               Enviada
                             </Badge>
-                          ) : hospedagem.telefoneHospede ? (
+                          ) : hospedagem.telefone ? (
                             <Badge variant="outline" data-testid={`badge-pendente-${hospedagem.id}`}>
                               <Clock className="w-3 h-3 mr-1" />
                               Pendente
@@ -492,7 +492,7 @@ export default function GestaoLocacoesPage() {
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
-                            {!hospedagem.boasVindasEnviadas && hospedagem.telefoneHospede && (
+                            {!hospedagem.boasVindasEnviadas && hospedagem.telefone && (
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -643,7 +643,7 @@ export default function GestaoLocacoesPage() {
 
                 <FormField
                   control={hospedagemForm.control}
-                  name="telefoneHospede"
+                  name="telefone"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Telefone (WhatsApp)</FormLabel>
@@ -658,7 +658,7 @@ export default function GestaoLocacoesPage() {
 
                 <FormField
                   control={hospedagemForm.control}
-                  name="emailHospede"
+                  name="email"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Email</FormLabel>
@@ -672,7 +672,7 @@ export default function GestaoLocacoesPage() {
 
                 <FormField
                   control={hospedagemForm.control}
-                  name="documentoHospede"
+                  name="cpf"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Documento (CPF/RG)</FormLabel>
@@ -892,7 +892,7 @@ export default function GestaoLocacoesPage() {
               </p>
               <p className="text-sm text-muted-foreground">
                 <Phone className="w-3 h-3 inline mr-1" />
-                {selectedHospedagem.telefoneHospede}
+                {selectedHospedagem.telefone}
               </p>
             </div>
           )}
@@ -981,15 +981,15 @@ export default function GestaoLocacoesPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Telefone</p>
-                  <p className="font-medium">{selectedHospedagem.telefoneHospede || "Não informado"}</p>
+                  <p className="font-medium">{selectedHospedagem.telefone || "Não informado"}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Email</p>
-                  <p className="font-medium">{selectedHospedagem.emailHospede || "Não informado"}</p>
+                  <p className="font-medium">{selectedHospedagem.email || "Não informado"}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Documento</p>
-                  <p className="font-medium">{selectedHospedagem.documentoHospede || "Não informado"}</p>
+                  <p className="font-medium">{selectedHospedagem.cpf || "Não informado"}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Unidade</p>

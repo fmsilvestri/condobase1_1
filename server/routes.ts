@@ -3093,9 +3093,9 @@ export async function registerRoutes(
       });
       
       // Send WhatsApp message if phone is available
-      if (hospedagem.telefoneHospede) {
+      if (hospedagem.telefone) {
         try {
-          const telefoneFormatado = hospedagem.telefoneHospede.replace(/\D/g, "");
+          const telefoneFormatado = hospedagem.telefone.replace(/\D/g, "");
           await sendWhatsAppMessage(`+${telefoneFormatado}`, validatedData.mensagem);
         } catch (twilioError) {
           console.error("[enviar-boas-vindas] Twilio error:", twilioError);
