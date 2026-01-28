@@ -51,6 +51,7 @@ import FornecedorPainel from "@/pages/fornecedor-painel";
 import MarketplaceRelatorios from "@/pages/marketplace-relatorios";
 import MarketplaceCampanhas from "@/pages/marketplace-campanhas";
 import TaxasCobrancas from "@/pages/taxas-cobrancas";
+import GestaoLocacoes from "@/pages/gestao-locacoes";
 
 function Router() {
   return (
@@ -84,6 +85,7 @@ function Router() {
       <Route path="/automacao" component={Automation} />
       <Route path="/pagamentos" component={Payments} />
       <Route path="/taxas-cobrancas" component={TaxasCobrancas} />
+      <Route path="/gestao-locacoes" component={GestaoLocacoes} />
       <Route path="/equipe" component={TeamManagement} />
       <Route path="/encomendas" component={Parcels} />
       <Route path="/moradores" component={Moradores} />

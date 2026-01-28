@@ -34,6 +34,7 @@ import {
   Receipt,
   BarChart3,
   Send,
+  Home,
 } from "lucide-react";
 import {
   Sidebar,
@@ -157,6 +158,11 @@ const mainModules = [
     title: "Moradores",
     url: "/moradores",
     icon: Users,
+  },
+  {
+    title: "Gestão Locações",
+    url: "/gestao-locacoes",
+    icon: Home,
   },
   {
     title: "Marketplace",
