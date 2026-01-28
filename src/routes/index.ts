@@ -2953,4 +2953,65 @@ router.put("/configuracoes-locacao", requireSindicoOrAdmin, async (req, res) => 
   }
 });
 
+// ===== ENCOMENDAS / PARCELS =====
+router.get("/parcels", async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const parcels = await storage.getParcels(condominiumId || undefined);
+    res.json(parcels);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar encomendas", details: error?.message });
+  }
+});
+
+router.get("/parcels/:id", async (req, res) => {
+  try {
+    const parcel = await storage.getParcelById(req.params.id);
+    if (!parcel) {
+      return res.status(404).json({ error: "Encomenda não encontrada" });
+    }
+    res.json(parcel);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar encomenda", details: error?.message });
+  }
+});
+
+router.post("/parcels", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não identificado" });
+    }
+    const parsed = insertParcelSchema.safeParse({ ...req.body, condominiumId });
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.errors });
+    }
+    const parcel = await storage.createParcel(parsed.data);
+    res.status(201).json(parcel);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao criar encomenda", details: error?.message });
+  }
+});
+
+router.patch("/parcels/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const parcel = await storage.updateParcel(req.params.id, req.body);
+    if (!parcel) {
+      return res.status(404).json({ error: "Encomenda não encontrada" });
+    }
+    res.json(parcel);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao atualizar encomenda", details: error?.message });
+  }
+});
+
+router.delete("/parcels/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    await storage.deleteParcel(req.params.id);
+    res.status(204).send();
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao excluir encomenda", details: error?.message });
+  }
+});
+
 export default router;
