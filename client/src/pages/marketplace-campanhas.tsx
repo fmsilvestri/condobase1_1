@@ -19,6 +19,9 @@ import {
   Home,
   UserCheck,
   Phone,
+  ExternalLink,
+  Copy,
+  Smartphone,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -72,9 +75,25 @@ const campanhaFormSchema = z.object({
   servicoId: z.string().optional(),
   categoriaId: z.string().optional(),
   mediaUrl: z.string().url("URL invalida").optional().or(z.literal("")),
+  sendMode: z.enum(["api", "whatsapp_link"]).default("whatsapp_link"),
 });
 
 type CampanhaFormValues = z.infer<typeof campanhaFormSchema>;
+
+type SendMode = "api" | "whatsapp_link";
+
+function formatPhoneForWhatsApp(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("55")) return digits;
+  if (digits.length === 11 || digits.length === 10) return `55${digits}`;
+  return digits;
+}
+
+function generateWhatsAppLink(phone: string, message: string): string {
+  const formattedPhone = formatPhoneForWhatsApp(phone);
+  const encodedMessage = encodeURIComponent(message);
+  return `https://wa.me/${formattedPhone}?text=${encodedMessage}`;
+}
 
 const tipoLabels: Record<string, string> = {
   proprietario: "Proprietario",
@@ -97,6 +116,12 @@ export default function MarketplaceCampanhas() {
   const [showCampanhaDialog, setShowCampanhaDialog] = useState(false);
   const [showResultsDialog, setShowResultsDialog] = useState(false);
   const [sendResults, setSendResults] = useState<any[]>([]);
+  const [showWhatsAppLinksDialog, setShowWhatsAppLinksDialog] = useState(false);
+  const [whatsAppLinksData, setWhatsAppLinksData] = useState<{
+    titulo: string;
+    mensagem: string;
+    moradores: Morador[];
+  } | null>(null);
 
   const form = useForm<CampanhaFormValues>({
     resolver: zodResolver(campanhaFormSchema),
@@ -106,6 +131,7 @@ export default function MarketplaceCampanhas() {
       servicoId: "",
       categoriaId: "",
       mediaUrl: "",
+      sendMode: "whatsapp_link",
     },
   });
 
@@ -202,12 +228,41 @@ export default function MarketplaceCampanhas() {
       return;
     }
 
+    if (data.sendMode === "whatsapp_link") {
+      const moradoresSelecionados = moradores?.filter(m => selectedMoradores.includes(m.id)) || [];
+      setWhatsAppLinksData({
+        titulo: data.titulo,
+        mensagem: `*${data.titulo}*\n\n${data.mensagem}`,
+        moradores: moradoresSelecionados,
+      });
+      setShowCampanhaDialog(false);
+      setShowWhatsAppLinksDialog(true);
+      return;
+    }
+
     sendCampanhaMutation.mutate({
       moradorIds: selectedMoradores,
       titulo: data.titulo,
       mensagem: data.mensagem,
       mediaUrl: data.mediaUrl || undefined,
     });
+  };
+
+  const copyMessageToClipboard = () => {
+    if (whatsAppLinksData) {
+      navigator.clipboard.writeText(whatsAppLinksData.mensagem);
+      toast({
+        title: "Mensagem copiada",
+        description: "A mensagem foi copiada para a area de transferencia",
+      });
+    }
+  };
+
+  const openWhatsAppLink = (phone: string) => {
+    if (whatsAppLinksData) {
+      const link = generateWhatsAppLink(phone, whatsAppLinksData.mensagem);
+      window.open(link, "_blank");
+    }
   };
 
   const openCampanhaDialog = () => {
@@ -543,21 +598,60 @@ export default function MarketplaceCampanhas() {
                 )}
               />
 
+              {form.watch("sendMode") === "api" && (
+                <FormField
+                  control={form.control}
+                  name="mediaUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>URL da Imagem/Arquivo (opcional)</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="https://exemplo.com/imagem.jpg"
+                          {...field}
+                          data-testid="input-media-url"
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Insira uma URL publica de imagem ou arquivo para enviar junto com a mensagem
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
               <FormField
                 control={form.control}
-                name="mediaUrl"
+                name="sendMode"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>URL da Imagem/Arquivo (opcional)</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="https://exemplo.com/imagem.jpg"
-                        {...field}
-                        data-testid="input-media-url"
-                      />
-                    </FormControl>
+                    <FormLabel>Modo de Envio</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-send-mode">
+                          <SelectValue placeholder="Selecione o modo de envio" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="whatsapp_link">
+                          <div className="flex items-center gap-2">
+                            <Smartphone className="h-4 w-4" />
+                            <span>Pelo meu WhatsApp</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="api">
+                          <div className="flex items-center gap-2">
+                            <Send className="h-4 w-4" />
+                            <span>Envio automatico (Twilio)</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormDescription>
-                      Insira uma URL publica de imagem ou arquivo para enviar junto com a mensagem
+                      {field.value === "whatsapp_link" 
+                        ? "Abre o WhatsApp Web/App para voce enviar manualmente cada mensagem" 
+                        : "Envia automaticamente via API do Twilio (requer configuracao)"}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -582,11 +676,20 @@ export default function MarketplaceCampanhas() {
                 <Button type="button" variant="outline" onClick={() => setShowCampanhaDialog(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={sendCampanhaMutation.isPending} data-testid="button-enviar-campanha">
-                  {sendCampanhaMutation.isPending ? (
+                <Button 
+                  type="submit" 
+                  disabled={form.watch("sendMode") === "api" && sendCampanhaMutation.isPending} 
+                  data-testid="button-enviar-campanha"
+                >
+                  {form.watch("sendMode") === "api" && sendCampanhaMutation.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Enviando...
+                    </>
+                  ) : form.watch("sendMode") === "whatsapp_link" ? (
+                    <>
+                      <Smartphone className="mr-2 h-4 w-4" />
+                      Gerar Links WhatsApp
                     </>
                   ) : (
                     <>
@@ -633,6 +736,91 @@ export default function MarketplaceCampanhas() {
           </div>
           <DialogFooter>
             <Button onClick={() => setShowResultsDialog(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showWhatsAppLinksDialog} onOpenChange={setShowWhatsAppLinksDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Smartphone className="h-5 w-5 text-green-600" />
+              Enviar pelo seu WhatsApp
+            </DialogTitle>
+            <DialogDescription>
+              Clique em cada morador para abrir o WhatsApp e enviar a mensagem
+            </DialogDescription>
+          </DialogHeader>
+          
+          {whatsAppLinksData && (
+            <div className="space-y-4">
+              <div className="bg-muted p-4 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium text-sm">Mensagem da Campanha</h4>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={copyMessageToClipboard}
+                    data-testid="button-copy-message"
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copiar
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                  {whatsAppLinksData.mensagem}
+                </p>
+              </div>
+
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                <h4 className="font-medium text-sm mb-2">
+                  Destinatarios ({whatsAppLinksData.moradores.length})
+                </h4>
+                {whatsAppLinksData.moradores.map((morador) => (
+                  <div
+                    key={morador.id}
+                    className="flex items-center justify-between p-3 border rounded-lg hover-elevate"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                        <Phone className="h-4 w-4 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{morador.nomeCompleto}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {morador.bloco && `Bloco ${morador.bloco}`}
+                          {morador.bloco && morador.unidade && " - "}
+                          {morador.unidade && `Unidade ${morador.unidade}`}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => morador.telefone && openWhatsAppLink(morador.telefone)}
+                      disabled={!morador.telefone}
+                      data-testid={`button-whatsapp-${morador.id}`}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Abrir WhatsApp
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowWhatsAppLinksDialog(false);
+                setWhatsAppLinksData(null);
+                setSelectedMoradores([]);
+                form.reset();
+              }}
+            >
+              Concluir
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
