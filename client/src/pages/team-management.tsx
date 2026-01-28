@@ -284,11 +284,28 @@ export default function TeamManagement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/team-members"] });
       setIsTeamDialogOpen(false);
-      teamForm.reset();
+      setEditingMember(null);
+      teamForm.reset({
+        name: "",
+        cpf: "",
+        role: "",
+        department: "",
+        phone: "",
+        whatsapp: "",
+        email: "",
+        workSchedule: "",
+        hireDate: "",
+        status: "ativo",
+        notes: "",
+      });
       toast({ title: "Membro da equipe cadastrado com sucesso!" });
     },
-    onError: () => {
-      toast({ title: "Erro ao cadastrar membro", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ 
+        title: "Erro ao cadastrar membro", 
+        description: error.message,
+        variant: "destructive" 
+      });
     },
   });
 
@@ -301,11 +318,27 @@ export default function TeamManagement() {
       queryClient.invalidateQueries({ queryKey: ["/api/team-members"] });
       setIsTeamDialogOpen(false);
       setEditingMember(null);
-      teamForm.reset();
+      teamForm.reset({
+        name: "",
+        cpf: "",
+        role: "",
+        department: "",
+        phone: "",
+        whatsapp: "",
+        email: "",
+        workSchedule: "",
+        hireDate: "",
+        status: "ativo",
+        notes: "",
+      });
       toast({ title: "Membro da equipe atualizado com sucesso!" });
     },
-    onError: () => {
-      toast({ title: "Erro ao atualizar membro", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ 
+        title: "Erro ao atualizar membro", 
+        description: error.message,
+        variant: "destructive" 
+      });
     },
   });
 
@@ -317,8 +350,12 @@ export default function TeamManagement() {
       queryClient.invalidateQueries({ queryKey: ["/api/team-members"] });
       toast({ title: "Membro removido com sucesso!" });
     },
-    onError: () => {
-      toast({ title: "Erro ao remover membro", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ 
+        title: "Erro ao remover membro", 
+        description: error.message,
+        variant: "destructive" 
+      });
     },
   });
 
