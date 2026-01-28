@@ -1,0 +1,109 @@
+// ============================================================
+// SERVER.JS - Servidor Express com eWeLink
+// ============================================================
+
+const express = require('express');
+const ewelink = require('ewelink-api');
+const app = express();
+
+app.use(express.json());
+
+// Configuração eWeLink com APP_ID e APP_SECRET
+const connection = new ewelink({
+  email: 'fmsilvestri39@gmail.com',
+  password: 'SUA_SENHA_EWELINK',
+  region: 'us',
+  APP_ID: 'Uw83EKZFxdif7XFXEsrpduz5YyjP7nTl',
+  APP_SECRET: 'mXLOjea0woSMvK9gw7Fjsy7YlFO4iSu6'
+});
+
+// Rota: Listar dispositivos
+app.get('/api/devices', async (req, res) => {
+  try {
+    const devices = await connection.getDevices();
+    res.json({ success: true, devices });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Rota: Ligar dispositivo
+app.post('/api/device/on/:deviceId', async (req, res) => {
+  try {
+    const status = await connection.setDevicePowerState(
+      req.params.deviceId, 
+      'on'
+    );
+    res.json({ success: true, status });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Rota: Desligar dispositivo
+app.post('/api/device/off/:deviceId', async (req, res) => {
+  try {
+    const status = await connection.setDevicePowerState(
+      req.params.deviceId, 
+      'off'
+    );
+    res.json({ success: true, status });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Rota: Toggle (alternar) dispositivo
+app.post('/api/device/toggle/:deviceId', async (req, res) => {
+  try {
+    const status = await connection.toggleDevice(
+      req.params.deviceId
+    );
+    res.json({ success: true, status });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Rota: Status de um dispositivo específico
+app.get('/api/device/:deviceId', async (req, res) => {
+  try {
+    const device = await connection.getDevice(
+      req.params.deviceId
+    );
+    res.json({ success: true, device });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Iniciar servidor
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  
+  // Testar conexão ao iniciar
+  connection.getDevices()
+    .then(devices => {
+      console.log('✅ eWeLink conectado!');
+      console.log(`📱 ${devices.length} dispositivos encontrados`);
+    })
+    .catch(error => {
+      console.error('❌ Erro ao conectar eWeLink:', error.message);
+    });
+});

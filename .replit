@@ -45,8 +45,8 @@ JWT_SECRET = "WW+LfK7wcM1sIDIJFNbwBYR2Ns5GTgiZfvYH2ew385/FzH2u4m93cGs+hIBOmAT8"
 VAPID_PUBLIC_KEY = "BMrSF9SLc93vbRXnszb-NymLDD0VyYL7SGxyluvigVDDYMiR4M3Cy9_1rrfKwnHlAteDsrEr1-46_cP0VrQzuQA"
 VAPID_PRIVATE_KEY = "hZG62FQqtE3QrPbM_P4D31f9r-be2SZ3WXqHaelz53k"
 VAPID_SUBJECT = "mailto:admin@condobase.com"
-EWELINK_APP_ID = "U2mQaukklNdG5s5Fzhi49MOwAA2DFeVs"
-EWELINK_APP_SECRET = "8CWzxwKIfniMDuzMhqjplN7LY4T5uJHn"
+EWELINK_APP_ID = "Uw83EKZFxdif7XFXEsrpduz5YyjP7nTl"
+EWELINK_APP_SECRET = "mXLOjea0woSMvK9gw7Fjsy7YlFO4iSu6"
 
 [agent]
 integrations = ["javascript_object_storage:2.0.0", "stripe:2.0.0", "twilio:1.0.0"]

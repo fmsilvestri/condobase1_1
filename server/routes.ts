@@ -3254,6 +3254,63 @@ export async function registerRoutes(
     }
   });
 
+  // Toggle device
+  app.post("/api/ewelink/device/toggle", async (req, res) => {
+    try {
+      const sessionKey = req.headers["x-ewelink-session"] as string;
+      const { deviceid } = req.body;
+      
+      if (!sessionKey) {
+        return res.status(401).json({ 
+          success: false, 
+          message: "Sessão eWeLink não fornecida" 
+        });
+      }
+      
+      if (!deviceid) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "ID do dispositivo é obrigatório" 
+        });
+      }
+
+      const { ewelinkToggleDevice } = await import("./ewelink.service.js");
+      const result = await ewelinkToggleDevice(sessionKey, deviceid);
+      res.json(result);
+    } catch (error: any) {
+      console.error("[eWeLink] Toggle device error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Erro ao alternar dispositivo" 
+      });
+    }
+  });
+
+  // Get single device status
+  app.get("/api/ewelink/device/:deviceId", async (req, res) => {
+    try {
+      const sessionKey = req.headers["x-ewelink-session"] as string;
+      const { deviceId } = req.params;
+      
+      if (!sessionKey) {
+        return res.status(401).json({ 
+          success: false, 
+          message: "Sessão eWeLink não fornecida" 
+        });
+      }
+
+      const { ewelinkGetDevice } = await import("./ewelink.service.js");
+      const result = await ewelinkGetDevice(sessionKey, deviceId);
+      res.json(result);
+    } catch (error: any) {
+      console.error("[eWeLink] Get device error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Erro ao obter dispositivo" 
+      });
+    }
+  });
+
   // Logout from eWeLink
   app.post("/api/ewelink/logout", async (req, res) => {
     try {
