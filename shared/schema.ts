@@ -2051,7 +2051,11 @@ export const hospedagens = pgTable("hospedagens", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertHospedagemSchema = createInsertSchema(hospedagens).omit({
+export const insertHospedagemSchema = createInsertSchema(hospedagens, {
+  dataCheckIn: z.coerce.date(),
+  dataCheckOut: z.coerce.date(),
+  dataEnvioBoasVindas: z.coerce.date().optional().nullable(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
