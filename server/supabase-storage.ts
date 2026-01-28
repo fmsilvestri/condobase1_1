@@ -170,6 +170,15 @@ import {
   type InsertAvaliacao,
   type Veiculo,
   type InsertVeiculo,
+  taxasCondominio as taxasCondominioTable,
+  cobrancas as cobrancasTable,
+  pagamentos as pagamentosTable,
+  type TaxaCondominio,
+  type InsertTaxaCondominio,
+  type Cobranca,
+  type InsertCobranca,
+  type Pagamento,
+  type InsertPagamento,
 } from "@shared/schema";
 
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
@@ -2549,6 +2558,248 @@ export class SupabaseStorage implements IStorage {
     const [data] = await db.select().from(fornecedoresMarketplaceTable)
       .where(eq(fornecedoresMarketplaceTable.userId, userId));
     return data;
+  }
+
+  // ========== TAXAS CONDOMINIO ==========
+  async getTaxasCondominio(condominiumId?: string): Promise<TaxaCondominio[]> {
+    let query = supabase.from("taxas_condominio").select("*").order("nome");
+    if (condominiumId) {
+      query = query.eq("condominium_id", condominiumId);
+    }
+    const { data, error } = await query;
+    if (error) {
+      console.error("[getTaxasCondominio] Error:", error);
+      return [];
+    }
+    return (data || []).map(toCamelCase) as TaxaCondominio[];
+  }
+
+  async getTaxaCondominioById(id: string): Promise<TaxaCondominio | undefined> {
+    const { data, error } = await supabase
+      .from("taxas_condominio")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (error) {
+      console.error("[getTaxaCondominioById] Error:", error);
+      return undefined;
+    }
+    return data ? toCamelCase(data) as TaxaCondominio : undefined;
+  }
+
+  async createTaxaCondominio(taxa: InsertTaxaCondominio): Promise<TaxaCondominio> {
+    const snakeCaseData = toSnakeCase(taxa);
+    const { data, error } = await supabase
+      .from("taxas_condominio")
+      .insert(snakeCaseData)
+      .select()
+      .single();
+    if (error) {
+      console.error("[createTaxaCondominio] Error:", error);
+      throw new Error(error.message);
+    }
+    return toCamelCase(data) as TaxaCondominio;
+  }
+
+  async updateTaxaCondominio(id: string, taxa: Partial<InsertTaxaCondominio>): Promise<TaxaCondominio> {
+    const snakeCaseData = toSnakeCase({ ...taxa, updatedAt: new Date() });
+    const { data, error } = await supabase
+      .from("taxas_condominio")
+      .update(snakeCaseData)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) {
+      console.error("[updateTaxaCondominio] Error:", error);
+      throw new Error(error.message);
+    }
+    return toCamelCase(data) as TaxaCondominio;
+  }
+
+  async deleteTaxaCondominio(id: string): Promise<void> {
+    const { error } = await supabase
+      .from("taxas_condominio")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      console.error("[deleteTaxaCondominio] Error:", error);
+      throw new Error(error.message);
+    }
+  }
+
+  // ========== COBRANCAS ==========
+  async getCobrancas(condominiumId?: string): Promise<Cobranca[]> {
+    let query = supabase.from("cobrancas").select("*").order("data_vencimento", { ascending: false });
+    if (condominiumId) {
+      query = query.eq("condominium_id", condominiumId);
+    }
+    const { data, error } = await query;
+    if (error) {
+      console.error("[getCobrancas] Error:", error);
+      return [];
+    }
+    return (data || []).map(toCamelCase) as Cobranca[];
+  }
+
+  async getCobrancasByMorador(moradorId: string): Promise<Cobranca[]> {
+    const { data, error } = await supabase
+      .from("cobrancas")
+      .select("*")
+      .eq("morador_id", moradorId)
+      .order("data_vencimento", { ascending: false });
+    if (error) {
+      console.error("[getCobrancasByMorador] Error:", error);
+      return [];
+    }
+    return (data || []).map(toCamelCase) as Cobranca[];
+  }
+
+  async getCobrancasByUser(userId: string, condominiumId: string): Promise<Cobranca[]> {
+    // Get user's moradores records in this condominium
+    const moradores = await this.getMoradores(condominiumId);
+    const user = await this.getUser(userId);
+    if (!user) return [];
+    
+    // Find morador by email or unit
+    const morador = moradores.find(m => m.email === user.email);
+    if (!morador) return [];
+    
+    return this.getCobrancasByMorador(morador.id);
+  }
+
+  async getCobrancaById(id: string): Promise<Cobranca | undefined> {
+    const { data, error } = await supabase
+      .from("cobrancas")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (error) {
+      console.error("[getCobrancaById] Error:", error);
+      return undefined;
+    }
+    return data ? toCamelCase(data) as Cobranca : undefined;
+  }
+
+  async createCobranca(cobranca: InsertCobranca): Promise<Cobranca> {
+    const snakeCaseData = toSnakeCase(cobranca);
+    const { data, error } = await supabase
+      .from("cobrancas")
+      .insert(snakeCaseData)
+      .select()
+      .single();
+    if (error) {
+      console.error("[createCobranca] Error:", error);
+      throw new Error(error.message);
+    }
+    return toCamelCase(data) as Cobranca;
+  }
+
+  async updateCobranca(id: string, cobranca: Partial<InsertCobranca>): Promise<Cobranca> {
+    const snakeCaseData = toSnakeCase({ ...cobranca, updatedAt: new Date() });
+    const { data, error } = await supabase
+      .from("cobrancas")
+      .update(snakeCaseData)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) {
+      console.error("[updateCobranca] Error:", error);
+      throw new Error(error.message);
+    }
+    return toCamelCase(data) as Cobranca;
+  }
+
+  async deleteCobranca(id: string): Promise<void> {
+    const { error } = await supabase
+      .from("cobrancas")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      console.error("[deleteCobranca] Error:", error);
+      throw new Error(error.message);
+    }
+  }
+
+  // ========== PAGAMENTOS ==========
+  async getPagamentos(condominiumId?: string): Promise<Pagamento[]> {
+    let query = supabase.from("pagamentos").select("*").order("created_at", { ascending: false });
+    if (condominiumId) {
+      query = query.eq("condominium_id", condominiumId);
+    }
+    const { data, error } = await query;
+    if (error) {
+      console.error("[getPagamentos] Error:", error);
+      return [];
+    }
+    return (data || []).map(toCamelCase) as Pagamento[];
+  }
+
+  async getPagamentosByUser(userId: string): Promise<Pagamento[]> {
+    const { data, error } = await supabase
+      .from("pagamentos")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.error("[getPagamentosByUser] Error:", error);
+      return [];
+    }
+    return (data || []).map(toCamelCase) as Pagamento[];
+  }
+
+  async getPagamentoById(id: string): Promise<Pagamento | undefined> {
+    const { data, error } = await supabase
+      .from("pagamentos")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (error) {
+      console.error("[getPagamentoById] Error:", error);
+      return undefined;
+    }
+    return data ? toCamelCase(data) as Pagamento : undefined;
+  }
+
+  async getPagamentoByStripeSession(sessionId: string): Promise<Pagamento | undefined> {
+    const { data, error } = await supabase
+      .from("pagamentos")
+      .select("*")
+      .eq("stripe_checkout_session_id", sessionId)
+      .single();
+    if (error) {
+      console.error("[getPagamentoByStripeSession] Error:", error);
+      return undefined;
+    }
+    return data ? toCamelCase(data) as Pagamento : undefined;
+  }
+
+  async createPagamento(pagamento: InsertPagamento): Promise<Pagamento> {
+    const snakeCaseData = toSnakeCase(pagamento);
+    const { data, error } = await supabase
+      .from("pagamentos")
+      .insert(snakeCaseData)
+      .select()
+      .single();
+    if (error) {
+      console.error("[createPagamento] Error:", error);
+      throw new Error(error.message);
+    }
+    return toCamelCase(data) as Pagamento;
+  }
+
+  async updatePagamento(id: string, pagamento: Partial<InsertPagamento>): Promise<Pagamento> {
+    const snakeCaseData = toSnakeCase({ ...pagamento, updatedAt: new Date() });
+    const { data, error } = await supabase
+      .from("pagamentos")
+      .update(snakeCaseData)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) {
+      console.error("[updatePagamento] Error:", error);
+      throw new Error(error.message);
+    }
+    return toCamelCase(data) as Pagamento;
   }
 }
 
