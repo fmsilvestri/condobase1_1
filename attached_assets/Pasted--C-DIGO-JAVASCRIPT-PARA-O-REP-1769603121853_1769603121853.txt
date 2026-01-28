@@ -1,0 +1,232 @@
+// ================================================================
+// CÓDIGO JAVASCRIPT PARA O REPLIT - COPIE E COLE
+// ================================================================
+
+// ============================================================
+// CONFIGURAÇÃO DO SUPABASE
+// ============================================================
+// Certifique-se de ter isso no início do seu código:
+
+const supabaseUrl = 'SUA_URL_DO_SUPABASE';
+const supabaseKey = 'SUA_CHAVE_PUBLICA_DO_SUPABASE';
+const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+// ============================================================
+// FUNÇÃO PARA CADASTRAR HÓSPEDE
+// ============================================================
+
+async function cadastrarHospede(formData) {
+  try {
+    // Preparar os dados com os nomes EXATOS das colunas do banco
+    const dadosParaInserir = {
+      condominium_id: formData.condominiumId,
+      nome_hospede: formData.nomeHospede,
+      cpf: formData.cpf || null,
+      telefone: formData.telefone || null,
+      email: formData.email || null,
+      placa_veiculo: formData.placaVeiculo || null,
+      modelo_veiculo: formData.modeloVeiculo || null,
+      cor_veiculo: formData.corVeiculo || null,  // ⭐ ATENÇÃO AQUI!
+      observacoes: formData.observacoes || null,
+      status: 'ativo'
+    };
+
+    console.log('📤 Enviando dados:', dadosParaInserir);
+
+    // Fazer o INSERT no Supabase
+    const { data, error } = await supabase
+      .from('hospedagens')
+      .insert([dadosParaInserir])
+      .select();
+
+    // Verificar se houve erro
+    if (error) {
+      console.error('❌ Erro do Supabase:', error);
+      throw new Error(error.message);
+    }
+
+    console.log('✅ Sucesso! Dados inseridos:', data);
+    return { sucesso: true, dados: data };
+
+  } catch (erro) {
+    console.error('❌ Erro ao cadastrar:', erro);
+    return { sucesso: false, erro: erro.message };
+  }
+}
+
+// ============================================================
+// EXEMPLO DE USO COM FORMULÁRIO HTML
+// ============================================================
+
+// Se você tem um formulário HTML, use assim:
+document.getElementById('formCadastro')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+
+  // Pegar valores do formulário
+  const formData = {
+    condominiumId: document.getElementById('condominium_id').value,
+    nomeHospede: document.getElementById('nome_hospede').value,
+    cpf: document.getElementById('cpf').value,
+    telefone: document.getElementById('telefone').value,
+    email: document.getElementById('email').value,
+    placaVeiculo: document.getElementById('placa_veiculo').value,
+    modeloVeiculo: document.getElementById('modelo_veiculo').value,
+    corVeiculo: document.getElementById('cor_veiculo').value,  // ⭐ ATENÇÃO!
+    observacoes: document.getElementById('observacoes').value
+  };
+
+  // Mostrar loading
+  const btnSubmit = event.target.querySelector('button[type="submit"]');
+  const textoOriginal = btnSubmit.textContent;
+  btnSubmit.textContent = 'Cadastrando...';
+  btnSubmit.disabled = true;
+
+  // Chamar a função
+  const resultado = await cadastrarHospede(formData);
+
+  // Restaurar botão
+  btnSubmit.textContent = textoOriginal;
+  btnSubmit.disabled = false;
+
+  // Mostrar resultado
+  if (resultado.sucesso) {
+    alert('✅ Hóspede cadastrado com sucesso!');
+    event.target.reset();
+  } else {
+    alert('❌ Erro ao cadastrar: ' + resultado.erro);
+  }
+});
+
+// ============================================================
+// EXEMPLO DE HTML DO FORMULÁRIO
+// ============================================================
+
+const exemploHTML = `
+<form id="formCadastro">
+  <input type="text" id="condominium_id" placeholder="ID do Condomínio" required>
+  <input type="text" id="nome_hospede" placeholder="Nome do Hóspede" required>
+  <input type="text" id="cpf" placeholder="CPF">
+  <input type="text" id="telefone" placeholder="Telefone">
+  <input type="email" id="email" placeholder="Email">
+  
+  <!-- CAMPOS DO VEÍCULO -->
+  <input type="text" id="placa_veiculo" placeholder="Placa do Veículo">
+  <input type="text" id="modelo_veiculo" placeholder="Modelo do Veículo">
+  <input type="text" id="cor_veiculo" placeholder="Cor do Veículo">
+  
+  <textarea id="observacoes" placeholder="Observações"></textarea>
+  
+  <button type="submit">Cadastrar Hóspede</button>
+</form>
+`;
+
+// ============================================================
+// TESTE RÁPIDO - INSIRA UM HÓSPEDE TESTE
+// ============================================================
+
+async function testeRapido() {
+  const dadosTeste = {
+    condominiumId: 'cole-aqui-um-uuid-valido',
+    nomeHospede: 'João da Silva',
+    cpf: '123.456.789-00',
+    telefone: '(11) 98765-4321',
+    placaVeiculo: 'ABC-1234',
+    modeloVeiculo: 'Gol',
+    corVeiculo: 'Preto',
+    observacoes: 'Teste de cadastro'
+  };
+
+  const resultado = await cadastrarHospede(dadosTeste);
+  console.log('Resultado do teste:', resultado);
+}
+
+// Para executar o teste, descomente a linha abaixo:
+// testeRapido();
+
+// ============================================================
+// LISTAR HOSPEDAGENS (BONUS)
+// ============================================================
+
+async function listarHospedagens(condominiumId = null) {
+  try {
+    let query = supabase.from('hospedagens').select('*');
+    
+    if (condominiumId) {
+      query = query.eq('condominium_id', condominiumId);
+    }
+    
+    const { data, error } = await query.order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    console.log('📋 Hospedagens:', data);
+    return data;
+
+  } catch (erro) {
+    console.error('❌ Erro ao listar:', erro);
+    return [];
+  }
+}
+
+// ============================================================
+// ATUALIZAR HÓSPEDE (BONUS)
+// ============================================================
+
+async function atualizarHospede(id, novosDados) {
+  try {
+    const { data, error } = await supabase
+      .from('hospedagens')
+      .update(novosDados)
+      .eq('id', id)
+      .select();
+
+    if (error) throw error;
+
+    console.log('✅ Hóspede atualizado:', data);
+    return { sucesso: true, dados: data };
+
+  } catch (erro) {
+    console.error('❌ Erro ao atualizar:', erro);
+    return { sucesso: false, erro: erro.message };
+  }
+}
+
+// ============================================================
+// DELETAR HÓSPEDE (BONUS)
+// ============================================================
+
+async function deletarHospede(id) {
+  try {
+    const { error } = await supabase
+      .from('hospedagens')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    console.log('✅ Hóspede deletado com sucesso');
+    return { sucesso: true };
+
+  } catch (erro) {
+    console.error('❌ Erro ao deletar:', erro);
+    return { sucesso: false, erro: erro.message };
+  }
+}
+
+// ================================================================
+// CHECKLIST DE VERIFICAÇÃO
+// ================================================================
+
+console.log(`
+╔════════════════════════════════════════════╗
+║  CHECKLIST - VERIFIQUE ANTES DE USAR     ║
+╚════════════════════════════════════════════╝
+
+□ Executei o script SQL no Supabase?
+□ A tabela 'hospedagens' foi criada?
+□ Configurei supabaseUrl e supabaseKey?
+□ Os IDs dos campos HTML estão corretos?
+□ Testei a conexão com testeRapido()?
+
+Se todos estiverem ✅, você está pronto!
+`);
