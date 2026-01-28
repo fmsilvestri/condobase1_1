@@ -398,24 +398,49 @@ export class SupabaseStorage implements IStorage {
   }
 
   async updateEquipment(id: string, equipment: Partial<InsertEquipment>): Promise<Equipment | undefined> {
-    const updateData = { ...toSnakeCase(equipment), updated_at: new Date().toISOString() };
-    // Use supabaseAdmin to bypass RLS restrictions
-    const client = supabaseAdmin || this.sb;
-    const { data, error } = await client
-      .from("equipment")
-      .update(updateData)
-      .eq("id", id)
-      .select()
-      .single();
-    if (error) {
+    // Use Drizzle ORM directly to avoid PostgREST schema cache issues
+    try {
+      const updateData: Record<string, any> = {};
+      
+      // Map camelCase to snake_case for database columns
+      if (equipment.name !== undefined) updateData.name = equipment.name;
+      if (equipment.category !== undefined) updateData.category = equipment.category;
+      if (equipment.location !== undefined) updateData.location = equipment.location;
+      if (equipment.description !== undefined) updateData.description = equipment.description;
+      if (equipment.photos !== undefined) updateData.photos = equipment.photos;
+      if (equipment.status !== undefined) updateData.status = equipment.status;
+      if (equipment.icon !== undefined) updateData.icon = equipment.icon;
+      if (equipment.manufacturer !== undefined) updateData.manufacturer = equipment.manufacturer;
+      if (equipment.installationDate !== undefined) updateData.installationDate = equipment.installationDate;
+      if (equipment.estimatedLifespan !== undefined) updateData.estimatedLifespan = equipment.estimatedLifespan;
+      if (equipment.powerConsumption !== undefined) updateData.powerConsumption = equipment.powerConsumption;
+      if (equipment.estimatedUsageHours !== undefined) updateData.estimatedUsageHours = equipment.estimatedUsageHours;
+      if (equipment.notes !== undefined) updateData.notes = equipment.notes;
+      if (equipment.documents !== undefined) updateData.documents = equipment.documents;
+      if (equipment.supplierId !== undefined) updateData.supplierId = equipment.supplierId;
+      
+      updateData.updatedAt = new Date();
+
+      const result = await db
+        .update(equipmentTable)
+        .set(updateData)
+        .where(eq(equipmentTable.id, id))
+        .returning();
+      
+      if (!result.length) {
+        console.error('[equipment] Update: No rows returned');
+        return undefined;
+      }
+      
+      if (equipment.icon) {
+        this.equipmentIconCache.set(id, equipment.icon);
+      }
+      
+      return result[0] as Equipment;
+    } catch (error) {
       console.error('[equipment] Update error:', error);
       return undefined;
     }
-    if (!data) return undefined;
-    if (equipment.icon) {
-      this.equipmentIconCache.set(id, equipment.icon);
-    }
-    return toCamelCase(data) as Equipment;
   }
 
   async deleteEquipment(id: string): Promise<boolean> {
