@@ -55,6 +55,11 @@ import {
   insertMarketplaceComissaoSchema,
   insertTeamMemberSchema,
   insertProcessSchema,
+  insertActivityCategorySchema,
+  insertActivityTemplateSchema,
+  insertActivityListSchema,
+  insertActivityListItemSchema,
+  insertWhatsappEnvioSchema,
 } from "../../shared/schema";
 
 import { z } from "zod";
@@ -3551,6 +3556,301 @@ router.delete("/processes/:id", requireSindicoOrAdmin, async (req, res) => {
     res.status(204).send();
   } catch (error: any) {
     res.status(500).json({ error: "Failed to delete process" });
+  }
+});
+
+// ========== ACTIVITY CATEGORIES ==========
+
+router.get("/activity-categories", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const categories = await storage.getActivityCategories(condominiumId);
+    res.json(categories);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar categorias" });
+  }
+});
+
+router.post("/activity-categories", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) return res.status(401).json({ error: "Condomínio não selecionado" });
+    const validation = insertActivityCategorySchema.safeParse({ ...req.body, condominiumId });
+    if (!validation.success) return res.status(400).json({ error: "Dados inválidos", details: validation.error.errors });
+    const category = await storage.createActivityCategory(validation.data);
+    res.status(201).json(category);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.patch("/activity-categories/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const validation = insertActivityCategorySchema.partial().safeParse(req.body);
+    if (!validation.success) return res.status(400).json({ error: "Dados inválidos", details: validation.error.errors });
+    const category = await storage.updateActivityCategory(req.params.id, validation.data);
+    res.json(category);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.delete("/activity-categories/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    await storage.deleteActivityCategory(req.params.id);
+    res.status(204).send();
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao remover categoria" });
+  }
+});
+
+// ========== ACTIVITY TEMPLATES ==========
+
+router.get("/activity-templates", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const funcao = req.query.funcao as string | undefined;
+    const templates = await storage.getActivityTemplates(condominiumId, funcao);
+    res.json(templates);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar templates" });
+  }
+});
+
+router.get("/activity-templates/:id", requireGestao, async (req, res) => {
+  try {
+    const template = await storage.getActivityTemplateById(req.params.id);
+    if (!template) return res.status(404).json({ error: "Template não encontrado" });
+    res.json(template);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar template" });
+  }
+});
+
+router.post("/activity-templates", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) return res.status(401).json({ error: "Condomínio não selecionado" });
+    const validation = insertActivityTemplateSchema.safeParse({ ...req.body, condominiumId });
+    if (!validation.success) return res.status(400).json({ error: "Dados inválidos", details: validation.error.errors });
+    const template = await storage.createActivityTemplate(validation.data);
+    res.status(201).json(template);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.patch("/activity-templates/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const validation = insertActivityTemplateSchema.partial().safeParse(req.body);
+    if (!validation.success) return res.status(400).json({ error: "Dados inválidos", details: validation.error.errors });
+    const template = await storage.updateActivityTemplate(req.params.id, validation.data);
+    res.json(template);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.delete("/activity-templates/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    await storage.deleteActivityTemplate(req.params.id);
+    res.status(204).send();
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao remover template" });
+  }
+});
+
+// ========== ACTIVITY LISTS ==========
+
+router.get("/activity-lists", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const membroId = req.query.membroId as string | undefined;
+    const lists = await storage.getActivityLists(condominiumId, membroId);
+    res.json(lists);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar listas" });
+  }
+});
+
+router.get("/activity-lists/:id", requireGestao, async (req, res) => {
+  try {
+    const list = await storage.getActivityListById(req.params.id);
+    if (!list) return res.status(404).json({ error: "Lista não encontrada" });
+    res.json(list);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar lista" });
+  }
+});
+
+router.post("/activity-lists", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) return res.status(401).json({ error: "Condomínio não selecionado" });
+    
+    const { atividades, ...listData } = req.body;
+    const validation = insertActivityListSchema.safeParse({ ...listData, condominiumId });
+    if (!validation.success) return res.status(400).json({ error: "Dados inválidos", details: validation.error.errors });
+    
+    const list = await storage.createActivityList(validation.data);
+    
+    if (atividades && Array.isArray(atividades) && atividades.length > 0) {
+      const items = atividades.map((atividade: any, index: number) => ({
+        listaId: list.id,
+        atividadeTemplateId: atividade.id || null,
+        titulo: atividade.titulo,
+        descricao: atividade.descricao || null,
+        instrucoes: atividade.instrucoes || null,
+        area: atividade.area || null,
+        equipamentosNecessarios: atividade.equipamentosNecessarios || null,
+        checklist: atividade.checklist || null,
+        ordem: index,
+      }));
+      await storage.createActivityListItems(items);
+    }
+    
+    res.status(201).json(list);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.patch("/activity-lists/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const validation = insertActivityListSchema.partial().safeParse(req.body);
+    if (!validation.success) return res.status(400).json({ error: "Dados inválidos", details: validation.error.errors });
+    const list = await storage.updateActivityList(req.params.id, validation.data);
+    res.json(list);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.delete("/activity-lists/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    await storage.deleteActivityList(req.params.id);
+    res.status(204).send();
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao remover lista" });
+  }
+});
+
+// ========== ACTIVITY LIST ITEMS ==========
+
+router.get("/activity-lists/:listaId/items", requireGestao, async (req, res) => {
+  try {
+    const items = await storage.getActivityListItems(req.params.listaId);
+    res.json(items);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar itens" });
+  }
+});
+
+router.post("/activity-lists/:listaId/items", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const validation = insertActivityListItemSchema.safeParse({ ...req.body, listaId: req.params.listaId });
+    if (!validation.success) return res.status(400).json({ error: "Dados inválidos", details: validation.error.errors });
+    const item = await storage.createActivityListItem(validation.data);
+    res.status(201).json(item);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.patch("/activity-list-items/:id/concluir", requireGestao, async (req, res) => {
+  try {
+    const { concluido, observacoes } = req.body;
+    const item = await storage.markActivityItemConcluido(req.params.id, concluido, observacoes);
+    res.json(item);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// ========== ACTIVITY STATISTICS ==========
+
+router.get("/activity-statistics", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) return res.status(401).json({ error: "Condomínio não selecionado" });
+    const membroId = req.query.membroId as string | undefined;
+    const stats = await storage.getActivityStatistics(condominiumId, membroId);
+    res.json(stats);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar estatísticas" });
+  }
+});
+
+// ========== WHATSAPP ENVIOS ==========
+
+router.post("/activity-lists/:id/enviar-whatsapp", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) return res.status(401).json({ error: "Condomínio não selecionado" });
+    
+    const list = await storage.getActivityListById(req.params.id);
+    if (!list) return res.status(404).json({ error: "Lista não encontrada" });
+    if (!list.membro?.whatsapp) return res.status(400).json({ error: "Membro sem WhatsApp cadastrado" });
+    
+    const items = await storage.getActivityListItems(req.params.id);
+    
+    // Generate WhatsApp message
+    let mensagem = `*📋 LISTA DE ATIVIDADES*\n\n`;
+    mensagem += `👤 *${list.membro.name}*\n`;
+    mensagem += `💼 ${list.membro.role}\n`;
+    mensagem += `📅 Data: ${new Date(list.dataExecucao).toLocaleDateString('pt-BR')}\n`;
+    
+    const turnoLabels: Record<string, string> = { manha: 'Manhã ☀️', tarde: 'Tarde 🌤️', noite: 'Noite 🌙', integral: 'Integral 🕐' };
+    mensagem += `⏰ Turno: ${turnoLabels[list.turno] || list.turno}\n`;
+    
+    if (list.prioridade === 'alta' || list.prioridade === 'urgente') {
+      mensagem += `⚠️ *PRIORIDADE ${list.prioridade.toUpperCase()}*\n`;
+    }
+    
+    mensagem += `\n${'─'.repeat(30)}\n\n`;
+    
+    items.forEach((item: any, index: number) => {
+      mensagem += `${index + 1}. ${item.titulo}\n`;
+      if (item.area) mensagem += `   📍 ${item.area}\n`;
+      if (item.equipamentosNecessarios?.length) mensagem += `   🧰 ${item.equipamentosNecessarios.join(', ')}\n`;
+      if (item.checklist?.items?.length) {
+        mensagem += `   ✓ Checklist:\n`;
+        item.checklist.items.forEach((check: string) => {
+          mensagem += `     • ${check}\n`;
+        });
+      }
+      mensagem += `\n`;
+    });
+    
+    if (list.observacoes) {
+      mensagem += `${'─'.repeat(30)}\n`;
+      mensagem += `📝 *Observações:*\n${list.observacoes}\n\n`;
+    }
+    
+    // Update list status
+    await storage.updateActivityList(req.params.id, { 
+      enviadoWhatsapp: true, 
+      dataEnvioWhatsapp: new Date().toISOString() 
+    });
+    
+    // Log the envio
+    const numero = list.membro.whatsapp.replace(/\D/g, '');
+    await storage.createWhatsappEnvio({
+      condominiumId,
+      listaId: req.params.id,
+      membroId: list.membroId,
+      numeroWhatsapp: numero,
+      mensagem,
+      status: 'enviado'
+    });
+    
+    // Return the URL for WhatsApp Web
+    const mensagemEncoded = encodeURIComponent(mensagem);
+    const urlWhatsApp = `https://wa.me/55${numero}?text=${mensagemEncoded}`;
+    
+    res.json({ sucesso: true, mensagem, urlWhatsApp });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
   }
 });
 

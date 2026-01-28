@@ -3275,6 +3275,217 @@ export class SupabaseStorage implements IStorage {
       servicosMaisContratados
     };
   }
+
+  // ========== ACTIVITY CATEGORIES ==========
+
+  async getActivityCategories(condominiumId?: string): Promise<any[]> {
+    if (condominiumId) {
+      const { data, error } = await supabase.from("activity_categories").select("*").eq("condominium_id", condominiumId).eq("is_active", true).order("ordem");
+      if (error) return [];
+      return (data || []).map((item: any) => toCamelCase(item));
+    }
+    const { data, error } = await supabase.from("activity_categories").select("*").eq("is_active", true).order("ordem");
+    if (error) return [];
+    return (data || []).map((item: any) => toCamelCase(item));
+  }
+
+  async createActivityCategory(category: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(category);
+    const { data, error } = await supabase.from("activity_categories").insert(snakeCaseData).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  async updateActivityCategory(id: string, category: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(category);
+    const { data, error } = await supabase.from("activity_categories").update({ ...snakeCaseData, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  async deleteActivityCategory(id: string): Promise<void> {
+    await supabase.from("activity_categories").update({ is_active: false }).eq("id", id);
+  }
+
+  // ========== ACTIVITY TEMPLATES ==========
+
+  async getActivityTemplates(condominiumId?: string, funcao?: string): Promise<any[]> {
+    let query = supabase.from("activity_templates").select("*, categoria:activity_categories(*)").eq("is_active", true).order("ordem");
+    if (condominiumId) query = query.eq("condominium_id", condominiumId);
+    if (funcao) query = query.eq("funcao", funcao);
+    const { data, error } = await query;
+    if (error) return [];
+    return (data || []).map((item: any) => ({
+      ...toCamelCase(item),
+      categoria: item.categoria ? toCamelCase(item.categoria) : null
+    }));
+  }
+
+  async getActivityTemplateById(id: string): Promise<any | null> {
+    const { data, error } = await supabase.from("activity_templates").select("*, categoria:activity_categories(*)").eq("id", id).single();
+    if (error) return null;
+    return { ...toCamelCase(data), categoria: data.categoria ? toCamelCase(data.categoria) : null };
+  }
+
+  async createActivityTemplate(template: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(template);
+    const { data, error } = await supabase.from("activity_templates").insert(snakeCaseData).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  async updateActivityTemplate(id: string, template: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(template);
+    const { data, error } = await supabase.from("activity_templates").update({ ...snakeCaseData, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  async deleteActivityTemplate(id: string): Promise<void> {
+    await supabase.from("activity_templates").update({ is_active: false }).eq("id", id);
+  }
+
+  // ========== ACTIVITY LISTS ==========
+
+  async getActivityLists(condominiumId?: string, membroId?: string): Promise<any[]> {
+    let query = supabase.from("activity_lists").select("*, membro:team_members(*)").order("data_execucao", { ascending: false });
+    if (condominiumId) query = query.eq("condominium_id", condominiumId);
+    if (membroId) query = query.eq("membro_id", membroId);
+    const { data, error } = await query;
+    if (error) return [];
+    return (data || []).map((item: any) => ({
+      ...toCamelCase(item),
+      membro: item.membro ? toCamelCase(item.membro) : null
+    }));
+  }
+
+  async getActivityListById(id: string): Promise<any | null> {
+    const { data, error } = await supabase.from("activity_lists").select("*, membro:team_members(*)").eq("id", id).single();
+    if (error) return null;
+    return { ...toCamelCase(data), membro: data.membro ? toCamelCase(data.membro) : null };
+  }
+
+  async createActivityList(list: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(list);
+    const { data, error } = await supabase.from("activity_lists").insert(snakeCaseData).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  async updateActivityList(id: string, list: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(list);
+    const { data, error } = await supabase.from("activity_lists").update({ ...snakeCaseData, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  async deleteActivityList(id: string): Promise<void> {
+    await supabase.from("activity_list_items").delete().eq("lista_id", id);
+    await supabase.from("activity_lists").delete().eq("id", id);
+  }
+
+  // ========== ACTIVITY LIST ITEMS ==========
+
+  async getActivityListItems(listaId: string): Promise<any[]> {
+    const { data, error } = await supabase.from("activity_list_items").select("*").eq("lista_id", listaId).order("ordem");
+    if (error) return [];
+    return (data || []).map((item: any) => toCamelCase(item));
+  }
+
+  async createActivityListItem(item: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(item);
+    const { data, error } = await supabase.from("activity_list_items").insert(snakeCaseData).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  async createActivityListItems(items: any[]): Promise<any[]> {
+    const snakeCaseItems = items.map((item: any) => toSnakeCase(item));
+    const { data, error } = await supabase.from("activity_list_items").insert(snakeCaseItems).select();
+    if (error) throw new Error(error.message);
+    return (data || []).map((item: any) => toCamelCase(item));
+  }
+
+  async updateActivityListItem(id: string, item: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(item);
+    const { data, error } = await supabase.from("activity_list_items").update(snakeCaseData).eq("id", id).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  async markActivityItemConcluido(id: string, concluido: boolean, observacoes?: string): Promise<any> {
+    const updateData: any = { concluido };
+    if (concluido) {
+      updateData.data_conclusao = new Date().toISOString();
+    }
+    if (observacoes !== undefined) {
+      updateData.observacoes = observacoes;
+    }
+    const { data, error } = await supabase.from("activity_list_items").update(updateData).eq("id", id).select().single();
+    if (error) throw new Error(error.message);
+    
+    const item = toCamelCase(data);
+    const allItems = await this.getActivityListItems(item.listaId);
+    const allConcluido = allItems.every((i: any) => i.concluido);
+    if (allConcluido) {
+      await this.updateActivityList(item.listaId, { status: "concluida" });
+    } else if (allItems.some((i: any) => i.concluido)) {
+      await this.updateActivityList(item.listaId, { status: "em_andamento" });
+    }
+    
+    return item;
+  }
+
+  // ========== WHATSAPP ENVIOS ==========
+
+  async createWhatsappEnvio(envio: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(envio);
+    const { data, error } = await supabase.from("whatsapp_envios").insert(snakeCaseData).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  async getWhatsappEnvios(condominiumId: string): Promise<any[]> {
+    const { data, error } = await supabase.from("whatsapp_envios").select("*").eq("condominium_id", condominiumId).order("created_at", { ascending: false });
+    if (error) return [];
+    return (data || []).map((item: any) => toCamelCase(item));
+  }
+
+  // ========== ACTIVITY STATISTICS ==========
+
+  async getActivityStatistics(condominiumId: string, membroId?: string): Promise<{
+    totalListas: number;
+    listasPendentes: number;
+    listasEmAndamento: number;
+    listasConcluidas: number;
+    totalAtividades: number;
+    atividadesConcluidas: number;
+    percentualConclusao: number;
+  }> {
+    const lists = await this.getActivityLists(condominiumId, membroId);
+    
+    const stats = {
+      totalListas: lists.length,
+      listasPendentes: lists.filter((l: any) => l.status === "pendente").length,
+      listasEmAndamento: lists.filter((l: any) => l.status === "em_andamento").length,
+      listasConcluidas: lists.filter((l: any) => l.status === "concluida").length,
+      totalAtividades: 0,
+      atividadesConcluidas: 0,
+      percentualConclusao: 0,
+    };
+    
+    for (const list of lists) {
+      const items = await this.getActivityListItems(list.id);
+      stats.totalAtividades += items.length;
+      stats.atividadesConcluidas += items.filter((i: any) => i.concluido).length;
+    }
+    
+    if (stats.totalAtividades > 0) {
+      stats.percentualConclusao = Math.round((stats.atividadesConcluidas / stats.totalAtividades) * 100);
+    }
+    
+    return stats;
+  }
 }
 
 export function createStorage(): IStorage {
