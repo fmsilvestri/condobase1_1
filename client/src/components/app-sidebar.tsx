@@ -31,6 +31,7 @@ import {
   UserCog,
   Package,
   Store,
+  Receipt,
   BarChart3,
   Send,
 } from "lucide-react";
@@ -73,6 +74,11 @@ const pillarModules = [
     title: "Financeiro",
     url: "/financeiro",
     icon: DollarSign,
+  },
+  {
+    title: "Taxas e Cobranças",
+    url: "/taxas-cobrancas",
+    icon: Receipt,
   },
   {
     title: "Contratos",

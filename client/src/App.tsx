@@ -50,6 +50,7 @@ import Marketplace from "@/pages/marketplace";
 import FornecedorPainel from "@/pages/fornecedor-painel";
 import MarketplaceRelatorios from "@/pages/marketplace-relatorios";
 import MarketplaceCampanhas from "@/pages/marketplace-campanhas";
+import TaxasCobrancas from "@/pages/taxas-cobrancas";
 
 function Router() {
   return (
@@ -82,6 +83,7 @@ function Router() {
       <Route path="/dispositivos-iot" component={IotDevices} />
       <Route path="/automacao" component={Automation} />
       <Route path="/pagamentos" component={Payments} />
+      <Route path="/taxas-cobrancas" component={TaxasCobrancas} />
       <Route path="/equipe" component={TeamManagement} />
       <Route path="/encomendas" component={Parcels} />
       <Route path="/moradores" component={Moradores} />
