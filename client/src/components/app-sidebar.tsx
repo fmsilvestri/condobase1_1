@@ -165,11 +165,6 @@ const mainModules = [
     icon: Home,
   },
   {
-    title: "Encomendas",
-    url: "/encomendas",
-    icon: Package,
-  },
-  {
     title: "Marketplace",
     url: "/marketplace",
     icon: Store,
