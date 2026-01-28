@@ -110,7 +110,13 @@ export default function Marketplace() {
   const { selectedCondominium } = useCondominium();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategoria, setFilterCategoria] = useState<string>("todas");
+  const [filterTipoPreco, setFilterTipoPreco] = useState<string>("todos");
+  const [filterAvaliacao, setFilterAvaliacao] = useState<string>("todas");
+  const [filterPrecoMax, setFilterPrecoMax] = useState<string>("");
   const [activeTab, setActiveTab] = useState("ofertas");
+  
+  const [detalhesDialogOpen, setDetalhesDialogOpen] = useState(false);
+  const [selectedOfertaDetalhes, setSelectedOfertaDetalhes] = useState<OfertaEnriquecida | null>(null);
   
   const [contratarDialogOpen, setContratarDialogOpen] = useState(false);
   const [selectedOferta, setSelectedOferta] = useState<OfertaEnriquecida | null>(null);
@@ -234,14 +240,36 @@ export default function Marketplace() {
     return fornecedor?.nomeComercial || "-";
   };
 
+  const getFornecedorAvaliacao = (fornecedorId: string) => {
+    const fornecedor = fornecedores.find(f => f.id === fornecedorId);
+    return fornecedor?.avaliacaoMedia || 0;
+  };
+
+  const handleVerDetalhes = (oferta: OfertaEnriquecida) => {
+    setSelectedOfertaDetalhes(oferta);
+    setDetalhesDialogOpen(true);
+  };
+
   const filteredMarketplace = marketplace.filter(oferta => {
     const matchesSearch = oferta.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
       oferta.servico?.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      oferta.fornecedor?.nomeComercial?.toLowerCase().includes(searchTerm.toLowerCase());
+      oferta.fornecedor?.nomeComercial?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      oferta.descricao?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesCategoria = filterCategoria === "todas" || oferta.servico?.categoriaId === filterCategoria;
     
-    return matchesSearch && matchesCategoria;
+    const matchesTipoPreco = filterTipoPreco === "todos" || oferta.tipoPreco === filterTipoPreco;
+    
+    const fornecedorAvaliacao = getFornecedorAvaliacao(oferta.fornecedorId);
+    const matchesAvaliacao = filterAvaliacao === "todas" || 
+      (filterAvaliacao === "5" && fornecedorAvaliacao >= 5) ||
+      (filterAvaliacao === "4" && fornecedorAvaliacao >= 4) ||
+      (filterAvaliacao === "3" && fornecedorAvaliacao >= 3);
+    
+    const precoMaxNum = filterPrecoMax !== "" ? parseFloat(filterPrecoMax) : null;
+    const matchesPreco = precoMaxNum === null || !oferta.preco || oferta.preco <= precoMaxNum;
+    
+    return matchesSearch && matchesCategoria && matchesTipoPreco && matchesAvaliacao && matchesPreco;
   });
 
   const categoriasDisponiveis = categorias.filter(c => c.ativo);
@@ -279,32 +307,95 @@ export default function Marketplace() {
         </TabsList>
 
         <TabsContent value="ofertas" className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar servicos..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-                data-testid="input-search"
-              />
+          <Card className="p-4">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por nome, servico, fornecedor..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                    data-testid="input-search"
+                  />
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setFilterCategoria("todas");
+                    setFilterTipoPreco("todos");
+                    setFilterAvaliacao("todas");
+                    setFilterPrecoMax("");
+                  }}
+                  data-testid="button-limpar-filtros"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Limpar Filtros
+                </Button>
+              </div>
+              
+              <div className="flex flex-wrap gap-3">
+                <Select value={filterCategoria} onValueChange={setFilterCategoria}>
+                  <SelectTrigger className="w-44" data-testid="select-filter-categoria">
+                    <Tag className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todas categorias</SelectItem>
+                    {categoriasDisponiveis.map(cat => (
+                      <SelectItem key={cat.id} value={cat.id}>{cat.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={filterTipoPreco} onValueChange={setFilterTipoPreco}>
+                  <SelectTrigger className="w-40" data-testid="select-filter-tipo-preco">
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Tipo Preco" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos tipos</SelectItem>
+                    <SelectItem value="fixo">Preco Fixo</SelectItem>
+                    <SelectItem value="hora">Por Hora</SelectItem>
+                    <SelectItem value="orcamento">Sob Orcamento</SelectItem>
+                    <SelectItem value="negociavel">Negociavel</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={filterAvaliacao} onValueChange={setFilterAvaliacao}>
+                  <SelectTrigger className="w-40" data-testid="select-filter-avaliacao">
+                    <Star className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Avaliacao" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todas avaliacoes</SelectItem>
+                    <SelectItem value="5">5 estrelas</SelectItem>
+                    <SelectItem value="4">4+ estrelas</SelectItem>
+                    <SelectItem value="3">3+ estrelas</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <div className="relative w-36">
+                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="number"
+                    placeholder="Preco max"
+                    value={filterPrecoMax}
+                    onChange={(e) => setFilterPrecoMax(e.target.value)}
+                    className="pl-10"
+                    data-testid="input-preco-max"
+                  />
+                </div>
+              </div>
+
+              <div className="text-sm text-muted-foreground" data-testid="text-result-count">
+                {filteredMarketplace.length} {filteredMarketplace.length === 1 ? "oferta encontrada" : "ofertas encontradas"}
+              </div>
             </div>
-            <div className="flex gap-2">
-              <Select value={filterCategoria} onValueChange={setFilterCategoria}>
-                <SelectTrigger className="w-48" data-testid="select-filter-categoria">
-                  <Tag className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todas">Todas categorias</SelectItem>
-                  {categoriasDisponiveis.map(cat => (
-                    <SelectItem key={cat.id} value={cat.id}>{cat.nome}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          </Card>
 
           {loadingMarketplace ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -364,7 +455,8 @@ export default function Marketplace() {
                                   href={`https://wa.me/${oferta.fornecedor.whatsapp.replace(/\D/g, "")}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-green-600 hover:text-green-700"
+                                  className="text-green-600"
+                                  data-testid={`link-whatsapp-${oferta.id}`}
                                 >
                                   <MessageCircle className="h-4 w-4" />
                                 </a>
@@ -372,7 +464,8 @@ export default function Marketplace() {
                               {oferta.fornecedor.telefone && (
                                 <a
                                   href={`tel:${oferta.fornecedor.telefone}`}
-                                  className="text-muted-foreground hover:text-foreground"
+                                  className="text-muted-foreground"
+                                  data-testid={`link-telefone-${oferta.id}`}
                                 >
                                   <Phone className="h-4 w-4" />
                                 </a>
@@ -399,8 +492,11 @@ export default function Marketplace() {
                         )}
                       </div>
                     </CardContent>
-                    <CardFooter>
-                      <Button className="w-full" onClick={() => handleContratar(oferta)} data-testid={`button-contratar-${oferta.id}`}>
+                    <CardFooter className="gap-2">
+                      <Button variant="outline" className="flex-1" onClick={() => handleVerDetalhes(oferta)} data-testid={`button-detalhes-${oferta.id}`}>
+                        Ver Detalhes
+                      </Button>
+                      <Button className="flex-1" onClick={() => handleContratar(oferta)} data-testid={`button-contratar-${oferta.id}`}>
                         <ShoppingCart className="h-4 w-4 mr-2" />
                         Contratar
                       </Button>
@@ -572,6 +668,133 @@ export default function Marketplace() {
             <Button onClick={submitAvaliacao} disabled={avaliarMutation.isPending} data-testid="button-submit-avaliacao">
               {avaliarMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Enviar Avaliacao
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={detalhesDialogOpen} onOpenChange={setDetalhesDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl">{selectedOfertaDetalhes?.titulo}</DialogTitle>
+            <DialogDescription>
+              Detalhes completos do servico
+            </DialogDescription>
+          </DialogHeader>
+          {selectedOfertaDetalhes && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <span className="text-sm text-muted-foreground">Servico</span>
+                  <p className="font-medium">{selectedOfertaDetalhes.servico?.nome || "-"}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-sm text-muted-foreground">Categoria</span>
+                  <p className="font-medium">{selectedOfertaDetalhes.categoria?.nome || "-"}</p>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-sm text-muted-foreground">Descricao</span>
+                <p className="text-sm">{selectedOfertaDetalhes.descricao || "Sem descricao disponivel"}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <span className="text-sm text-muted-foreground">Preco</span>
+                  <div className="flex items-center gap-2">
+                    {selectedOfertaDetalhes.preco ? (
+                      <>
+                        <DollarSign className="h-5 w-5 text-green-600" />
+                        <span className="text-xl font-bold text-green-600">
+                          R$ {Number(selectedOfertaDetalhes.preco).toFixed(2)}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">Sob consulta</span>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-sm text-muted-foreground">Tipo de Preco</span>
+                  <Badge variant="secondary">{tipoPrecoLabels[selectedOfertaDetalhes.tipoPreco || "fixo"]}</Badge>
+                </div>
+              </div>
+
+              {selectedOfertaDetalhes.fornecedor && (
+                <Card className="p-4">
+                  <h4 className="font-semibold mb-3">Fornecedor</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{selectedOfertaDetalhes.fornecedor.nomeComercial}</span>
+                      {selectedOfertaDetalhes.fornecedor.avaliacaoMedia ? (
+                        <div className="flex items-center gap-1">
+                          <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+                          <span className="font-medium">{selectedOfertaDetalhes.fornecedor.avaliacaoMedia.toFixed(1)}</span>
+                          <span className="text-muted-foreground text-sm">
+                            ({selectedOfertaDetalhes.fornecedor.totalAvaliacoes || 0} avaliacoes)
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">Sem avaliacoes</span>
+                      )}
+                    </div>
+                    
+                    {selectedOfertaDetalhes.fornecedor.descricao && (
+                      <p className="text-sm text-muted-foreground">{selectedOfertaDetalhes.fornecedor.descricao}</p>
+                    )}
+                    
+                    <div className="flex flex-wrap gap-3 pt-2">
+                      {selectedOfertaDetalhes.fornecedor.whatsapp && (
+                        <a
+                          href={`https://wa.me/${selectedOfertaDetalhes.fornecedor.whatsapp.replace(/\D/g, "")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-green-600"
+                          data-testid="link-whatsapp-detalhes"
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                          <span className="text-sm">WhatsApp</span>
+                        </a>
+                      )}
+                      {selectedOfertaDetalhes.fornecedor.telefone && (
+                        <a
+                          href={`tel:${selectedOfertaDetalhes.fornecedor.telefone}`}
+                          className="flex items-center gap-2 text-muted-foreground"
+                          data-testid="link-telefone-detalhes"
+                        >
+                          <Phone className="h-4 w-4" />
+                          <span className="text-sm">{selectedOfertaDetalhes.fornecedor.telefone}</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {selectedOfertaDetalhes.destaque && (
+                <Badge variant="outline" className="w-fit">
+                  <Star className="h-3 w-3 mr-1 fill-yellow-500 text-yellow-500" />
+                  Servico em Destaque
+                </Badge>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetalhesDialogOpen(false)} data-testid="button-fechar-detalhes">
+              Fechar
+            </Button>
+            <Button 
+              onClick={() => {
+                if (selectedOfertaDetalhes) {
+                  handleContratar(selectedOfertaDetalhes);
+                  setDetalhesDialogOpen(false);
+                }
+              }}
+              data-testid="button-contratar-from-detalhes"
+            >
+              <ShoppingCart className="h-4 w-4 mr-2" />
+              Contratar Servico
             </Button>
           </DialogFooter>
         </DialogContent>
