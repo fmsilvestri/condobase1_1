@@ -90,7 +90,7 @@ const pillarModules = [
     bgColor: "bg-amber-500/10",
   },
   {
-    title: "Contratos",
+    title: "Contratos e RH",
     url: "/contratos",
     icon: ScrollText,
     iconColor: "text-purple-500",
