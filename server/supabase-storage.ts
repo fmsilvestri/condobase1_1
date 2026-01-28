@@ -3407,6 +3407,13 @@ export class SupabaseStorage implements IStorage {
     return (data || []).map((item: any) => toCamelCase(item));
   }
 
+  async getActivityListItemById(id: string): Promise<any | null> {
+    const client = supabaseAdmin || supabase;
+    const { data, error } = await client.from("activity_list_items").select("*").eq("id", id).single();
+    if (error) return null;
+    return toCamelCase(data);
+  }
+
   async createActivityListItem(item: any): Promise<any> {
     const snakeCaseData = toSnakeCase(item);
     const client = supabaseAdmin || supabase;
@@ -3444,12 +3451,12 @@ export class SupabaseStorage implements IStorage {
     if (error) throw new Error(error.message);
     
     const item = toCamelCase(data);
-    const allItems = await this.getActivityListItems(item.listaId);
+    const allItems = await this.getActivityListItems(item.activityListId);
     const allConcluido = allItems.every((i: any) => i.concluido);
     if (allConcluido) {
-      await this.updateActivityList(item.listaId, { status: "concluida" });
+      await this.updateActivityList(item.activityListId, { status: "concluida" });
     } else if (allItems.some((i: any) => i.concluido)) {
-      await this.updateActivityList(item.listaId, { status: "em_andamento" });
+      await this.updateActivityList(item.activityListId, { status: "em_andamento" });
     }
     
     return item;

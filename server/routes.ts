@@ -295,7 +295,9 @@ export async function registerRoutes(
             activity_template_id UUID,
             titulo VARCHAR(255) NOT NULL,
             descricao TEXT,
+            instrucoes TEXT,
             area VARCHAR(100),
+            fotos TEXT[] DEFAULT '{}',
             tempo_estimado INTEGER,
             concluido BOOLEAN DEFAULT false,
             concluido_em TIMESTAMPTZ,
@@ -3759,6 +3761,269 @@ export async function registerRoutes(
       res.status(204).send();
     } catch (error: any) {
       res.status(500).json({ error: "Failed to delete team member" });
+    }
+  });
+
+  // ========== ACTIVITY MANAGEMENT ==========
+
+  // Activity Templates
+  app.get("/api/activity-templates", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      const funcao = req.query.funcao as string | undefined;
+      const templates = await storage.getActivityTemplates(condominiumId, funcao);
+      res.json(templates);
+    } catch (error: any) {
+      console.error("Error fetching activity templates:", error);
+      res.status(500).json({ error: "Failed to fetch activity templates" });
+    }
+  });
+
+  app.post("/api/activity-templates", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) {
+        return res.status(401).json({ error: "Condomínio não selecionado" });
+      }
+      const template = await storage.createActivityTemplate({
+        ...req.body,
+        condominiumId,
+      });
+      res.status(201).json(template);
+    } catch (error: any) {
+      console.error("Error creating activity template:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/activity-templates/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteActivityTemplate(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to delete template" });
+    }
+  });
+
+  // Activity Lists
+  app.get("/api/activity-lists", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      const membroId = req.query.membroId as string | undefined;
+      const lists = await storage.getActivityLists(condominiumId, membroId);
+      res.json(lists);
+    } catch (error: any) {
+      console.error("Error fetching activity lists:", error);
+      res.status(500).json({ error: "Failed to fetch activity lists" });
+    }
+  });
+
+  app.get("/api/activity-lists/:id", requireGestao, async (req, res) => {
+    try {
+      const list = await storage.getActivityListById(req.params.id);
+      if (!list) {
+        return res.status(404).json({ error: "Lista não encontrada" });
+      }
+      res.json(list);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch activity list" });
+    }
+  });
+
+  app.post("/api/activity-lists", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) {
+        return res.status(401).json({ error: "Condomínio não selecionado" });
+      }
+
+      const { atividades, tarefasPersonalizadas, ...listData } = req.body;
+
+      // Create the list
+      const list = await storage.createActivityList({
+        ...listData,
+        condominiumId,
+        data: listData.dataExecucao,
+        teamMemberId: listData.membroId,
+        status: "pendente",
+      });
+
+      // Create items from templates
+      if (atividades && Array.isArray(atividades)) {
+        for (let i = 0; i < atividades.length; i++) {
+          const template = atividades[i];
+          await storage.createActivityListItem({
+            activityListId: list.id,
+            activityTemplateId: template.id,
+            titulo: template.titulo,
+            descricao: template.descricao,
+            area: template.area,
+            instrucoes: template.instrucoes,
+            ordem: i,
+          });
+        }
+      }
+
+      // Create custom tasks
+      if (tarefasPersonalizadas && Array.isArray(tarefasPersonalizadas)) {
+        const startOrdem = atividades?.length || 0;
+        for (let i = 0; i < tarefasPersonalizadas.length; i++) {
+          const tarefa = tarefasPersonalizadas[i];
+          await storage.createActivityListItem({
+            activityListId: list.id,
+            titulo: tarefa.titulo,
+            descricao: tarefa.descricao,
+            instrucoes: tarefa.instrucoes,
+            fotos: tarefa.fotos,
+            ordem: startOrdem + i,
+          });
+        }
+      }
+
+      res.status(201).json(list);
+    } catch (error: any) {
+      console.error("Error creating activity list:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/activity-lists/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteActivityList(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to delete activity list" });
+    }
+  });
+
+  // Activity List Items
+  app.get("/api/activity-lists/:id/items", requireGestao, async (req, res) => {
+    try {
+      const items = await storage.getActivityListItems(req.params.id);
+      res.json(items);
+    } catch (error: any) {
+      console.error("Error fetching activity list items:", error);
+      res.status(500).json({ error: "Failed to fetch items" });
+    }
+  });
+
+  app.patch("/api/activity-list-items/:id/concluir", requireGestao, async (req, res) => {
+    try {
+      const { concluido } = req.body;
+      const item = await storage.updateActivityListItem(req.params.id, {
+        concluido,
+        dataConclusao: concluido ? new Date().toISOString() : null,
+      });
+      res.json(item);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to update item" });
+    }
+  });
+
+  // Add photo to activity list item
+  app.post("/api/activity-list-items/:id/fotos", requireGestao, async (req, res) => {
+    try {
+      const { fotoUrl } = req.body;
+      const item = await storage.getActivityListItemById(req.params.id);
+      if (!item) {
+        return res.status(404).json({ error: "Item não encontrado" });
+      }
+      const fotos = item.fotos || [];
+      fotos.push(fotoUrl);
+      const updated = await storage.updateActivityListItem(req.params.id, { fotos });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to add photo" });
+    }
+  });
+
+  // Activity Statistics
+  app.get("/api/activity-statistics", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      const lists = await storage.getActivityLists(condominiumId);
+      
+      const totalListas = lists.length;
+      const listasPendentes = lists.filter(l => l.status === "pendente").length;
+      const listasEmAndamento = lists.filter(l => l.status === "em_andamento").length;
+      const listasConcluidas = lists.filter(l => l.status === "concluida").length;
+
+      let totalAtividades = 0;
+      let atividadesConcluidas = 0;
+
+      for (const list of lists) {
+        const items = await storage.getActivityListItems(list.id);
+        totalAtividades += items.length;
+        atividadesConcluidas += items.filter((i: any) => i.concluido).length;
+      }
+
+      const percentualConclusao = totalAtividades > 0 
+        ? Math.round((atividadesConcluidas / totalAtividades) * 100) 
+        : 0;
+
+      res.json({
+        totalListas,
+        listasPendentes,
+        listasEmAndamento,
+        listasConcluidas,
+        totalAtividades,
+        atividadesConcluidas,
+        percentualConclusao,
+      });
+    } catch (error: any) {
+      console.error("Error fetching activity statistics:", error);
+      res.status(500).json({ error: "Failed to fetch statistics" });
+    }
+  });
+
+  // Send activity list via WhatsApp
+  app.post("/api/activity-lists/:id/enviar-whatsapp", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const list = await storage.getActivityListById(req.params.id);
+      if (!list) {
+        return res.status(404).json({ error: "Lista não encontrada" });
+      }
+
+      const items = await storage.getActivityListItems(list.id);
+      
+      // Get team member info
+      const membro = await storage.getTeamMemberById(list.teamMemberId);
+      if (!membro || !membro.whatsapp) {
+        return res.status(400).json({ error: "Membro não tem WhatsApp cadastrado" });
+      }
+
+      // Build message
+      const dataFormatada = new Date(list.data).toLocaleDateString("pt-BR");
+      let mensagem = `*Lista de Atividades*\n`;
+      mensagem += `*${list.titulo}*\n`;
+      mensagem += `Data: ${dataFormatada}\n`;
+      mensagem += `Turno: ${list.turno}\n\n`;
+      mensagem += `*Atividades:*\n`;
+      
+      items.forEach((item: any, idx: number) => {
+        mensagem += `${idx + 1}. ${item.titulo}\n`;
+        if (item.descricao) mensagem += `   ${item.descricao}\n`;
+        if (item.area) mensagem += `   Local: ${item.area}\n`;
+      });
+
+      if (list.observacoes) {
+        mensagem += `\n*Observações:*\n${list.observacoes}`;
+      }
+
+      // Clean phone number
+      const telefone = membro.whatsapp.replace(/\D/g, "");
+      const urlWhatsApp = `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
+
+      // Update list as sent
+      await storage.updateActivityList(list.id, {
+        enviadoWhatsapp: true,
+        dataEnvioWhatsapp: new Date().toISOString(),
+      });
+
+      res.json({ urlWhatsApp, mensagem });
+    } catch (error: any) {
+      console.error("Error sending WhatsApp:", error);
+      res.status(500).json({ error: "Failed to generate WhatsApp message" });
     }
   });
 

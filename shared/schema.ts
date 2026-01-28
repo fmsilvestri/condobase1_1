@@ -1714,14 +1714,15 @@ export type ActivityList = typeof activityLists.$inferSelect;
 // Activity List Items - Itens das listas de atividades
 export const activityListItems = pgTable("activity_list_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  listaId: varchar("lista_id").notNull().references(() => activityLists.id),
-  atividadeTemplateId: varchar("atividade_template_id").references(() => activityTemplates.id),
+  activityListId: varchar("activity_list_id").notNull().references(() => activityLists.id),
+  activityTemplateId: varchar("activity_template_id").references(() => activityTemplates.id),
   titulo: text("titulo").notNull(),
   descricao: text("descricao"),
   instrucoes: text("instrucoes"),
   area: text("area"),
   equipamentosNecessarios: text("equipamentos_necessarios").array(),
   checklist: jsonb("checklist").$type<{ items: string[] }>(),
+  fotos: text("fotos").array(),
   ordem: integer("ordem").default(0),
   concluido: boolean("concluido").default(false),
   dataConclusao: timestamp("data_conclusao"),

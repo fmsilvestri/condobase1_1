@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import jsPDF from "jspdf";
 import {
   ClipboardList,
   Plus,
@@ -22,6 +23,10 @@ import {
   CheckSquare,
   Square,
   X,
+  Image,
+  FileText,
+  Upload,
+  GripVertical,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -125,13 +130,15 @@ interface ActivityList {
 
 interface ActivityListItem {
   id: string;
-  listaId: string;
+  activityListId: string;
+  activityTemplateId: string | null;
   titulo: string;
   descricao: string | null;
   area: string | null;
   instrucoes: string | null;
   equipamentosNecessarios: string[] | null;
   checklist: { items: string[] } | null;
+  fotos: string[] | null;
   concluido: boolean;
   dataConclusao: string | null;
   observacoes: string | null;
@@ -146,6 +153,14 @@ interface ActivityStats {
   totalAtividades: number;
   atividadesConcluidas: number;
   percentualConclusao: number;
+}
+
+interface CustomTask {
+  id: string;
+  titulo: string;
+  descricao: string;
+  instrucoes: string;
+  fotos: string[];
 }
 
 const turnoLabels: Record<string, string> = {
@@ -204,6 +219,15 @@ export default function ActivityManagement() {
   const [viewListDialog, setViewListDialog] = useState<ActivityList | null>(null);
   const [whatsappDialog, setWhatsappDialog] = useState<{ list: ActivityList; url: string; message: string } | null>(null);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
+  const [customTasks, setCustomTasks] = useState<CustomTask[]>([]);
+  const [isAddingCustomTask, setIsAddingCustomTask] = useState(false);
+  const [newCustomTask, setNewCustomTask] = useState<Omit<CustomTask, "id">>({
+    titulo: "",
+    descricao: "",
+    instrucoes: "",
+    fotos: [],
+  });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<CreateListFormData>({
     resolver: zodResolver(createListFormSchema),
@@ -258,7 +282,7 @@ export default function ActivityManagement() {
   });
 
   const createListMutation = useMutation({
-    mutationFn: async (data: CreateListFormData & { atividades: ActivityTemplate[] }) => {
+    mutationFn: async (data: CreateListFormData & { atividades: ActivityTemplate[]; tarefasPersonalizadas: CustomTask[] }) => {
       return apiRequest("POST", "/api/activity-lists", data);
     },
     onSuccess: () => {
@@ -267,6 +291,7 @@ export default function ActivityManagement() {
       queryClient.invalidateQueries({ queryKey: ["/api/activity-statistics"] });
       form.reset();
       setSelectedTemplates([]);
+      setCustomTasks([]);
       setActiveTab("listas");
     },
     onError: (error: any) => {
@@ -326,11 +351,208 @@ export default function ActivityManagement() {
   };
 
   const handleSubmit = (data: CreateListFormData) => {
-    if (selectedTemplates.length === 0) {
-      toast({ title: "Selecione pelo menos uma atividade", variant: "destructive" });
+    if (selectedTemplates.length === 0 && customTasks.length === 0) {
+      toast({ title: "Adicione pelo menos uma atividade ou tarefa", variant: "destructive" });
       return;
     }
-    createListMutation.mutate({ ...data, atividades: selectedTemplates });
+    createListMutation.mutate({ ...data, atividades: selectedTemplates, tarefasPersonalizadas: customTasks });
+  };
+
+  const handleAddCustomTask = () => {
+    if (!newCustomTask.titulo.trim()) {
+      toast({ title: "Preencha o título da tarefa", variant: "destructive" });
+      return;
+    }
+    setCustomTasks(prev => [...prev, { ...newCustomTask, id: crypto.randomUUID() }]);
+    setNewCustomTask({ titulo: "", descricao: "", instrucoes: "", fotos: [] });
+    setIsAddingCustomTask(false);
+  };
+
+  const handleRemoveCustomTask = (id: string) => {
+    setCustomTasks(prev => prev.filter(t => t.id !== id));
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const file = files[0];
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      setNewCustomTask(prev => ({
+        ...prev,
+        fotos: [...prev.fotos, base64]
+      }));
+    };
+    reader.readAsDataURL(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleRemovePhoto = (index: number) => {
+    setNewCustomTask(prev => ({
+      ...prev,
+      fotos: prev.fotos.filter((_, i) => i !== index)
+    }));
+  };
+
+  const generatePDF = async (list: ActivityList, items: ActivityListItem[]) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let y = 20;
+
+    // Title
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text(list.titulo, pageWidth / 2, y, { align: "center" });
+    y += 10;
+
+    // Header info
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    const dataFormatada = new Date(list.dataExecucao).toLocaleDateString("pt-BR");
+    doc.text(`Data: ${dataFormatada} | Turno: ${turnoLabels[list.turno]} | Prioridade: ${prioridadeLabels[list.prioridade]}`, pageWidth / 2, y, { align: "center" });
+    y += 15;
+
+    // Tasks
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Atividades:", 15, y);
+    y += 8;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      
+      // Check if we need a new page
+      if (y > 270) {
+        doc.addPage();
+        y = 20;
+      }
+
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${i + 1}. ${item.titulo}`, 15, y);
+      y += 6;
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+
+      if (item.descricao) {
+        const descLines = doc.splitTextToSize(`Descrição: ${item.descricao}`, pageWidth - 35);
+        doc.text(descLines, 20, y);
+        y += descLines.length * 5;
+      }
+
+      if (item.area) {
+        doc.text(`Local: ${item.area}`, 20, y);
+        y += 5;
+      }
+
+      if (item.instrucoes) {
+        const instrLines = doc.splitTextToSize(`Instruções: ${item.instrucoes}`, pageWidth - 35);
+        doc.text(instrLines, 20, y);
+        y += instrLines.length * 5;
+      }
+
+      // Embed photos if present
+      if (item.fotos && item.fotos.length > 0) {
+        for (const foto of item.fotos) {
+          // Check if we need a new page for the image
+          if (y > 220) {
+            doc.addPage();
+            y = 20;
+          }
+          try {
+            // Detect format from data URL
+            let format = "JPEG";
+            if (foto.startsWith("data:image/png")) {
+              format = "PNG";
+            } else if (foto.startsWith("data:image/gif")) {
+              format = "GIF";
+            } else if (foto.startsWith("data:image/webp")) {
+              format = "WEBP";
+            }
+            // Add image (50x40 size for reasonable fit)
+            doc.addImage(foto, format, 20, y, 50, 40);
+            y += 45;
+          } catch (imgErr) {
+            // If image fails, just note it
+            doc.text(`[Imagem não carregada]`, 20, y);
+            y += 5;
+          }
+        }
+      }
+
+      // Checkbox placeholder
+      doc.rect(20, y, 4, 4);
+      doc.text("Concluído", 27, y + 3);
+      y += 10;
+    }
+
+    // Observations
+    if (list.observacoes) {
+      if (y > 250) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Observações:", 15, y);
+      y += 6;
+      doc.setFont("helvetica", "normal");
+      const obsLines = doc.splitTextToSize(list.observacoes, pageWidth - 30);
+      doc.text(obsLines, 15, y);
+    }
+
+    // Download or create blob for sharing
+    const pdfBlob = doc.output("blob");
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    
+    return { pdfBlob, pdfUrl, fileName: `atividades_${list.titulo.replace(/\s+/g, "_")}.pdf` };
+  };
+
+  const handleSharePDF = async (list: ActivityList) => {
+    try {
+      const headers = getAuthHeaders();
+      const res = await fetch(`/api/activity-lists/${list.id}/items`, { headers });
+      if (!res.ok) throw new Error("Erro ao buscar itens");
+      const items = await res.json();
+
+      const { pdfBlob, fileName } = await generatePDF(list, items);
+
+      // Get team member WhatsApp
+      const membro = teamMembers.find(m => m.id === list.membroId);
+      if (!membro?.whatsapp) {
+        // Just download the PDF if no WhatsApp
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast({ title: "PDF gerado! Membro não tem WhatsApp cadastrado." });
+        return;
+      }
+
+      // Download PDF
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      // Open WhatsApp
+      const telefone = membro.whatsapp.replace(/\D/g, "");
+      const dataFormatada = new Date(list.dataExecucao).toLocaleDateString("pt-BR");
+      const mensagem = `*Lista de Atividades*\n*${list.titulo}*\nData: ${dataFormatada}\nTurno: ${turnoLabels[list.turno]}\n\nPor favor, confira o PDF anexado com as atividades do dia.`;
+      const whatsappUrl = `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
+      
+      toast({ title: "PDF baixado! Abrindo WhatsApp..." });
+      setTimeout(() => window.open(whatsappUrl, "_blank"), 500);
+    } catch (error: any) {
+      toast({ title: "Erro ao gerar PDF", description: error.message, variant: "destructive" });
+    }
   };
 
   const toggleTemplate = (template: ActivityTemplate) => {
@@ -643,10 +865,167 @@ export default function ActivityManagement() {
             </Card>
           </div>
 
-          {selectedTemplates.length > 0 && (
+          {/* Custom Tasks Section */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <CardTitle>Tarefas Personalizadas</CardTitle>
+                  <CardDescription>Adicione tarefas específicas com descrição detalhada e fotos</CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsAddingCustomTask(true)}
+                  data-testid="button-adicionar-tarefa"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Adicionar Tarefa
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isAddingCustomTask && (
+                <div className="border rounded-lg p-4 mb-4 space-y-4 bg-secondary/20">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Título da Tarefa *</label>
+                      <Input
+                        placeholder="Ex: Limpeza do corredor"
+                        value={newCustomTask.titulo}
+                        onChange={(e) => setNewCustomTask(prev => ({ ...prev, titulo: e.target.value }))}
+                        data-testid="input-tarefa-titulo"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Descrição</label>
+                      <Input
+                        placeholder="Descrição detalhada"
+                        value={newCustomTask.descricao}
+                        onChange={(e) => setNewCustomTask(prev => ({ ...prev, descricao: e.target.value }))}
+                        data-testid="input-tarefa-descricao"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Instruções</label>
+                    <Textarea
+                      placeholder="Passo a passo de como executar a tarefa..."
+                      rows={3}
+                      value={newCustomTask.instrucoes}
+                      onChange={(e) => setNewCustomTask(prev => ({ ...prev, instrucoes: e.target.value }))}
+                      data-testid="input-tarefa-instrucoes"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Fotos de Referência</label>
+                    <div className="flex flex-wrap gap-2 items-center">
+                      {newCustomTask.fotos.map((foto, idx) => (
+                        <div key={idx} className="relative">
+                          <img src={foto} alt={`Foto ${idx + 1}`} className="w-20 h-20 object-cover rounded border" />
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePhoto(idx)}
+                            className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center"
+                            data-testid={`button-remover-foto-${idx}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png"
+                        ref={fileInputRef}
+                        onChange={handlePhotoUpload}
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        data-testid="button-upload-foto"
+                      >
+                        <Upload className="w-4 h-4 mr-1" />
+                        Foto
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setNewCustomTask({ titulo: "", descricao: "", instrucoes: "", fotos: [] });
+                        setIsAddingCustomTask(false);
+                      }}
+                      data-testid="button-cancelar-tarefa"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleAddCustomTask}
+                      data-testid="button-salvar-tarefa"
+                    >
+                      Salvar Tarefa
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {customTasks.length > 0 ? (
+                <div className="space-y-2">
+                  {customTasks.map((task, idx) => (
+                    <div key={task.id} className="p-3 border rounded-lg bg-background" data-testid={`custom-task-${task.id}`}>
+                      <div className="flex items-start gap-3">
+                        <GripVertical className="w-5 h-5 text-muted-foreground mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{idx + 1}. {task.titulo}</span>
+                            {task.fotos.length > 0 && (
+                              <Badge variant="outline" className="text-xs">
+                                <Image className="w-3 h-3 mr-1" />
+                                {task.fotos.length}
+                              </Badge>
+                            )}
+                          </div>
+                          {task.descricao && (
+                            <p className="text-sm text-muted-foreground mt-1">{task.descricao}</p>
+                          )}
+                          {task.instrucoes && (
+                            <p className="text-xs text-muted-foreground mt-1 italic">{task.instrucoes}</p>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveCustomTask(task.id)}
+                          data-testid={`button-remover-tarefa-${task.id}`}
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : !isAddingCustomTask && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Nenhuma tarefa personalizada adicionada
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {(selectedTemplates.length > 0 || customTasks.length > 0) && (
             <Card>
               <CardHeader>
-                <CardTitle>Atividades Selecionadas ({selectedTemplates.length})</CardTitle>
+                <CardTitle>
+                  Resumo: {selectedTemplates.length + customTasks.length} atividades
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
@@ -662,6 +1041,18 @@ export default function ActivityManagement() {
                       <X className="w-3 h-3 ml-1" />
                     </Badge>
                   ))}
+                  {customTasks.map((task) => (
+                    <Badge
+                      key={task.id}
+                      variant="default"
+                      className="cursor-pointer"
+                      onClick={() => handleRemoveCustomTask(task.id)}
+                      data-testid={`selected-custom-${task.id}`}
+                    >
+                      {task.titulo}
+                      <X className="w-3 h-3 ml-1" />
+                    </Badge>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -673,6 +1064,7 @@ export default function ActivityManagement() {
               onClick={() => {
                 form.reset();
                 setSelectedTemplates([]);
+                setCustomTasks([]);
               }}
               data-testid="button-limpar-form"
             >
@@ -680,7 +1072,7 @@ export default function ActivityManagement() {
             </Button>
             <Button
               onClick={form.handleSubmit(handleSubmit)}
-              disabled={createListMutation.isPending || selectedTemplates.length === 0}
+              disabled={createListMutation.isPending || (selectedTemplates.length === 0 && customTasks.length === 0)}
               data-testid="button-criar-lista"
             >
               {createListMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
@@ -754,7 +1146,7 @@ export default function ActivityManagement() {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 pt-2 border-t">
+                    <div className="flex items-center gap-2 pt-2 border-t flex-wrap">
                       <Button
                         variant="outline"
                         size="sm"
@@ -763,6 +1155,15 @@ export default function ActivityManagement() {
                       >
                         <Eye className="w-4 h-4 mr-1" />
                         Ver
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSharePDF(list)}
+                        data-testid={`button-pdf-${list.id}`}
+                      >
+                        <FileText className="w-4 h-4 mr-1" />
+                        PDF
                       </Button>
                       <Button
                         variant="outline"
