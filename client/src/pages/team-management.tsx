@@ -706,61 +706,104 @@ export default function TeamManagement() {
                     Novo Membro
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>{editingMember ? "Editar Membro" : "Novo Membro da Equipe"}</DialogTitle>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      {editingMember ? "Editar Membro" : "Novo Membro da Equipe"}
+                    </DialogTitle>
                     <DialogDescription>
                       {editingMember ? "Atualize as informações do membro" : "Cadastre um novo membro da equipe"}
                     </DialogDescription>
                   </DialogHeader>
                   <Form {...teamForm}>
                     <form onSubmit={teamForm.handleSubmit(handleTeamSubmit)} className="space-y-4">
+                      
+                      {/* Seção: Informações Pessoais */}
+                      <div className="border-b pb-2">
+                        <h4 className="text-sm font-semibold text-primary flex items-center gap-2">
+                          <UserCheck className="h-4 w-4" />
+                          Informações Pessoais
+                        </h4>
+                      </div>
+                      
                       <FormField
                         control={teamForm.control}
                         name="name"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Nome *</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Nome completo" {...field} data-testid="input-member-name" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={teamForm.control}
-                        name="cpf"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>CPF</FormLabel>
+                            <FormLabel>Nome Completo *</FormLabel>
                             <FormControl>
                               <Input 
-                                placeholder="000.000.000-00" 
+                                placeholder="NOME COMPLETO DO MEMBRO" 
                                 {...field}
-                                onChange={(e) => {
-                                  const formatted = formatCPF(e.target.value);
-                                  field.onChange(formatted);
-                                }}
-                                onBlur={(e) => {
-                                  field.onBlur();
-                                  const cpf = e.target.value;
-                                  if (cpf && cpf.replace(/\D/g, '').length === 11 && !validateCPF(cpf)) {
-                                    toast({
-                                      title: "CPF inválido",
-                                      description: "Por favor, verifique o CPF informado.",
-                                      variant: "destructive",
-                                    });
-                                  }
-                                }}
-                                maxLength={14}
-                                data-testid="input-member-cpf" 
+                                onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                                data-testid="input-member-name" 
                               />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={teamForm.control}
+                          name="cpf"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>CPF *</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  placeholder="000.000.000-00" 
+                                  {...field}
+                                  onChange={(e) => {
+                                    const formatted = formatCPF(e.target.value);
+                                    field.onChange(formatted);
+                                  }}
+                                  onBlur={(e) => {
+                                    field.onBlur();
+                                    const cpf = e.target.value;
+                                    if (cpf && cpf.replace(/\D/g, '').length === 11 && !validateCPF(cpf)) {
+                                      toast({
+                                        title: "CPF inválido",
+                                        description: "Por favor, verifique o CPF informado.",
+                                        variant: "destructive",
+                                      });
+                                    }
+                                  }}
+                                  maxLength={14}
+                                  data-testid="input-member-cpf" 
+                                />
+                              </FormControl>
+                              <p className="text-xs text-muted-foreground">Formato: 000.000.000-00</p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={teamForm.control}
+                          name="email"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email</FormLabel>
+                              <FormControl>
+                                <Input type="email" placeholder="email@exemplo.com" {...field} data-testid="input-member-email" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      
+                      {/* Seção: Informações Profissionais */}
+                      <div className="border-b pb-2 pt-2">
+                        <h4 className="text-sm font-semibold text-primary flex items-center gap-2">
+                          <Briefcase className="h-4 w-4" />
+                          Informações Profissionais
+                        </h4>
+                      </div>
+                      
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
                           control={teamForm.control}
@@ -771,7 +814,7 @@ export default function TeamManagement() {
                               <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger data-testid="select-member-role">
-                                    <SelectValue placeholder="Selecione" />
+                                    <SelectValue placeholder="Selecione..." />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
@@ -795,7 +838,7 @@ export default function TeamManagement() {
                               <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger data-testid="select-member-status">
-                                    <SelectValue placeholder="Selecione" />
+                                    <SelectValue placeholder="Selecione..." />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
@@ -811,6 +854,7 @@ export default function TeamManagement() {
                           )}
                         />
                       </div>
+                      
                       <FormField
                         control={teamForm.control}
                         name="department"
@@ -818,12 +862,21 @@ export default function TeamManagement() {
                           <FormItem>
                             <FormLabel>Departamento</FormLabel>
                             <FormControl>
-                              <Input placeholder="Ex: Manutenção, Limpeza..." {...field} data-testid="input-member-department" />
+                              <Input placeholder="Ex: Manutenção, Limpeza, Portaria..." {...field} data-testid="input-member-department" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
+                      
+                      {/* Seção: Contatos */}
+                      <div className="border-b pb-2 pt-2">
+                        <h4 className="text-sm font-semibold text-primary flex items-center gap-2">
+                          <Phone className="h-4 w-4" />
+                          Contatos
+                        </h4>
+                      </div>
+                      
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
                           control={teamForm.control}
@@ -870,19 +923,15 @@ export default function TeamManagement() {
                           )}
                         />
                       </div>
-                      <FormField
-                        control={teamForm.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                              <Input type="email" placeholder="email@exemplo.com" {...field} data-testid="input-member-email" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      
+                      {/* Seção: Dados de Trabalho */}
+                      <div className="border-b pb-2 pt-2">
+                        <h4 className="text-sm font-semibold text-primary flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          Dados de Trabalho
+                        </h4>
+                      </div>
+                      
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
                           control={teamForm.control}
@@ -911,14 +960,27 @@ export default function TeamManagement() {
                           )}
                         />
                       </div>
+                      
+                      {/* Seção: Observações */}
+                      <div className="border-b pb-2 pt-2">
+                        <h4 className="text-sm font-semibold text-primary flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          Observações
+                        </h4>
+                      </div>
+                      
                       <FormField
                         control={teamForm.control}
                         name="notes"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Observações</FormLabel>
                             <FormControl>
-                              <Textarea placeholder="Observações sobre o membro..." {...field} data-testid="textarea-member-notes" />
+                              <Textarea 
+                                placeholder="Observações sobre o membro da equipe..." 
+                                className="min-h-[80px]"
+                                {...field} 
+                                data-testid="textarea-member-notes" 
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
