@@ -2096,14 +2096,14 @@ export type ConfiguracoesLocacao = typeof configuracoesLocacao.$inferSelect;
 
 // ========== MARKETPLACE ==========
 
-export const statusFornecedorOptions = ["pendente", "aprovado", "rejeitado", "suspenso"] as const;
-export type StatusFornecedor = (typeof statusFornecedorOptions)[number];
+export const marketplaceStatusFornecedorOptions = ["pendente", "aprovado", "rejeitado", "suspenso"] as const;
+export type MarketplaceStatusFornecedor = (typeof marketplaceStatusFornecedorOptions)[number];
 
-export const tipoPrecoOptions = ["fixo", "hora", "orcamento", "negociavel"] as const;
-export type TipoPreco = (typeof tipoPrecoOptions)[number];
+export const marketplaceTipoPrecoOptions = ["fixo", "hora", "orcamento", "negociavel"] as const;
+export type MarketplaceTipoPreco = (typeof marketplaceTipoPrecoOptions)[number];
 
-export const statusContratacaoOptions = ["solicitado", "confirmado", "em_execucao", "concluido", "cancelado"] as const;
-export type StatusContratacao = (typeof statusContratacaoOptions)[number];
+export const marketplaceStatusContratacaoOptions = ["solicitado", "confirmado", "em_execucao", "concluido", "cancelado"] as const;
+export type MarketplaceStatusContratacao = (typeof marketplaceStatusContratacaoOptions)[number];
 
 // Marketplace Categories
 export const marketplaceCategorias = pgTable("marketplace_categorias", {
@@ -2138,7 +2138,7 @@ export const marketplaceFornecedores = pgTable("marketplace_fornecedores", {
   email: text("email"),
   endereco: text("endereco"),
   documento: text("documento"),
-  status: text("status").notNull().$type<StatusFornecedor>().default("pendente"),
+  status: text("status").notNull().$type<MarketplaceStatusFornecedor>().default("pendente"),
   avaliacaoMedia: real("avaliacao_media").default(0),
   totalAvaliacoes: integer("total_avaliacoes").default(0),
   aprovadoPor: uuid("aprovado_por"),
@@ -2186,7 +2186,7 @@ export const marketplaceOfertas = pgTable("marketplace_ofertas", {
   titulo: text("titulo").notNull(),
   descricao: text("descricao"),
   preco: real("preco"),
-  tipoPreco: text("tipo_preco").$type<TipoPreco>().default("fixo"),
+  tipoPreco: text("tipo_preco").$type<MarketplaceTipoPreco>().default("fixo"),
   disponivel: boolean("disponivel").default(true),
   destaque: boolean("destaque").default(false),
   imagemUrl: text("imagem_url"),
@@ -2210,7 +2210,7 @@ export const marketplaceContratacoes = pgTable("marketplace_contratacoes", {
   fornecedorId: uuid("fornecedor_id").notNull().references(() => marketplaceFornecedores.id),
   moradorId: uuid("morador_id").notNull(),
   condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
-  status: text("status").notNull().$type<StatusContratacao>().default("solicitado"),
+  status: text("status").notNull().$type<MarketplaceStatusContratacao>().default("solicitado"),
   valor: real("valor"),
   observacoes: text("observacoes"),
   dataAgendada: timestamp("data_agendada"),

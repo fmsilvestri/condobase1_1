@@ -46,6 +46,13 @@ import {
   insertMoradorSchema,
   insertHospedagemSchema,
   insertConfiguracoesLocacaoSchema,
+  insertMarketplaceCategoriaSchema,
+  insertMarketplaceFornecedorSchema,
+  insertMarketplaceServicoSchema,
+  insertMarketplaceOfertaSchema,
+  insertMarketplaceContratacaoSchema,
+  insertMarketplaceAvaliacaoSchema,
+  insertMarketplaceComissaoSchema,
 } from "../../shared/schema";
 
 import { z } from "zod";
@@ -3011,6 +3018,401 @@ router.delete("/parcels/:id", requireSindicoOrAdmin, async (req, res) => {
     res.status(204).send();
   } catch (error: any) {
     res.status(500).json({ error: "Falha ao excluir encomenda", details: error?.message });
+  }
+});
+
+// ========== MARKETPLACE ROUTES ==========
+
+// Marketplace Categories (Admin only for write operations)
+router.get("/marketplace/categorias", async (req, res) => {
+  try {
+    const categorias = await storage.getMarketplaceCategorias();
+    res.json(categorias);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar categorias", details: error?.message });
+  }
+});
+
+router.post("/marketplace/categorias", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const parsed = insertMarketplaceCategoriaSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.errors });
+    }
+    const categoria = await storage.createMarketplaceCategoria(parsed.data);
+    res.status(201).json(categoria);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao criar categoria", details: error?.message });
+  }
+});
+
+router.patch("/marketplace/categorias/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const categoria = await storage.updateMarketplaceCategoria(req.params.id, req.body);
+    if (!categoria) {
+      return res.status(404).json({ error: "Categoria não encontrada" });
+    }
+    res.json(categoria);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao atualizar categoria", details: error?.message });
+  }
+});
+
+router.delete("/marketplace/categorias/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    await storage.deleteMarketplaceCategoria(req.params.id);
+    res.status(204).send();
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao excluir categoria", details: error?.message });
+  }
+});
+
+// Marketplace Servicos (Admin only for write operations)
+router.get("/marketplace/servicos", async (req, res) => {
+  try {
+    const categoriaId = req.query.categoriaId as string | undefined;
+    const servicos = await storage.getMarketplaceServicos(categoriaId);
+    res.json(servicos);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar serviços", details: error?.message });
+  }
+});
+
+router.post("/marketplace/servicos", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const parsed = insertMarketplaceServicoSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.errors });
+    }
+    const servico = await storage.createMarketplaceServico(parsed.data);
+    res.status(201).json(servico);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao criar serviço", details: error?.message });
+  }
+});
+
+router.patch("/marketplace/servicos/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const servico = await storage.updateMarketplaceServico(req.params.id, req.body);
+    if (!servico) {
+      return res.status(404).json({ error: "Serviço não encontrado" });
+    }
+    res.json(servico);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao atualizar serviço", details: error?.message });
+  }
+});
+
+router.delete("/marketplace/servicos/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    await storage.deleteMarketplaceServico(req.params.id);
+    res.status(204).send();
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao excluir serviço", details: error?.message });
+  }
+});
+
+// Marketplace Fornecedores
+router.get("/marketplace/fornecedores", async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const status = req.query.status as string | undefined;
+    const fornecedores = await storage.getMarketplaceFornecedores(condominiumId || undefined, status);
+    res.json(fornecedores);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar fornecedores", details: error?.message });
+  }
+});
+
+router.get("/marketplace/fornecedores/:id", async (req, res) => {
+  try {
+    const fornecedor = await storage.getMarketplaceFornecedorById(req.params.id);
+    if (!fornecedor) {
+      return res.status(404).json({ error: "Fornecedor não encontrado" });
+    }
+    res.json(fornecedor);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar fornecedor", details: error?.message });
+  }
+});
+
+router.get("/marketplace/fornecedores/me/profile", async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: "Usuário não autenticado" });
+    }
+    const fornecedor = await storage.getMarketplaceFornecedorByUserId(userId);
+    res.json(fornecedor || null);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar perfil", details: error?.message });
+  }
+});
+
+router.post("/marketplace/fornecedores", async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const userId = getUserId(req);
+    if (!condominiumId || !userId) {
+      return res.status(400).json({ error: "Condomínio ou usuário não identificado" });
+    }
+    const parsed = insertMarketplaceFornecedorSchema.safeParse({ ...req.body, condominiumId, userId });
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.errors });
+    }
+    const fornecedor = await storage.createMarketplaceFornecedor(parsed.data);
+    res.status(201).json(fornecedor);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao criar fornecedor", details: error?.message });
+  }
+});
+
+router.patch("/marketplace/fornecedores/:id", async (req, res) => {
+  try {
+    const fornecedor = await storage.updateMarketplaceFornecedor(req.params.id, req.body);
+    if (!fornecedor) {
+      return res.status(404).json({ error: "Fornecedor não encontrado" });
+    }
+    res.json(fornecedor);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao atualizar fornecedor", details: error?.message });
+  }
+});
+
+router.post("/marketplace/fornecedores/:id/aprovar", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: "Usuário não autenticado" });
+    }
+    const fornecedor = await storage.aprovarMarketplaceFornecedor(req.params.id, userId);
+    if (!fornecedor) {
+      return res.status(404).json({ error: "Fornecedor não encontrado" });
+    }
+    res.json(fornecedor);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao aprovar fornecedor", details: error?.message });
+  }
+});
+
+router.post("/marketplace/fornecedores/:id/rejeitar", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const fornecedor = await storage.rejeitarMarketplaceFornecedor(req.params.id);
+    if (!fornecedor) {
+      return res.status(404).json({ error: "Fornecedor não encontrado" });
+    }
+    res.json(fornecedor);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao rejeitar fornecedor", details: error?.message });
+  }
+});
+
+// Marketplace Ofertas
+router.get("/marketplace/ofertas", async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const fornecedorId = req.query.fornecedorId as string | undefined;
+    const servicoId = req.query.servicoId as string | undefined;
+    const ofertas = await storage.getMarketplaceOfertas(condominiumId || undefined, fornecedorId, servicoId);
+    res.json(ofertas);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar ofertas", details: error?.message });
+  }
+});
+
+router.get("/marketplace/ofertas/:id", async (req, res) => {
+  try {
+    const oferta = await storage.getMarketplaceOfertaById(req.params.id);
+    if (!oferta) {
+      return res.status(404).json({ error: "Oferta não encontrada" });
+    }
+    res.json(oferta);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar oferta", details: error?.message });
+  }
+});
+
+router.post("/marketplace/ofertas", async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não identificado" });
+    }
+    const parsed = insertMarketplaceOfertaSchema.safeParse({ ...req.body, condominiumId });
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.errors });
+    }
+    const oferta = await storage.createMarketplaceOferta(parsed.data);
+    res.status(201).json(oferta);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao criar oferta", details: error?.message });
+  }
+});
+
+router.patch("/marketplace/ofertas/:id", async (req, res) => {
+  try {
+    const oferta = await storage.updateMarketplaceOferta(req.params.id, req.body);
+    if (!oferta) {
+      return res.status(404).json({ error: "Oferta não encontrada" });
+    }
+    res.json(oferta);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao atualizar oferta", details: error?.message });
+  }
+});
+
+router.delete("/marketplace/ofertas/:id", async (req, res) => {
+  try {
+    await storage.deleteMarketplaceOferta(req.params.id);
+    res.status(204).send();
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao excluir oferta", details: error?.message });
+  }
+});
+
+// Marketplace Contratações
+router.get("/marketplace/contratacoes", async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const moradorId = req.query.moradorId as string | undefined;
+    const fornecedorId = req.query.fornecedorId as string | undefined;
+    const status = req.query.status as string | undefined;
+    const contratacoes = await storage.getMarketplaceContratacoes(condominiumId || undefined, moradorId, fornecedorId, status);
+    res.json(contratacoes);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar contratações", details: error?.message });
+  }
+});
+
+router.get("/marketplace/contratacoes/:id", async (req, res) => {
+  try {
+    const contratacao = await storage.getMarketplaceContratacaoById(req.params.id);
+    if (!contratacao) {
+      return res.status(404).json({ error: "Contratação não encontrada" });
+    }
+    res.json(contratacao);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar contratação", details: error?.message });
+  }
+});
+
+router.post("/marketplace/contratacoes", async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const moradorId = getUserId(req);
+    if (!condominiumId || !moradorId) {
+      return res.status(400).json({ error: "Condomínio ou usuário não identificado" });
+    }
+    const parsed = insertMarketplaceContratacaoSchema.safeParse({ ...req.body, condominiumId, moradorId });
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.errors });
+    }
+    const contratacao = await storage.createMarketplaceContratacao(parsed.data);
+    res.status(201).json(contratacao);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao criar contratação", details: error?.message });
+  }
+});
+
+router.patch("/marketplace/contratacoes/:id", async (req, res) => {
+  try {
+    const contratacao = await storage.updateMarketplaceContratacao(req.params.id, req.body);
+    if (!contratacao) {
+      return res.status(404).json({ error: "Contratação não encontrada" });
+    }
+    res.json(contratacao);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao atualizar contratação", details: error?.message });
+  }
+});
+
+router.patch("/marketplace/contratacoes/:id/status", async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!status) {
+      return res.status(400).json({ error: "Status é obrigatório" });
+    }
+    const contratacao = await storage.atualizarStatusContratacao(req.params.id, status);
+    if (!contratacao) {
+      return res.status(404).json({ error: "Contratação não encontrada" });
+    }
+    res.json(contratacao);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao atualizar status", details: error?.message });
+  }
+});
+
+// Marketplace Avaliações
+router.get("/marketplace/avaliacoes", async (req, res) => {
+  try {
+    const fornecedorId = req.query.fornecedorId as string | undefined;
+    const contratacaoId = req.query.contratacaoId as string | undefined;
+    const avaliacoes = await storage.getMarketplaceAvaliacoes(fornecedorId, contratacaoId);
+    res.json(avaliacoes);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar avaliações", details: error?.message });
+  }
+});
+
+router.post("/marketplace/avaliacoes", async (req, res) => {
+  try {
+    const moradorId = getUserId(req);
+    if (!moradorId) {
+      return res.status(401).json({ error: "Usuário não autenticado" });
+    }
+    const parsed = insertMarketplaceAvaliacaoSchema.safeParse({ ...req.body, moradorId });
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.errors });
+    }
+    const avaliacao = await storage.createMarketplaceAvaliacao(parsed.data);
+    res.status(201).json(avaliacao);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao criar avaliação", details: error?.message });
+  }
+});
+
+// Marketplace Comissões (Admin only)
+router.get("/marketplace/comissoes", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não identificado" });
+    }
+    const comissoes = await storage.getMarketplaceComissoes(condominiumId);
+    res.json(comissoes);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar comissões", details: error?.message });
+  }
+});
+
+router.post("/marketplace/comissoes", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não identificado" });
+    }
+    const parsed = insertMarketplaceComissaoSchema.safeParse({ ...req.body, condominiumId });
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.errors });
+    }
+    const comissao = await storage.upsertMarketplaceComissao(parsed.data);
+    res.status(201).json(comissao);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao criar/atualizar comissão", details: error?.message });
+  }
+});
+
+// Marketplace Metrics (Admin only)
+router.get("/marketplace/metrics", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não identificado" });
+    }
+    const metrics = await storage.getMarketplaceMetrics(condominiumId);
+    res.json(metrics);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar métricas", details: error?.message });
   }
 });
 
