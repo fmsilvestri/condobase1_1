@@ -288,3 +288,10 @@ export async function ewelinkControlDevice(
 export function isSessionValid(sessionKey: string): boolean {
   return getSession(sessionKey) !== null;
 }
+
+/**
+ * Alias for isSessionValid for route compatibility
+ */
+export function ewelinkCheckSession(sessionKey: string): boolean {
+  return isSessionValid(sessionKey);
+}
