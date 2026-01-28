@@ -2373,6 +2373,93 @@ router.delete("/parcels/:id", requireSindicoOrAdmin, async (req, res) => {
   }
 });
 
+// ========== MARKETPLACE CAMPANHAS ROUTES ==========
+
+const campanhaEnviarSchema = z.object({
+  moradorIds: z.array(z.string().uuid()).min(1, "Selecione pelo menos um morador"),
+  titulo: z.string().min(3, "Titulo deve ter pelo menos 3 caracteres"),
+  mensagem: z.string().min(10, "Mensagem deve ter pelo menos 10 caracteres"),
+  mediaUrl: z.string().url().optional().or(z.literal("")),
+});
+
+router.post("/marketplace/campanhas/enviar", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(401).json({ error: "Condominio nao selecionado" });
+    }
+    
+    const validation = campanhaEnviarSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ 
+        error: "Dados invalidos", 
+        details: validation.error.errors 
+      });
+    }
+    
+    const { moradorIds, titulo, mensagem, mediaUrl } = validation.data;
+    
+    const moradores = await Promise.all(
+      moradorIds.map(id => storage.getMoradorById(id))
+    );
+    
+    const validMoradores = moradores.filter(m => 
+      m && 
+      m.telefone && 
+      m.condominiumId === condominiumId
+    );
+    
+    if (validMoradores.length === 0) {
+      return res.status(400).json({ 
+        error: "Nenhum morador valido selecionado. Verifique se os moradores pertencem ao condominio atual e possuem telefone cadastrado." 
+      });
+    }
+    
+    let sendBulkWhatsAppMessages;
+    try {
+      const twilioModule = await import("../../server/twilio-client");
+      sendBulkWhatsAppMessages = twilioModule.sendBulkWhatsAppMessages;
+    } catch (error: any) {
+      console.error("[Campanhas] Twilio not configured:", error?.message);
+      return res.status(503).json({ 
+        error: "Servico de WhatsApp nao configurado. Verifique a integracao com Twilio." 
+      });
+    }
+    
+    const messages = validMoradores.map(m => ({
+      to: m!.telefone!,
+      body: `*${titulo}*\n\n${mensagem}`,
+      mediaUrl: mediaUrl ? [mediaUrl] : undefined,
+    }));
+    
+    const results = await sendBulkWhatsAppMessages(messages);
+    
+    const resultsWithNames = results.map((r, i) => ({
+      ...r,
+      nome: validMoradores[i]?.nomeCompleto,
+    }));
+    
+    res.json({ 
+      success: true, 
+      total: moradorIds.length,
+      enviados: results.filter(r => r.success).length,
+      falhas: results.filter(r => !r.success).length,
+      results: resultsWithNames 
+    });
+  } catch (error: any) {
+    console.error("[Campanhas] Error:", error?.message || error);
+    if (error?.message?.includes("Twilio not connected")) {
+      return res.status(503).json({ 
+        error: "Twilio nao configurado. Configure a integracao com Twilio para enviar mensagens." 
+      });
+    }
+    res.status(500).json({ 
+      error: "Falha ao enviar campanha", 
+      details: error?.message || "Erro desconhecido"
+    });
+  }
+});
+
 // ========== MORADORES ROUTES ==========
 
 router.get("/moradores", requireGestao, async (req, res) => {

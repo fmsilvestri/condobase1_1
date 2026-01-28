@@ -49,6 +49,7 @@ import MarketplaceAdmin from "@/pages/marketplace-admin";
 import Marketplace from "@/pages/marketplace";
 import FornecedorPainel from "@/pages/fornecedor-painel";
 import MarketplaceRelatorios from "@/pages/marketplace-relatorios";
+import MarketplaceCampanhas from "@/pages/marketplace-campanhas";
 
 function Router() {
   return (
@@ -87,6 +88,7 @@ function Router() {
       <Route path="/marketplace-admin" component={MarketplaceAdmin} />
       <Route path="/marketplace" component={Marketplace} />
       <Route path="/marketplace-relatorios" component={MarketplaceRelatorios} />
+      <Route path="/marketplace-campanhas" component={MarketplaceCampanhas} />
       <Route path="/fornecedor-painel" component={FornecedorPainel} />
       <Route component={NotFound} />
     </Switch>

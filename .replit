@@ -47,4 +47,4 @@ VAPID_PRIVATE_KEY = "hZG62FQqtE3QrPbM_P4D31f9r-be2SZ3WXqHaelz53k"
 VAPID_SUBJECT = "mailto:admin@condobase.com"
 
 [agent]
-integrations = ["javascript_object_storage:2.0.0", "stripe:2.0.0"]
+integrations = ["javascript_object_storage:2.0.0", "stripe:2.0.0", "twilio:1.0.0"]

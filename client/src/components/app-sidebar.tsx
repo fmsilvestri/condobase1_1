@@ -32,6 +32,7 @@ import {
   Package,
   Store,
   BarChart3,
+  Send,
 } from "lucide-react";
 import {
   Sidebar,
@@ -414,6 +415,19 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
                     <Link href="/marketplace-relatorios">
                       <BarChart3 className="h-4 w-4" />
                       <span className="text-sm">Relatorios Marketplace</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/marketplace-campanhas"}
+                    data-testid="nav-marketplace-campanhas"
+                    className="rounded-lg h-9 transition-all duration-200 data-[active=true]:bg-cyan-500/15 data-[active=true]:text-cyan-600 dark:data-[active=true]:text-cyan-400 data-[active=true]:font-medium"
+                  >
+                    <Link href="/marketplace-campanhas">
+                      <Send className="h-4 w-4" />
+                      <span className="text-sm">Campanhas WhatsApp</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
