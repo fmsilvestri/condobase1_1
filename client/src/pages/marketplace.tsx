@@ -518,7 +518,7 @@ export default function Marketplace() {
             </Button>
             <Button
               onClick={submitContratacao}
-              disabled={!selectedMoradorId || contratarMutation.isPending}
+              disabled={contratarMutation.isPending}
               data-testid="button-confirm-contratar"
             >
               {contratarMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

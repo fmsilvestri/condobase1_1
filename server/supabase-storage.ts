@@ -2958,7 +2958,7 @@ export class SupabaseStorage implements IStorage {
     const { data, error } = await supabase
       .from("marketplace_categorias")
       .select("*")
-      .order("ordem", { ascending: true });
+      .order("nome", { ascending: true });
     if (error) {
       console.error("[getMarketplaceCategorias] Error:", error);
       return [];
