@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Atividades - Condomínio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-whatsapp {
+            background: #25D366;
+            color: white;
+        }
+
+        .atividades-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .atividade-card {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .atividade-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .atividade-card.selected {
+            border-color: #4CAF50;
+            background: #f1f8f4;
+        }
+
+        .atividade-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 10px;
+        }
+
+        .atividade-titulo {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .categoria-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .checklist {
+            margin-top: 10px;
+            padding-left: 20px;
+        }
+
+        .checklist-item {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 3px;
+        }
+
+        .equipamentos {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .listas-grid {
+            display: grid;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .lista-card {
+            background: #f9f9f9;
+            border-radius: 10px;
+            padding: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .lista-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+        }
+
+        .lista-info {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 14px;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-pendente {
+            background: #FFF3CD;
+            color: #856404;
+        }
+
+        .status-em_andamento {
+            background: #CCE5FF;
+            color: #004085;
+        }
+
+        .status-concluida {
+            background: #D4EDDA;
+            color: #155724;
+        }
+
+        .progresso-bar {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progresso-fill {
+            height: 100%;
+            background: #4CAF50;
+            transition: width 0.3s;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            width: 90%;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .close-modal {
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .close-modal:hover {
+            color: #333;
+        }
+
+        .preview-message {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Gestão de Atividades</h1>
+            <p>Sistema de gerenciamento de atividades por função</p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="mudarTab('criar')">
+                ➕ Criar Lista
+            </button>
+            <button class="tab" onclick="mudarTab('listas')">
+                📋 Minhas Listas
+            </button>
+            <button class="tab" onclick="mudarTab('estatisticas')">
+                📊 Estatísticas
+            </button>
+        </div>
+
+        <!-- Tab: Criar Lista -->
+        <div id="tab-criar" class="tab-content active">
+            <div class="section">
+                <h2>➕ Nova Lista de Atividades</h2>
+                
+                <form id="formNovaLista">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Membro da Equipe: *</label>
+                            <select id="membroSelect" required onchange="carregarAtividades()">
+                                <option value="">Selecione...</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Data de Execução: *</label>
+                            <input type="date" id="dataExecucao" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Turno: *</label>
+                            <select id="turno" required>
+                                <option value="manha">Manhã</option>
+                                <option value="tarde">Tarde</option>
+                                <option value="noite">Noite</option>
+                                <option value="integral">Integral</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Prioridade:</label>
+                            <select id="prioridade">
+                                <option value="baixa">Baixa</option>
+                                <option value="media" selected>Média</option>
+                                <option value="alta">Alta</option>
+                                <option value="urgente">Urgente</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Título da Lista: *</label>
+                        <input type="text" id="tituloLista" required placeholder="Ex: Limpeza Diária - Segunda-feira">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Observações:</label>
+                        <textarea id="observacoes" rows="3" placeholder="Observações gerais sobre as atividades..."></textarea>
+                    </div>
+
+                    <h3 style="margin-top: 30px; margin-bottom: 15px;">
+                        Selecione as Atividades:
+                    </h3>
+
+                    <div id="atividadesContainer" class="atividades-grid">
+                        <p style="grid-column: 1/-1; text-align: center; color: #999;">
+                            Selecione um membro para ver as atividades disponíveis
+                        </p>
+                    </div>
+
+                    <div style="margin-top: 30px; display: flex; gap: 10px;">
+                        <button type="button" class="btn btn-primary" onclick="visualizarMensagem()">
+                            👁️ Visualizar Mensagem
+                        </button>
+                        <button type="submit" class="btn btn-success">
+                            💾 Salvar e Enviar WhatsApp
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tab: Listas -->
+        <div id="tab-listas" class="tab-content">
+            <div class="section">
+                <h2>📋 Minhas Listas</h2>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Filtrar por Status:</label>
+                        <select id="filtroStatus" onchange="carregarListas()">
+                            <option value="">Todos</option>
+                            <option value="pendente">Pendente</option>
+                            <option value="em_andamento">Em Andamento</option>
+                            <option value="concluida">Concluída</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="listasContainer" class="listas-grid">
+                    <!-- Listas serão carregadas aqui -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Estatísticas -->
+        <div id="tab-estatisticas" class="tab-content">
+            <div class="section">
+                <h2>📊 Estatísticas</h2>
+                
+                <div id="statsContainer" class="stats-grid">
+                    <!-- Estatísticas serão carregadas aqui -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Preview -->
+    <div id="modalPreview" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>👁️ Visualizar Mensagem WhatsApp</h3>
+                <span class="close-modal" onclick="fecharModal()">&times;</span>
+            </div>
+            <div id="previewContent" class="preview-message"></div>
+            <button class="btn btn-whatsapp" style="width: 100%; margin-top: 20px;" onclick="enviarWhatsApp()">
+                <span style="font-size: 20px;">📱</span> Enviar via WhatsApp
+            </button>
+        </div>
+    </div>
+
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Seu script -->
+    <script src="js_sistema_atividades.js"></script>
+    
+    <script>
+        // Variáveis globais
+        let atividadesSelecionadas = [];
+        let membroAtual = null;
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', () => {
+            carregarMembros();
+            setDataPadrao();
+        });
+
+        // Carregar membros da equipe
+        async function carregarMembros() {
+            const { data, error } = await supabase
+                .from('membros_equipe')
+                .select('*')
+                .eq('status', 'ativo')
+                .order('nome');
+
+            if (!error && data) {
+                const select = document.getElementById('membroSelect');
+                data.forEach(membro => {
+                    const option = document.createElement('option');
+                    option.value = membro.id;
+                    option.textContent = `${membro.nome} - ${membro.funcao}`;
+                    option.dataset.membro = JSON.stringify(membro);
+                    select.appendChild(option);
+                });
+            }
+        }
+
+        // Carregar atividades quando selecionar membro
+        async function carregarAtividades() {
+            const select = document.getElementById('membroSelect');
+            const option = select.options[select.selectedIndex];
+            
+            if (!option.value) return;
+            
+            membroAtual = JSON.parse(option.dataset.membro);
+            atividadesSelecionadas = [];
+
+            const atividades = await carregarAtividadesPorFuncao(membroAtual.funcao);
+            
+            const container = document.getElementById('atividadesContainer');
+            container.innerHTML = '';
+
+            if (atividades.length === 0) {
+                container.innerHTML = '<p>Nenhuma atividade cadastrada para esta função</p>';
+                return;
+            }
+
+            atividades.forEach(ativ => {
+                const card = criarCardAtividade(ativ);
+                container.appendChild(card);
+            });
+        }
+
+        // Criar card de atividade
+        function criarCardAtividade(atividade) {
+            const card = document.createElement('div');
+            card.className = 'atividade-card';
+            card.onclick = () => toggleAtividade(atividade, card);
+
+            let html = `
+                <div class="atividade-header">
+                    <div>
+                        <div class="atividade-titulo">${atividade.titulo}</div>
+                        <div style="font-size: 12px; color: #999; margin-top: 5px;">
+                            ${atividade.periodicidade} • ${atividade.duracao_estimada}min
+                        </div>
+                    </div>
+                    <span class="categoria-badge" style="background: ${atividade.categoria.cor}">
+                        ${atividade.categoria.icone}
+                    </span>
+                </div>
+                <p style="font-size: 13px; color: #666; margin-top: 10px;">
+                    ${atividade.descricao || ''}
+                </p>
+            `;
+
+            if (atividade.checklist && atividade.checklist.items) {
+                html += '<div class="checklist">';
+                atividade.checklist.items.slice(0, 3).forEach(item => {
+                    html += `<div class="checklist-item">• ${item}</div>`;
+                });
+                if (atividade.checklist.items.length > 3) {
+                    html += `<div class="checklist-item">... e mais ${atividade.checklist.items.length - 3}</div>`;
+                }
+                html += '</div>';
+            }
+
+            if (atividade.equipamentos_necessarios && atividade.equipamentos_necessarios.length > 0) {
+                html += `<div class="equipamentos">🧰 ${atividade.equipamentos_necessarios.join(', ')}</div>`;
+            }
+
+            card.innerHTML = html;
+            return card;
+        }
+
+        // Toggle seleção de atividade
+        function toggleAtividade(atividade, card) {
+            const index = atividadesSelecionadas.findIndex(a => a.id === atividade.id);
+            
+            if (index > -1) {
+                atividadesSelecionadas.splice(index, 1);
+                card.classList.remove('selected');
+            } else {
+                atividadesSelecionadas.push(atividade);
+                card.classList.add('selected');
+            }
+        }
+
+        // Visualizar mensagem
+        function visualizarMensagem() {
+            if (!membroAtual) {
+                alert('Selecione um membro primeiro');
+                return;
+            }
+
+            if (atividadesSelecionadas.length === 0) {
+                alert('Selecione pelo menos uma atividade');
+                return;
+            }
+
+            const lista = {
+                titulo: document.getElementById('tituloLista').value,
+                data_execucao: document.getElementById('dataExecucao').value,
+                turno: document.getElementById('turno').value,
+                prioridade: document.getElementById('prioridade').value,
+                observacoes: document.getElementById('observacoes').value
+            };
+
+            const mensagem = gerarMensagemWhatsApp(lista, membroAtual, atividadesSelecionadas);
+            
+            document.getElementById('previewContent').textContent = mensagem;
+            document.getElementById('modalPreview').classList.add('active');
+        }
+
+        // Mudar tab
+        function mudarTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`tab-${tab}`).classList.add('active');
+        }
+
+        // Fechar modal
+        function fecharModal() {
+            document.getElementById('modalPreview').classList.remove('active');
+        }
+
+        // Set data padrão (hoje)
+        function setDataPadrao() {
+            const hoje = new Date().toISOString().split('T')[0];
+            document.getElementById('dataExecucao').value = hoje;
+        }
+
+        // Submit do formulário
+        document.getElementById('formNovaLista').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (atividadesSelecionadas.length === 0) {
+                alert('Selecione pelo menos uma atividade');
+                return;
+            }
+
+            const dados = {
+                membroId: document.getElementById('membroSelect').value,
+                titulo: document.getElementById('tituloLista').value,
+                dataExecucao: document.getElementById('dataExecucao').value,
+                turno: document.getElementById('turno').value,
+                prioridade: document.getElementById('prioridade').value,
+                observacoes: document.getElementById('observacoes').value,
+                atividades: atividadesSelecionadas
+            };
+
+            const resultado = await criarListaAtividades(dados);
+            
+            if (resultado.sucesso) {
+                await enviarParaWhatsApp(resultado.lista.id, dados.membroId);
+                alert('Lista criada e enviada com sucesso!');
+                location.reload();
+            } else {
+                alert('Erro: ' + resultado.erro);
+            }
+        });
+    </script>
+</body>
+</html>

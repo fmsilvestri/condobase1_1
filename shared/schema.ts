@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, real, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, real, uuid, jsonb, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -1617,6 +1617,147 @@ export const insertProcessExecutionSchema = createInsertSchema(processExecutions
 
 export type InsertProcessExecution = z.infer<typeof insertProcessExecutionSchema>;
 export type ProcessExecution = typeof processExecutions.$inferSelect;
+
+// Activity Categories - Categorias de atividades
+export const activityCategories = pgTable("activity_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  color: text("color").default("#667eea"),
+  icon: text("icon"),
+  ordem: integer("ordem").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertActivityCategorySchema = createInsertSchema(activityCategories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertActivityCategory = z.infer<typeof insertActivityCategorySchema>;
+export type ActivityCategory = typeof activityCategories.$inferSelect;
+
+// Activity Templates - Templates de atividades por função
+export const activityTemplates = pgTable("activity_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  categoryId: varchar("category_id").references(() => activityCategories.id),
+  funcao: text("funcao").notNull(), // Role like "zelador", "porteiro", etc.
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao"),
+  instrucoes: text("instrucoes"),
+  area: text("area"), // Where the activity is performed
+  equipamentosNecessarios: text("equipamentos_necessarios").array(),
+  checklist: jsonb("checklist").$type<{ items: string[] }>(),
+  tempoEstimado: integer("tempo_estimado"), // in minutes
+  ordem: integer("ordem").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertActivityTemplateSchema = createInsertSchema(activityTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertActivityTemplate = z.infer<typeof insertActivityTemplateSchema>;
+export type ActivityTemplate = typeof activityTemplates.$inferSelect;
+
+// Activity List Statuses
+export const activityListStatuses = ["pendente", "em_andamento", "concluida", "cancelada"] as const;
+export type ActivityListStatus = (typeof activityListStatuses)[number];
+
+// Activity List Turnos (Shifts)
+export const activityListTurnos = ["manha", "tarde", "noite", "integral"] as const;
+export type ActivityListTurno = (typeof activityListTurnos)[number];
+
+// Activity List Priorities
+export const activityListPriorities = ["baixa", "media", "alta", "urgente"] as const;
+export type ActivityListPriority = (typeof activityListPriorities)[number];
+
+// Activity Lists - Listas de atividades atribuídas a membros
+export const activityLists = pgTable("activity_lists", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  membroId: varchar("membro_id").notNull().references(() => teamMembers.id),
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao"),
+  dataExecucao: date("data_execucao").notNull(),
+  turno: text("turno").notNull().$type<ActivityListTurno>().default("manha"),
+  prioridade: text("prioridade").notNull().$type<ActivityListPriority>().default("media"),
+  status: text("status").notNull().$type<ActivityListStatus>().default("pendente"),
+  observacoes: text("observacoes"),
+  enviadoWhatsapp: boolean("enviado_whatsapp").default(false),
+  dataEnvioWhatsapp: timestamp("data_envio_whatsapp"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertActivityListSchema = createInsertSchema(activityLists).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  dataExecucao: z.string(),
+  dataEnvioWhatsapp: z.coerce.date().optional().nullable(),
+});
+
+export type InsertActivityList = z.infer<typeof insertActivityListSchema>;
+export type ActivityList = typeof activityLists.$inferSelect;
+
+// Activity List Items - Itens das listas de atividades
+export const activityListItems = pgTable("activity_list_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  listaId: varchar("lista_id").notNull().references(() => activityLists.id),
+  atividadeTemplateId: varchar("atividade_template_id").references(() => activityTemplates.id),
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao"),
+  instrucoes: text("instrucoes"),
+  area: text("area"),
+  equipamentosNecessarios: text("equipamentos_necessarios").array(),
+  checklist: jsonb("checklist").$type<{ items: string[] }>(),
+  ordem: integer("ordem").default(0),
+  concluido: boolean("concluido").default(false),
+  dataConclusao: timestamp("data_conclusao"),
+  observacoes: text("observacoes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertActivityListItemSchema = createInsertSchema(activityListItems).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  dataConclusao: z.coerce.date().optional().nullable(),
+});
+
+export type InsertActivityListItem = z.infer<typeof insertActivityListItemSchema>;
+export type ActivityListItem = typeof activityListItems.$inferSelect;
+
+// WhatsApp Envios - Log de envios de WhatsApp
+export const whatsappEnvios = pgTable("whatsapp_envios", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  listaId: varchar("lista_id").references(() => activityLists.id),
+  membroId: varchar("membro_id").references(() => teamMembers.id),
+  numeroWhatsapp: text("numero_whatsapp").notNull(),
+  mensagem: text("mensagem").notNull(),
+  status: text("status").default("enviado"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertWhatsappEnvioSchema = createInsertSchema(whatsappEnvios).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertWhatsappEnvio = z.infer<typeof insertWhatsappEnvioSchema>;
+export type WhatsappEnvio = typeof whatsappEnvios.$inferSelect;
 
 // Parcels - Encomendas e entregas
 export const parcelStatuses = ["aguardando", "notificado", "retirado", "devolvido"] as const;

@@ -1,0 +1,399 @@
+// ================================================================
+// SISTEMA DE GESTÃO DE ATIVIDADES - REPLIT
+// Gerenciamento de atividades por função com envio via WhatsApp
+// ================================================================
+
+// ============================================================
+// CONFIGURAÇÃO
+// ============================================================
+
+const supabase = window.supabase.createClient(
+    'SUA_URL_SUPABASE',
+    'SUA_KEY_SUPABASE'
+);
+
+// ============================================================
+// 1. CARREGAR ATIVIDADES POR FUNÇÃO
+// ============================================================
+
+async function carregarAtividadesPorFuncao(funcao) {
+    try {
+        const { data, error } = await supabase
+            .from('atividades_templates')
+            .select(`
+                *,
+                categoria:categorias_atividades(*)
+            `)
+            .eq('funcao', funcao)
+            .eq('ativo', true)
+            .order('categoria_id', { ascending: true })
+            .order('ordem', { ascending: true });
+
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        console.error('Erro ao carregar atividades:', error);
+        return [];
+    }
+}
+
+// ============================================================
+// 2. CRIAR LISTA DE ATIVIDADES
+// ============================================================
+
+async function criarListaAtividades(dados) {
+    try {
+        // Criar a lista
+        const { data: lista, error: erroLista } = await supabase
+            .from('listas_atividades')
+            .insert([{
+                membro_id: dados.membroId,
+                titulo: dados.titulo,
+                descricao: dados.descricao,
+                data_execucao: dados.dataExecucao,
+                turno: dados.turno,
+                prioridade: dados.prioridade,
+                observacoes: dados.observacoes
+            }])
+            .select()
+            .single();
+
+        if (erroLista) throw erroLista;
+
+        // Adicionar itens à lista
+        const itens = dados.atividades.map((atividade, index) => ({
+            lista_id: lista.id,
+            atividade_template_id: atividade.id,
+            titulo: atividade.titulo,
+            descricao: atividade.descricao,
+            instrucoes: atividade.instrucoes,
+            area: atividade.area,
+            equipamentos_necessarios: atividade.equipamentos_necessarios,
+            checklist: atividade.checklist,
+            ordem: index
+        }));
+
+        const { error: erroItens } = await supabase
+            .from('lista_atividades_itens')
+            .insert(itens);
+
+        if (erroItens) throw erroItens;
+
+        return { sucesso: true, lista };
+    } catch (error) {
+        console.error('Erro ao criar lista:', error);
+        return { sucesso: false, erro: error.message };
+    }
+}
+
+// ============================================================
+// 3. GERAR MENSAGEM FORMATADA PARA WHATSAPP
+// ============================================================
+
+function gerarMensagemWhatsApp(lista, membro, itens) {
+    let mensagem = `*📋 LISTA DE ATIVIDADES*\n\n`;
+    mensagem += `👤 *${membro.nome}*\n`;
+    mensagem += `💼 ${membro.funcao}\n`;
+    mensagem += `📅 Data: ${formatarData(lista.data_execucao)}\n`;
+    mensagem += `⏰ Turno: ${formatarTurno(lista.turno)}\n`;
+    
+    if (lista.prioridade === 'alta' || lista.prioridade === 'urgente') {
+        mensagem += `⚠️ *PRIORIDADE ${lista.prioridade.toUpperCase()}*\n`;
+    }
+    
+    mensagem += `\n${'─'.repeat(30)}\n\n`;
+    
+    // Agrupar por categoria
+    const porCategoria = agruparPorCategoria(itens);
+    
+    Object.keys(porCategoria).forEach((categoria, catIndex) => {
+        mensagem += `*${catIndex + 1}. ${categoria}*\n\n`;
+        
+        porCategoria[categoria].forEach((item, itemIndex) => {
+            mensagem += `${catIndex + 1}.${itemIndex + 1} ${item.titulo}\n`;
+            
+            if (item.area) {
+                mensagem += `   📍 ${item.area}\n`;
+            }
+            
+            if (item.equipamentos_necessarios && item.equipamentos_necessarios.length > 0) {
+                mensagem += `   🧰 ${item.equipamentos_necessarios.join(', ')}\n`;
+            }
+            
+            if (item.checklist && item.checklist.items) {
+                mensagem += `   ✓ Checklist:\n`;
+                item.checklist.items.forEach(check => {
+                    mensagem += `     • ${check}\n`;
+                });
+            }
+            
+            mensagem += `\n`;
+        });
+    });
+    
+    if (lista.observacoes) {
+        mensagem += `${'─'.repeat(30)}\n`;
+        mensagem += `📝 *Observações:*\n${lista.observacoes}\n\n`;
+    }
+    
+    mensagem += `${'─'.repeat(30)}\n`;
+    mensagem += `\n_Mensagem gerada automaticamente pelo Sistema de Gestão do Condomínio_`;
+    
+    return mensagem;
+}
+
+// ============================================================
+// 4. ENVIAR PARA WHATSAPP
+// ============================================================
+
+async function enviarParaWhatsApp(listaId, membroId) {
+    try {
+        // Buscar dados completos
+        const { data: lista, error: erroLista } = await supabase
+            .from('listas_atividades')
+            .select('*')
+            .eq('id', listaId)
+            .single();
+
+        if (erroLista) throw erroLista;
+
+        const { data: membro, error: erroMembro } = await supabase
+            .from('membros_equipe')
+            .select('*')
+            .eq('id', membroId)
+            .single();
+
+        if (erroMembro) throw erroMembro;
+
+        const { data: itens, error: erroItens } = await supabase
+            .from('lista_atividades_itens')
+            .select('*')
+            .eq('lista_id', listaId)
+            .order('ordem');
+
+        if (erroItens) throw erroItens;
+
+        // Validar WhatsApp
+        if (!membro.whatsapp) {
+            throw new Error('Membro não possui WhatsApp cadastrado');
+        }
+
+        // Gerar mensagem
+        const mensagem = gerarMensagemWhatsApp(lista, membro, itens);
+        
+        // Preparar número (remover formatação)
+        const numero = membro.whatsapp.replace(/\D/g, '');
+        
+        // Registrar envio no banco
+        const { error: erroEnvio } = await supabase
+            .from('whatsapp_envios')
+            .insert([{
+                lista_id: listaId,
+                membro_id: membroId,
+                numero_whatsapp: numero,
+                mensagem: mensagem,
+                status: 'enviado'
+            }]);
+
+        if (erroEnvio) throw erroEnvio;
+
+        // Atualizar status da lista
+        await supabase
+            .from('listas_atividades')
+            .update({
+                enviado_whatsapp: true,
+                data_envio_whatsapp: new Date().toISOString()
+            })
+            .eq('id', listaId);
+
+        // Abrir WhatsApp Web
+        const mensagemEncoded = encodeURIComponent(mensagem);
+        const urlWhatsApp = `https://wa.me/55${numero}?text=${mensagemEncoded}`;
+        
+        window.open(urlWhatsApp, '_blank');
+
+        return { sucesso: true, mensagem };
+    } catch (error) {
+        console.error('Erro ao enviar WhatsApp:', error);
+        return { sucesso: false, erro: error.message };
+    }
+}
+
+// ============================================================
+// 5. MARCAR ATIVIDADE COMO CONCLUÍDA
+// ============================================================
+
+async function marcarAtividadeConcluida(itemId, observacoes = null) {
+    try {
+        const { error } = await supabase
+            .from('lista_atividades_itens')
+            .update({
+                concluido: true,
+                data_conclusao: new Date().toISOString(),
+                observacoes: observacoes
+            })
+            .eq('id', itemId);
+
+        if (error) throw error;
+
+        // Verificar se todas as atividades foram concluídas
+        await verificarListaConcluida(itemId);
+
+        return { sucesso: true };
+    } catch (error) {
+        console.error('Erro ao marcar atividade:', error);
+        return { sucesso: false, erro: error.message };
+    }
+}
+
+async function verificarListaConcluida(itemId) {
+    try {
+        // Buscar a lista do item
+        const { data: item } = await supabase
+            .from('lista_atividades_itens')
+            .select('lista_id')
+            .eq('id', itemId)
+            .single();
+
+        if (!item) return;
+
+        // Verificar se todas as atividades estão concluídas
+        const { data: itens } = await supabase
+            .from('lista_atividades_itens')
+            .select('concluido')
+            .eq('lista_id', item.lista_id);
+
+        const todasConcluidas = itens.every(i => i.concluido);
+
+        if (todasConcluidas) {
+            await supabase
+                .from('listas_atividades')
+                .update({ status: 'concluida' })
+                .eq('id', item.lista_id);
+        }
+    } catch (error) {
+        console.error('Erro ao verificar lista:', error);
+    }
+}
+
+// ============================================================
+// 6. BUSCAR LISTAS POR MEMBRO
+// ============================================================
+
+async function buscarListasPorMembro(membroId, filtros = {}) {
+    try {
+        let query = supabase
+            .from('listas_atividades')
+            .select(`
+                *,
+                itens:lista_atividades_itens(count)
+            `)
+            .eq('membro_id', membroId);
+
+        if (filtros.status) {
+            query = query.eq('status', filtros.status);
+        }
+
+        if (filtros.dataInicio && filtros.dataFim) {
+            query = query
+                .gte('data_execucao', filtros.dataInicio)
+                .lte('data_execucao', filtros.dataFim);
+        }
+
+        const { data, error } = await query.order('data_execucao', { ascending: false });
+
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        console.error('Erro ao buscar listas:', error);
+        return [];
+    }
+}
+
+// ============================================================
+// 7. ESTATÍSTICAS
+// ============================================================
+
+async function obterEstatisticas(membroId) {
+    try {
+        const { data: listas } = await supabase
+            .from('listas_atividades')
+            .select(`
+                *,
+                itens:lista_atividades_itens(*)
+            `)
+            .eq('membro_id', membroId);
+
+        const stats = {
+            totalListas: listas.length,
+            listasPendentes: listas.filter(l => l.status === 'pendente').length,
+            listasEmAndamento: listas.filter(l => l.status === 'em_andamento').length,
+            listasConcluidas: listas.filter(l => l.status === 'concluida').length,
+            totalAtividades: 0,
+            atividadesConcluidas: 0,
+            percentualConclusao: 0
+        };
+
+        listas.forEach(lista => {
+            if (lista.itens) {
+                stats.totalAtividades += lista.itens.length;
+                stats.atividadesConcluidas += lista.itens.filter(i => i.concluido).length;
+            }
+        });
+
+        if (stats.totalAtividades > 0) {
+            stats.percentualConclusao = Math.round(
+                (stats.atividadesConcluidas / stats.totalAtividades) * 100
+            );
+        }
+
+        return stats;
+    } catch (error) {
+        console.error('Erro ao obter estatísticas:', error);
+        return null;
+    }
+}
+
+// ============================================================
+// FUNÇÕES AUXILIARES
+// ============================================================
+
+function formatarData(data) {
+    return new Date(data).toLocaleDateString('pt-BR');
+}
+
+function formatarTurno(turno) {
+    const turnos = {
+        'manha': 'Manhã ☀️',
+        'tarde': 'Tarde 🌤️',
+        'noite': 'Noite 🌙',
+        'integral': 'Integral 🕐'
+    };
+    return turnos[turno] || turno;
+}
+
+function agruparPorCategoria(itens) {
+    return itens.reduce((acc, item) => {
+        const categoria = item.categoria?.nome || 'Sem Categoria';
+        if (!acc[categoria]) {
+            acc[categoria] = [];
+        }
+        acc[categoria].push(item);
+        return acc;
+    }, {});
+}
+
+// ============================================================
+// EXPORTAR FUNÇÕES
+// ============================================================
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        carregarAtividadesPorFuncao,
+        criarListaAtividades,
+        enviarParaWhatsApp,
+        marcarAtividadeConcluida,
+        buscarListasPorMembro,
+        obterEstatisticas
+    };
+}
