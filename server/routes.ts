@@ -3796,6 +3796,15 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/activity-templates/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const template = await storage.updateActivityTemplate(req.params.id, req.body);
+      res.json(template);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to update template" });
+    }
+  });
+
   app.delete("/api/activity-templates/:id", requireSindicoOrAdmin, async (req, res) => {
     try {
       await storage.deleteActivityTemplate(req.params.id);

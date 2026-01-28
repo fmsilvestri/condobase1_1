@@ -33,6 +33,7 @@ import {
   Copy,
   Download,
   MapPin,
+  Pencil,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -247,6 +248,8 @@ export default function ActivityManagement() {
   const [customWhatsappDialog, setCustomWhatsappDialog] = useState<{ list: ActivityList; pdfBlob: Blob; fileName: string; message: string } | null>(null);
   const [customWhatsappNumber, setCustomWhatsappNumber] = useState("");
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<ActivityTemplate | null>(null);
+  const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
   const [isBatchSending, setIsBatchSending] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [customTasks, setCustomTasks] = useState<CustomTask[]>([]);
@@ -374,8 +377,62 @@ export default function ActivityManagement() {
     },
   });
 
+  const updateTemplateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: CreateTemplateFormData }) => {
+      return apiRequest("PATCH", `/api/activity-templates/${id}`, data);
+    },
+    onSuccess: () => {
+      toast({ title: "Template atualizado com sucesso!" });
+      queryClient.invalidateQueries({ queryKey: ["/api/activity-templates"] });
+      templateForm.reset();
+      setEditingTemplate(null);
+      setIsTemplateDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao atualizar template", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/activity-templates/${id}`);
+    },
+    onSuccess: (_data, deletedId) => {
+      toast({ title: "Template excluído com sucesso!" });
+      queryClient.invalidateQueries({ queryKey: ["/api/activity-templates"] });
+      setDeleteTemplateId(null);
+      setSelectedTemplates(prev => prev.filter(t => t.id !== deletedId));
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao excluir template", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleTemplateSubmit = (data: CreateTemplateFormData) => {
-    createTemplateMutation.mutate(data);
+    if (editingTemplate) {
+      updateTemplateMutation.mutate({ id: editingTemplate.id, data });
+    } else {
+      createTemplateMutation.mutate(data);
+    }
+  };
+
+  const handleEditTemplate = (template: ActivityTemplate) => {
+    setEditingTemplate(template);
+    templateForm.reset({
+      titulo: template.titulo,
+      descricao: template.descricao || "",
+      funcao: template.funcao,
+      area: template.area || "",
+      tempoEstimado: template.tempoEstimado,
+      periodicidade: template.periodicidade || "",
+    });
+    setIsTemplateDialogOpen(true);
+  };
+
+  const handleCloseTemplateDialog = () => {
+    templateForm.reset();
+    setEditingTemplate(null);
+    setIsTemplateDialogOpen(false);
   };
 
   const handleBatchSend = async () => {
@@ -1004,19 +1061,45 @@ export default function ActivityManagement() {
                             ) : (
                               <div />
                             )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                generateTemplatePDF(template);
-                              }}
-                              title="Exportar PDF"
-                              data-testid={`button-export-template-${template.id}`}
-                            >
-                              <Download className="w-4 h-4 mr-1" />
-                              PDF
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditTemplate(template);
+                                }}
+                                title="Editar"
+                                data-testid={`button-edit-template-${template.id}`}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteTemplateId(template.id);
+                                }}
+                                title="Excluir"
+                                className="text-destructive"
+                                data-testid={`button-delete-template-${template.id}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  generateTemplatePDF(template);
+                                }}
+                                title="Exportar PDF"
+                                data-testid={`button-export-template-${template.id}`}
+                              >
+                                <Download className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
@@ -1539,12 +1622,12 @@ export default function ActivityManagement() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
+      <Dialog open={isTemplateDialogOpen} onOpenChange={(open) => !open && handleCloseTemplateDialog()}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Novo Template de Atividade</DialogTitle>
+            <DialogTitle>{editingTemplate ? "Editar Template" : "Novo Template de Atividade"}</DialogTitle>
             <DialogDescription>
-              Cadastre um novo template para usar nas listas
+              {editingTemplate ? "Atualize os dados do template" : "Cadastre um novo template para usar nas listas"}
             </DialogDescription>
           </DialogHeader>
           <Form {...templateForm}>
@@ -1660,27 +1743,46 @@ export default function ActivityManagement() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => {
-                    templateForm.reset();
-                    setIsTemplateDialogOpen(false);
-                  }}
+                  onClick={handleCloseTemplateDialog}
                   data-testid="button-cancelar-template"
                 >
                   Cancelar
                 </Button>
                 <Button
                   type="submit"
-                  disabled={createTemplateMutation.isPending}
+                  disabled={createTemplateMutation.isPending || updateTemplateMutation.isPending}
                   data-testid="button-salvar-template"
                 >
-                  {createTemplateMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Salvar
+                  {(createTemplateMutation.isPending || updateTemplateMutation.isPending) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {editingTemplate ? "Atualizar" : "Salvar"}
                 </Button>
               </DialogFooter>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTemplateId} onOpenChange={(open) => !open && setDeleteTemplateId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir template?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O template será removido permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancelar-delete-template">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteTemplateId && deleteTemplateMutation.mutate(deleteTemplateId)}
+              className="bg-destructive text-destructive-foreground"
+              data-testid="button-confirmar-delete-template"
+            >
+              {deleteTemplateMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
