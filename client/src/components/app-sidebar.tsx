@@ -58,7 +58,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useModulePermissions, moduleKeyMap } from "@/hooks/use-module-permissions";
 import { useCondominium } from "@/hooks/use-condominium";
-import logoImage from "@assets/image_1767976092597.png";
+import logoImage from "@assets/imobcore-logo.png";
 
 const pillarModules = [
   {
@@ -258,8 +258,8 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
         <Link href="/" className="flex items-center justify-center" data-testid="link-logo">
           <img 
             src={logoImage} 
-            alt="CONDOBASE1" 
-            className="h-14 w-auto object-contain"
+            alt="ImobCore" 
+            className="h-16 w-auto object-contain"
           />
         </Link>
         {condominiums.length > 0 && (
@@ -306,7 +306,7 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
                     asChild
                     isActive={location === item.url}
                     data-testid={`nav-${item.url.replace("/", "") || "painel"}`}
-                    className="rounded-lg h-9 transition-all duration-200 data-[active=true]:bg-emerald-500/15 data-[active=true]:text-emerald-600 dark:data-[active=true]:text-emerald-400 data-[active=true]:font-medium"
+                    className="rounded-lg h-9 transition-all duration-200 data-[active=true]:bg-sky-500/15 data-[active=true]:text-sky-600 dark:data-[active=true]:text-sky-400 data-[active=true]:font-medium"
                   >
                     <Link href={item.url}>
                       <item.icon className="h-4 w-4" />
