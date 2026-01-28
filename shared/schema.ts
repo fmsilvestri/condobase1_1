@@ -1915,3 +1915,97 @@ export const insertVeiculoSchema = createInsertSchema(veiculos).omit({
 
 export type InsertVeiculo = z.infer<typeof insertVeiculoSchema>;
 export type Veiculo = typeof veiculos.$inferSelect;
+
+// ========== TAXAS E PAGAMENTOS (MAINTENANCE FEES & PAYMENTS) ==========
+
+export const tipoTaxaOptions = ["ordinaria", "extraordinaria", "multa", "reserva", "outro"] as const;
+export type TipoTaxa = (typeof tipoTaxaOptions)[number];
+
+export const statusCobrancaOptions = ["pendente", "pago", "atrasado", "cancelado", "parcial"] as const;
+export type StatusCobranca = (typeof statusCobrancaOptions)[number];
+
+export const statusPagamentoOptions = ["pendente", "processando", "confirmado", "falhou", "estornado"] as const;
+export type StatusPagamento = (typeof statusPagamentoOptions)[number];
+
+export const taxasCondominio = pgTable("taxas_condominio", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  nome: text("nome").notNull(),
+  descricao: text("descricao"),
+  tipo: text("tipo").notNull().$type<TipoTaxa>().default("ordinaria"),
+  valorPadrao: real("valor_padrao").notNull(),
+  diaVencimento: integer("dia_vencimento").default(10),
+  recorrente: boolean("recorrente").notNull().default(true),
+  ativo: boolean("ativo").notNull().default(true),
+  stripePriceId: text("stripe_price_id"),
+  stripeProductId: text("stripe_product_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertTaxaCondominioSchema = createInsertSchema(taxasCondominio).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertTaxaCondominio = z.infer<typeof insertTaxaCondominioSchema>;
+export type TaxaCondominio = typeof taxasCondominio.$inferSelect;
+
+export const cobrancas = pgTable("cobrancas", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  taxaId: uuid("taxa_id").references(() => taxasCondominio.id),
+  moradorId: uuid("morador_id").references(() => moradores.id),
+  unidade: text("unidade"),
+  bloco: text("bloco"),
+  descricao: text("descricao").notNull(),
+  valor: real("valor").notNull(),
+  dataVencimento: timestamp("data_vencimento").notNull(),
+  competencia: text("competencia"),
+  status: text("status").notNull().$type<StatusCobranca>().default("pendente"),
+  valorPago: real("valor_pago").default(0),
+  dataPagamento: timestamp("data_pagamento"),
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+  observacoes: text("observacoes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCobrancaSchema = createInsertSchema(cobrancas).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertCobranca = z.infer<typeof insertCobrancaSchema>;
+export type Cobranca = typeof cobrancas.$inferSelect;
+
+export const pagamentos = pgTable("pagamentos", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  cobrancaId: uuid("cobranca_id").references(() => cobrancas.id),
+  moradorId: uuid("morador_id").references(() => moradores.id),
+  userId: varchar("user_id").references(() => users.id),
+  valor: real("valor").notNull(),
+  metodoPagamento: text("metodo_pagamento"),
+  status: text("status").notNull().$type<StatusPagamento>().default("pendente"),
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+  stripeCustomerId: text("stripe_customer_id"),
+  comprovante: text("comprovante"),
+  observacoes: text("observacoes"),
+  processadoEm: timestamp("processado_em"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPagamentoSchema = createInsertSchema(pagamentos).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPagamento = z.infer<typeof insertPagamentoSchema>;
+export type Pagamento = typeof pagamentos.$inferSelect;
