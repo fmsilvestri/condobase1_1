@@ -1265,14 +1265,14 @@ export default function TeamManagement() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Responsável</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value || ""}>
+                              <Select onValueChange={(val) => field.onChange(val === "none" ? null : val)} value={field.value || "none"}>
                                 <FormControl>
                                   <SelectTrigger data-testid="select-process-assigned">
                                     <SelectValue placeholder="Selecione" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="">Não atribuído</SelectItem>
+                                  <SelectItem value="none">Não atribuído</SelectItem>
                                   {teamMembers
                                     .filter((m) => m.status === "ativo")
                                     .map((member) => (
