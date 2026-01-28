@@ -2553,4 +2553,226 @@ router.delete("/moradores/:id", requireSindicoOrAdmin, async (req, res) => {
   }
 });
 
+// ========================================
+// PAYMENT GATEWAY - TAXAS DE CONDOMÍNIO
+// ========================================
+
+// Taxas Condominio - Fee templates (admin only)
+router.get("/taxas-condominio", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const taxas = await storage.getTaxasCondominio(condominiumId || undefined);
+    res.json(taxas);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar taxas", details: error?.message });
+  }
+});
+
+router.get("/taxas-condominio/:id", requireGestao, async (req, res) => {
+  try {
+    const taxa = await storage.getTaxaCondominioById(req.params.id);
+    if (!taxa) {
+      return res.status(404).json({ error: "Taxa não encontrada" });
+    }
+    res.json(taxa);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar taxa", details: error?.message });
+  }
+});
+
+router.post("/taxas-condominio", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não identificado" });
+    }
+    const taxa = await storage.createTaxaCondominio({
+      ...req.body,
+      condominiumId
+    });
+    res.status(201).json(taxa);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao criar taxa", details: error?.message });
+  }
+});
+
+router.patch("/taxas-condominio/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const taxa = await storage.updateTaxaCondominio(req.params.id, req.body);
+    res.json(taxa);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao atualizar taxa", details: error?.message });
+  }
+});
+
+router.delete("/taxas-condominio/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    await storage.deleteTaxaCondominio(req.params.id);
+    res.status(204).send();
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao excluir taxa", details: error?.message });
+  }
+});
+
+// Cobrancas - Charges to residents (admin for create/update, residents for viewing)
+router.get("/cobrancas", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const cobrancas = await storage.getCobrancas(condominiumId || undefined);
+    res.json(cobrancas);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar cobranças", details: error?.message });
+  }
+});
+
+router.get("/cobrancas/minhas", requireAuth, async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const condominiumId = getCondominiumId(req);
+    if (!userId || !condominiumId) {
+      return res.status(400).json({ error: "Usuário ou condomínio não identificado" });
+    }
+    const cobrancas = await storage.getCobrancasByUser(userId, condominiumId);
+    res.json(cobrancas);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar suas cobranças", details: error?.message });
+  }
+});
+
+router.get("/cobrancas/:id", requireAuth, async (req, res) => {
+  try {
+    const cobranca = await storage.getCobrancaById(req.params.id);
+    if (!cobranca) {
+      return res.status(404).json({ error: "Cobrança não encontrada" });
+    }
+    res.json(cobranca);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar cobrança", details: error?.message });
+  }
+});
+
+router.post("/cobrancas", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não identificado" });
+    }
+    const cobranca = await storage.createCobranca({
+      ...req.body,
+      condominiumId
+    });
+    res.status(201).json(cobranca);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao criar cobrança", details: error?.message });
+  }
+});
+
+router.post("/cobrancas/gerar-lote", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não identificado" });
+    }
+    
+    const { taxaId, competencia, moradorIds, dataVencimento } = req.body;
+    
+    // Get the fee template
+    const taxa = await storage.getTaxaCondominioById(taxaId);
+    if (!taxa) {
+      return res.status(404).json({ error: "Taxa não encontrada" });
+    }
+    
+    // Get moradores
+    let moradores;
+    if (moradorIds && moradorIds.length > 0) {
+      moradores = await Promise.all(
+        moradorIds.map((id: string) => storage.getMoradorById(id))
+      );
+      moradores = moradores.filter(m => m && m.condominiumId === condominiumId);
+    } else {
+      moradores = await storage.getMoradores(condominiumId);
+      moradores = moradores.filter(m => m.status === 'ativo');
+    }
+    
+    // Create charges for each morador
+    const cobrancas = await Promise.all(
+      moradores.map(async (morador: any) => {
+        return storage.createCobranca({
+          condominiumId,
+          taxaId,
+          moradorId: morador.id,
+          unidade: morador.unidadeId,
+          bloco: morador.bloco,
+          descricao: `${taxa.nome} - ${competencia}`,
+          valor: taxa.valorPadrao,
+          dataVencimento: new Date(dataVencimento),
+          competencia,
+          status: 'pendente'
+        });
+      })
+    );
+    
+    res.status(201).json({ 
+      message: `${cobrancas.length} cobranças geradas com sucesso`,
+      cobrancas 
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao gerar cobranças em lote", details: error?.message });
+  }
+});
+
+router.patch("/cobrancas/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const cobranca = await storage.updateCobranca(req.params.id, req.body);
+    res.json(cobranca);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao atualizar cobrança", details: error?.message });
+  }
+});
+
+router.delete("/cobrancas/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    await storage.deleteCobranca(req.params.id);
+    res.status(204).send();
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao excluir cobrança", details: error?.message });
+  }
+});
+
+// Pagamentos - Payment records
+router.get("/pagamentos", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const pagamentos = await storage.getPagamentos(condominiumId || undefined);
+    res.json(pagamentos);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar pagamentos", details: error?.message });
+  }
+});
+
+router.get("/pagamentos/meus", requireAuth, async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(400).json({ error: "Usuário não identificado" });
+    }
+    const pagamentos = await storage.getPagamentosByUser(userId);
+    res.json(pagamentos);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar seus pagamentos", details: error?.message });
+  }
+});
+
+router.get("/pagamentos/:id", requireAuth, async (req, res) => {
+  try {
+    const pagamento = await storage.getPagamentoById(req.params.id);
+    if (!pagamento) {
+      return res.status(404).json({ error: "Pagamento não encontrado" });
+    }
+    res.json(pagamento);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar pagamento", details: error?.message });
+  }
+});
+
 export default router;

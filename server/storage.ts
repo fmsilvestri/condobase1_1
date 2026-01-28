@@ -107,6 +107,12 @@ import {
   type InsertOferta,
   type Contratacao,
   type InsertContratacao,
+  type TaxaCondominio,
+  type InsertTaxaCondominio,
+  type Cobranca,
+  type InsertCobranca,
+  type Pagamento,
+  type InsertPagamento,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -456,6 +462,32 @@ export interface IStorage {
   createContratacao(contratacao: InsertContratacao): Promise<Contratacao>;
   updateContratacao(id: string, contratacao: Partial<InsertContratacao>): Promise<Contratacao | undefined>;
   deleteContratacao(id: string): Promise<boolean>;
+
+  // ========== PAYMENT GATEWAY ==========
+  
+  // Taxas Condominio (Fee templates)
+  getTaxasCondominio(condominiumId?: string): Promise<TaxaCondominio[]>;
+  getTaxaCondominioById(id: string): Promise<TaxaCondominio | undefined>;
+  createTaxaCondominio(taxa: InsertTaxaCondominio): Promise<TaxaCondominio>;
+  updateTaxaCondominio(id: string, taxa: Partial<InsertTaxaCondominio>): Promise<TaxaCondominio>;
+  deleteTaxaCondominio(id: string): Promise<void>;
+
+  // Cobrancas (Charges to residents)
+  getCobrancas(condominiumId?: string): Promise<Cobranca[]>;
+  getCobrancasByMorador(moradorId: string): Promise<Cobranca[]>;
+  getCobrancasByUser(userId: string, condominiumId: string): Promise<Cobranca[]>;
+  getCobrancaById(id: string): Promise<Cobranca | undefined>;
+  createCobranca(cobranca: InsertCobranca): Promise<Cobranca>;
+  updateCobranca(id: string, cobranca: Partial<InsertCobranca>): Promise<Cobranca>;
+  deleteCobranca(id: string): Promise<void>;
+
+  // Pagamentos (Payments)
+  getPagamentos(condominiumId?: string): Promise<Pagamento[]>;
+  getPagamentosByUser(userId: string): Promise<Pagamento[]>;
+  getPagamentoById(id: string): Promise<Pagamento | undefined>;
+  getPagamentoByStripeSession(sessionId: string): Promise<Pagamento | undefined>;
+  createPagamento(pagamento: InsertPagamento): Promise<Pagamento>;
+  updatePagamento(id: string, pagamento: Partial<InsertPagamento>): Promise<Pagamento>;
 }
 
 export class MemStorage implements IStorage {
