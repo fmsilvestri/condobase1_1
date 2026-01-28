@@ -44,6 +44,8 @@ import {
   insertLegalChecklistSchema,
   insertParcelSchema,
   insertMoradorSchema,
+  insertHospedagemSchema,
+  insertConfiguracoesLocacaoSchema,
 } from "../../shared/schema";
 
 import { z } from "zod";
@@ -2830,10 +2832,11 @@ router.post("/hospedagens", requireSindicoOrAdmin, async (req, res) => {
     if (!condominiumId) {
       return res.status(400).json({ error: "Condomínio não identificado" });
     }
-    const hospedagem = await storage.createHospedagem({
-      ...req.body,
-      condominiumId
-    });
+    const parsed = insertHospedagemSchema.safeParse({ ...req.body, condominiumId });
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.errors });
+    }
+    const hospedagem = await storage.createHospedagem(parsed.data);
     res.status(201).json(hospedagem);
   } catch (error: any) {
     res.status(500).json({ error: "Falha ao criar hospedagem", details: error?.message });
@@ -2876,14 +2879,14 @@ router.post("/hospedagens/:id/enviar-boas-vindas", requireSindicoOrAdmin, async 
     let finalMessage = mensagem || "";
     
     if (urlRegimento) {
-      finalMessage += `\n\n📄 Regimento Interno Completo:\n${urlRegimento}`;
+      finalMessage += `\n\nRegimento Interno Completo:\n${urlRegimento}`;
     }
     
     if (urlVideo) {
-      finalMessage += `\n\n🎥 Vídeo com Tour e Regras do Condomínio:\n${urlVideo}`;
+      finalMessage += `\n\nVideo com Tour e Regras do Condominio:\n${urlVideo}`;
     }
     
-    finalMessage += "\n\n---\nDesejamos uma excelente estadia! 🌟";
+    finalMessage += "\n\n---\nDesejamos uma excelente estadia!";
     
     const mediaUrls: string[] = [];
     if (urlRegimento && urlRegimento.includes('.pdf')) {
@@ -2939,10 +2942,11 @@ router.put("/configuracoes-locacao", requireSindicoOrAdmin, async (req, res) => 
     if (!condominiumId) {
       return res.status(400).json({ error: "Condomínio não identificado" });
     }
-    const config = await storage.upsertConfiguracoesLocacao({
-      ...req.body,
-      condominiumId
-    });
+    const parsed = insertConfiguracoesLocacaoSchema.safeParse({ ...req.body, condominiumId });
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Dados inválidos", details: parsed.error.errors });
+    }
+    const config = await storage.upsertConfiguracoesLocacao(parsed.data);
     res.json(config);
   } catch (error: any) {
     res.status(500).json({ error: "Falha ao salvar configurações", details: error?.message });

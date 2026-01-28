@@ -69,6 +69,7 @@ The application consists of these main feature modules:
 - **Fornecedores**: Supplier contact management by category
 - **Comunicados**: Announcements and resident communications
 - **Equipe e Gestão de Processos**: Team member management (roles, schedules, contacts, CPF, WhatsApp) and operational process tracking (categories, frequencies, assignments, executions). Supports work routines by block/floor, equipment assignment, execution scripts, checklists, PDF generation, and WhatsApp sharing
+- **Gestão Locações**: Rental management for Airbnb and temporary stays. Features include guest registration, check-in/check-out tracking, vehicle information, automated WhatsApp welcome messages via Twilio, platform tracking (Airbnb, Booking, direct), and booking code management. Includes configuration settings for condominium-specific welcome message templates.
 
 ### Multi-Tenant Architecture
 - **Data Isolation**: Each condominium has isolated data; users only see data for their selected condominium
