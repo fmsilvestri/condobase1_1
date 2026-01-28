@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { CreditCard, Receipt, CheckCircle2, XCircle, Clock, ExternalLink, Loader2 } from "lucide-react";
+import { CreditCard, Receipt, CheckCircle2, XCircle, Clock, ExternalLink, Loader2, AlertCircle, FileText } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -38,6 +39,27 @@ interface PaymentIntent {
   metadata: Record<string, string>;
 }
 
+interface Cobranca {
+  id: string;
+  condominiumId: string;
+  taxaId: string | null;
+  moradorId: string | null;
+  unidade: string | null;
+  bloco: string | null;
+  descricao: string;
+  valor: number;
+  dataVencimento: string;
+  competencia: string | null;
+  status: string;
+  valorPago: number;
+  dataPagamento: string | null;
+  stripePaymentIntentId: string | null;
+  stripeCheckoutSessionId: string | null;
+  observacoes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 function formatCurrency(amount: number, currency: string = 'brl'): string {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -56,6 +78,28 @@ function getStatusBadge(status: string) {
     default:
       return <Badge variant="secondary"><Clock className="w-3 h-3 mr-1" />{status}</Badge>;
   }
+}
+
+function getCobrancaStatusBadge(status: string) {
+  switch (status) {
+    case 'pago':
+      return <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"><CheckCircle2 className="w-3 h-3 mr-1" />Pago</Badge>;
+    case 'pendente':
+      return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"><Clock className="w-3 h-3 mr-1" />Pendente</Badge>;
+    case 'vencido':
+      return <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"><AlertCircle className="w-3 h-3 mr-1" />Vencido</Badge>;
+    case 'cancelado':
+      return <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200"><XCircle className="w-3 h-3 mr-1" />Cancelado</Badge>;
+    default:
+      return <Badge variant="secondary">{status}</Badge>;
+  }
+}
+
+function formatReais(valor: number): string {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(valor);
 }
 
 export default function Payments() {
@@ -92,6 +136,10 @@ export default function Payments() {
 
   const { data: historyData, isLoading: historyLoading } = useQuery<{ data: PaymentIntent[] }>({
     queryKey: ["/api/stripe/payment-history"],
+  });
+
+  const { data: minhasCobrancas = [], isLoading: cobrancasLoading } = useQuery<Cobranca[]>({
+    queryKey: ["/api/cobrancas/minhas"],
   });
 
   const checkoutMutation = useMutation({
@@ -132,8 +180,29 @@ export default function Payments() {
     },
   });
 
+  const pagarCobrancaMutation = useMutation({
+    mutationFn: async (cobrancaId: string) => {
+      const response = await apiRequest("POST", "/api/stripe/checkout-cobranca", { cobrancaId });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao iniciar pagamento",
+        description: error.message || "Tente novamente mais tarde",
+        variant: "destructive",
+      });
+    },
+  });
+
   const products = productsData?.data || [];
   const paymentHistory = historyData?.data || [];
+  const cobrancasPendentes = minhasCobrancas.filter(c => c.status === 'pendente' || c.status === 'vencido');
+  const cobrancasPagas = minhasCobrancas.filter(c => c.status === 'pago');
 
   return (
     <div className="p-6 space-y-6" data-testid="page-payments">
@@ -143,71 +212,208 @@ export default function Payments() {
         icon={CreditCard}
       />
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Receipt className="w-5 h-5" />
-                Taxas Disponíveis
-              </CardTitle>
-              <CardDescription>
-                Selecione uma taxa para efetuar o pagamento
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {productsLoading ? (
-                <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="h-24 w-full" />
-                  ))}
-                </div>
-              ) : products.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Receipt className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Nenhuma taxa disponível no momento</p>
-                  <p className="text-sm mt-2">Entre em contato com a administração</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {products.map((product) => (
-                    <Card 
-                      key={product.id} 
-                      className={`cursor-pointer transition-all hover-elevate ${
-                        selectedPrice && product.prices.some(p => p.id === selectedPrice) 
-                          ? 'ring-2 ring-primary' 
-                          : ''
-                      }`}
-                      data-testid={`card-product-${product.id}`}
-                    >
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg">{product.name}</CardTitle>
-                        {product.description && (
-                          <CardDescription>{product.description}</CardDescription>
-                        )}
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex flex-wrap gap-2">
-                          {product.prices.map((price) => (
-                            <Button
-                              key={price.id}
-                              variant={selectedPrice === price.id ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setSelectedPrice(price.id)}
-                              data-testid={`button-select-price-${price.id}`}
+      <Tabs defaultValue="cobrancas" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="cobrancas" data-testid="tab-cobrancas">
+            <FileText className="w-4 h-4 mr-2" />
+            Minhas Cobranças
+            {cobrancasPendentes.length > 0 && (
+              <Badge variant="destructive" className="ml-2">{cobrancasPendentes.length}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="assinaturas" data-testid="tab-assinaturas">
+            <Receipt className="w-4 h-4 mr-2" />
+            Assinaturas
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="cobrancas" className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2 space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-yellow-500" />
+                    Cobranças Pendentes
+                  </CardTitle>
+                  <CardDescription>
+                    Cobranças aguardando pagamento
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {cobrancasLoading ? (
+                    <div className="space-y-4">
+                      {[1, 2, 3].map((i) => (
+                        <Skeleton key={i} className="h-24 w-full" />
+                      ))}
+                    </div>
+                  ) : cobrancasPendentes.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <CheckCircle2 className="w-12 h-12 mx-auto mb-4 text-green-500 opacity-50" />
+                      <p>Nenhuma cobrança pendente</p>
+                      <p className="text-sm mt-2">Você está em dia!</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {cobrancasPendentes.map((cobranca) => (
+                        <Card 
+                          key={cobranca.id} 
+                          className={`transition-all ${cobranca.status === 'vencido' ? 'border-red-300 dark:border-red-800' : ''}`}
+                          data-testid={`card-cobranca-${cobranca.id}`}
+                        >
+                          <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="text-lg">{cobranca.descricao}</CardTitle>
+                              {getCobrancaStatusBadge(cobranca.status)}
+                            </div>
+                            {cobranca.competencia && (
+                              <CardDescription>Competência: {cobranca.competencia}</CardDescription>
+                            )}
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-2xl font-bold">{formatReais(cobranca.valor)}</span>
+                              <span className="text-sm text-muted-foreground">
+                                Vencimento: {cobranca.dataVencimento ? format(new Date(cobranca.dataVencimento), "dd/MM/yyyy", { locale: ptBR }) : "-"}
+                              </span>
+                            </div>
+                            <Button 
+                              className="w-full" 
+                              onClick={() => pagarCobrancaMutation.mutate(cobranca.id)}
+                              disabled={pagarCobrancaMutation.isPending}
+                              data-testid={`button-pagar-cobranca-${cobranca.id}`}
                             >
-                              {formatCurrency(price.unit_amount, price.currency)}
+                              {pagarCobrancaMutation.isPending ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  Processando...
+                                </>
+                              ) : (
+                                <>
+                                  <CreditCard className="w-4 h-4 mr-2" />
+                                  Pagar Agora
+                                </>
+                              )}
                             </Button>
-                          ))}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    Pagamentos Realizados
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {cobrancasLoading ? (
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => (
+                        <Skeleton key={i} className="h-16 w-full" />
+                      ))}
+                    </div>
+                  ) : cobrancasPagas.length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <p className="text-sm">Nenhum pagamento realizado</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {cobrancasPagas.slice(0, 5).map((cobranca) => (
+                        <div 
+                          key={cobranca.id} 
+                          className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                          data-testid={`cobranca-paga-${cobranca.id}`}
+                        >
+                          <div>
+                            <p className="font-medium text-sm">{cobranca.descricao}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {cobranca.dataPagamento ? format(new Date(cobranca.dataPagamento), "dd/MM/yyyy", { locale: ptBR }) : "-"}
+                            </p>
+                          </div>
+                          <span className="font-medium text-green-600">{formatReais(cobranca.valorPago || cobranca.valor)}</span>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-            {selectedPrice && (
-              <CardFooter>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="assinaturas" className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2 space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Receipt className="w-5 h-5" />
+                    Taxas Disponíveis
+                  </CardTitle>
+                  <CardDescription>
+                    Selecione uma taxa para efetuar o pagamento
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {productsLoading ? (
+                    <div className="space-y-4">
+                      {[1, 2, 3].map((i) => (
+                        <Skeleton key={i} className="h-24 w-full" />
+                      ))}
+                    </div>
+                  ) : products.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Receipt className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>Nenhuma taxa disponível no momento</p>
+                      <p className="text-sm mt-2">Entre em contato com a administração</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {products.map((product) => (
+                        <Card 
+                          key={product.id} 
+                          className={`cursor-pointer transition-all hover-elevate ${
+                            selectedPrice && product.prices.some(p => p.id === selectedPrice) 
+                              ? 'ring-2 ring-primary' 
+                              : ''
+                          }`}
+                          data-testid={`card-product-${product.id}`}
+                        >
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-lg">{product.name}</CardTitle>
+                            {product.description && (
+                              <CardDescription>{product.description}</CardDescription>
+                            )}
+                          </CardHeader>
+                          <CardContent>
+                            <div className="flex flex-wrap gap-2">
+                              {product.prices.map((price) => (
+                                <Button
+                                  key={price.id}
+                                  variant={selectedPrice === price.id ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => setSelectedPrice(price.id)}
+                                  data-testid={`button-select-price-${price.id}`}
+                                >
+                                  {formatCurrency(price.unit_amount, price.currency)}
+                                </Button>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+                {selectedPrice && (
+                  <CardFooter>
                 <Button 
                   className="w-full" 
                   size="lg"
@@ -292,8 +498,10 @@ export default function Payments() {
               )}
             </CardContent>
           </Card>
-        </div>
-      </div>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

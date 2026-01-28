@@ -152,6 +152,85 @@ router.post('/checkout', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+router.post('/checkout-cobranca', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.condominiumContext?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const { cobrancaId } = req.body;
+    if (!cobrancaId) {
+      return res.status(400).json({ error: 'Cobrança ID is required' });
+    }
+
+    const cobranca = await storage.getCobrancaById(cobrancaId);
+    if (!cobranca) {
+      return res.status(404).json({ error: 'Cobrança not found' });
+    }
+
+    if (cobranca.status === 'pago') {
+      return res.status(400).json({ error: 'Esta cobrança já foi paga' });
+    }
+
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const stripe = await getUncachableStripeClient();
+
+    let customerId = user.stripeCustomerId;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email,
+        name: user.name,
+        metadata: { userId: user.id },
+      });
+      customerId = customer.id;
+
+      await storage.updateUser(userId, { stripeCustomerId: customerId });
+    }
+
+    const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+    const amountInCents = Math.round(cobranca.valor * 100);
+    
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'brl',
+          product_data: {
+            name: cobranca.descricao,
+            description: cobranca.competencia ? `Competência: ${cobranca.competencia}` : undefined,
+          },
+          unit_amount: amountInCents,
+        },
+        quantity: 1,
+      }],
+      mode: 'payment',
+      success_url: `${baseUrl}/pagamentos?status=success&cobranca=${cobrancaId}`,
+      cancel_url: `${baseUrl}/pagamentos?status=cancelled`,
+      metadata: {
+        userId,
+        cobrancaId: cobranca.id,
+        condominiumId: cobranca.condominiumId,
+        tipo: 'cobranca_condominio',
+      },
+    });
+
+    await storage.updateCobranca(cobrancaId, {
+      stripeCheckoutSessionId: session.id,
+    });
+
+    res.json({ url: session.url });
+  } catch (error: any) {
+    console.error('Error creating cobranca checkout session:', error);
+    res.status(500).json({ error: 'Failed to create checkout session' });
+  }
+});
+
 router.post('/customer-portal', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.condominiumContext?.userId;
