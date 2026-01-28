@@ -244,6 +244,8 @@ export default function ActivityManagement() {
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [viewListDialog, setViewListDialog] = useState<ActivityList | null>(null);
   const [whatsappDialog, setWhatsappDialog] = useState<{ list: ActivityList; url: string; message: string } | null>(null);
+  const [customWhatsappDialog, setCustomWhatsappDialog] = useState<{ list: ActivityList; pdfBlob: Blob; fileName: string; message: string } | null>(null);
+  const [customWhatsappNumber, setCustomWhatsappNumber] = useState("");
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [isBatchSending, setIsBatchSending] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
@@ -606,7 +608,7 @@ export default function ActivityManagement() {
     return { pdfBlob, pdfUrl, fileName: `atividades_${list.titulo.replace(/\s+/g, "_")}.pdf` };
   };
 
-  const handleSharePDF = async (list: ActivityList) => {
+  const handleSharePDF = async (list: ActivityList, openWhatsappDialog = false) => {
     try {
       const headers = getAuthHeaders();
       const res = await fetch(`/api/activity-lists/${list.id}/items`, { headers });
@@ -616,28 +618,133 @@ export default function ActivityManagement() {
       const { pdfBlob, fileName } = await generatePDF(list, items);
 
       const membro = teamMembers.find(m => m.id === list.membroId);
-      
-      const url = URL.createObjectURL(pdfBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      a.click();
-      URL.revokeObjectURL(url);
+      const dataFormatada = new Date(list.dataExecucao).toLocaleDateString("pt-BR");
+      const mensagem = `*Lista de Atividades*\n*${list.titulo}*\nData: ${dataFormatada}\nTurno: ${turnoLabels[list.turno]}\n\nPor favor, confira o PDF anexado com as atividades do dia.`;
 
-      if (membro?.whatsapp) {
-        const telefone = membro.whatsapp.replace(/\D/g, "");
-        const dataFormatada = new Date(list.dataExecucao).toLocaleDateString("pt-BR");
-        const mensagem = `*Lista de Atividades*\n*${list.titulo}*\nData: ${dataFormatada}\nTurno: ${turnoLabels[list.turno]}\n\nPor favor, confira o PDF anexado com as atividades do dia.`;
-        const whatsappUrl = `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
-        
-        toast({ title: "PDF baixado! Abrindo WhatsApp..." });
-        setTimeout(() => window.open(whatsappUrl, "_blank"), 500);
+      if (openWhatsappDialog) {
+        setCustomWhatsappNumber(membro?.whatsapp || "");
+        setCustomWhatsappDialog({ list, pdfBlob, fileName, message: mensagem });
       } else {
-        toast({ title: "PDF gerado! Membro não tem WhatsApp cadastrado." });
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast({ title: "PDF baixado com sucesso!" });
       }
     } catch (error: any) {
       toast({ title: "Erro ao gerar PDF", description: error.message, variant: "destructive" });
     }
+  };
+
+  const handleSendToCustomWhatsapp = () => {
+    if (!customWhatsappDialog) return;
+    
+    const telefone = customWhatsappNumber.replace(/\D/g, "");
+    if (!telefone || telefone.length < 10) {
+      toast({ title: "Digite um número de WhatsApp válido", variant: "destructive" });
+      return;
+    }
+
+    const url = URL.createObjectURL(customWhatsappDialog.pdfBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = customWhatsappDialog.fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    const whatsappUrl = `https://wa.me/${telefone}?text=${encodeURIComponent(customWhatsappDialog.message)}`;
+    toast({ title: "PDF baixado! Abrindo WhatsApp..." });
+    setTimeout(() => window.open(whatsappUrl, "_blank"), 500);
+    
+    setCustomWhatsappDialog(null);
+    setCustomWhatsappNumber("");
+  };
+
+  const generateTemplatePDF = (template: ActivityTemplate) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let y = 20;
+
+    doc.setFillColor(102, 126, 234);
+    doc.rect(0, 0, pageWidth, 35, "F");
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("Template de Atividade", pageWidth / 2, 15, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.text(template.titulo, pageWidth / 2, 27, { align: "center" });
+    
+    y = 50;
+    doc.setTextColor(0, 0, 0);
+
+    doc.setFillColor(240, 240, 240);
+    doc.rect(10, y, pageWidth - 20, 30, "F");
+    doc.setFontSize(10);
+    doc.text(`Função: ${roleLabels[template.funcao] || template.funcao}`, 15, y + 10);
+    if (template.area) doc.text(`Local: ${template.area}`, 15, y + 18);
+    if (template.periodicidade) doc.text(`Periodicidade: ${periodicidadeLabels[template.periodicidade] || template.periodicidade}`, 15, y + 26);
+    if (template.tempoEstimado) doc.text(`Tempo estimado: ${template.tempoEstimado} min`, pageWidth / 2, y + 10);
+    y += 40;
+
+    if (template.descricao) {
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Descrição:", 15, y);
+      y += 8;
+      doc.setFont("helvetica", "normal");
+      const descLines = doc.splitTextToSize(template.descricao, pageWidth - 30);
+      doc.text(descLines, 15, y);
+      y += descLines.length * 6 + 10;
+    }
+
+    if (template.instrucoes) {
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Instruções:", 15, y);
+      y += 8;
+      doc.setFont("helvetica", "normal");
+      const instrLines = doc.splitTextToSize(template.instrucoes, pageWidth - 30);
+      doc.text(instrLines, 15, y);
+      y += instrLines.length * 6 + 10;
+    }
+
+    if (template.checklist?.items && template.checklist.items.length > 0) {
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Checklist:", 15, y);
+      y += 8;
+      doc.setFont("helvetica", "normal");
+      template.checklist.items.forEach((item, i) => {
+        doc.rect(15, y - 3, 4, 4);
+        doc.text(`${item}`, 22, y);
+        y += 8;
+      });
+      y += 5;
+    }
+
+    if (template.equipamentosNecessarios && template.equipamentosNecessarios.length > 0) {
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Equipamentos Necessários:", 15, y);
+      y += 8;
+      doc.setFont("helvetica", "normal");
+      template.equipamentosNecessarios.forEach((eq) => {
+        doc.text(`• ${eq}`, 15, y);
+        y += 6;
+      });
+    }
+
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: "center" });
+
+    const fileName = `template_${template.titulo.replace(/\s+/g, "_")}.pdf`;
+    doc.save(fileName);
+    toast({ title: "PDF do template exportado!" });
   };
 
   const toggleTemplate = (template: ActivityTemplate) => {
@@ -888,12 +995,29 @@ export default function ActivityManagement() {
                             )}
                           </div>
 
-                          {isSelected && (
-                            <div className="mt-3 flex items-center gap-2 text-sm text-primary font-medium">
-                              <CheckCircle className="w-4 h-4" />
-                              Selecionado
-                            </div>
-                          )}
+                          <div className="mt-3 flex items-center justify-between">
+                            {isSelected ? (
+                              <div className="flex items-center gap-2 text-sm text-primary font-medium">
+                                <CheckCircle className="w-4 h-4" />
+                                Selecionado
+                              </div>
+                            ) : (
+                              <div />
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                generateTemplatePDF(template);
+                              }}
+                              title="Exportar PDF"
+                              data-testid={`button-export-template-${template.id}`}
+                            >
+                              <Download className="w-4 h-4 mr-1" />
+                              PDF
+                            </Button>
+                          </div>
                         </CardContent>
                       </Card>
                     );
@@ -1268,6 +1392,7 @@ export default function ActivityManagement() {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleSharePDF(list)}
+                                title="Baixar PDF"
                                 data-testid={`button-pdf-${list.id}`}
                               >
                                 <Download className="w-4 h-4" />
@@ -1275,8 +1400,8 @@ export default function ActivityManagement() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => sendWhatsAppMutation.mutate(list.id)}
-                                disabled={!list.membro?.whatsapp}
+                                onClick={() => handleSharePDF(list, true)}
+                                title="Enviar via WhatsApp"
                                 data-testid={`button-whatsapp-${list.id}`}
                               >
                                 <MessageCircle className="w-4 h-4" />
@@ -1352,6 +1477,63 @@ export default function ActivityManagement() {
                 <MessageCircle className="w-4 h-4 mr-2" />
                 Abrir WhatsApp
               </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!customWhatsappDialog} onOpenChange={() => { setCustomWhatsappDialog(null); setCustomWhatsappNumber(""); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Enviar PDF via WhatsApp</DialogTitle>
+            <DialogDescription>
+              Digite o número do WhatsApp ou use o cadastrado
+            </DialogDescription>
+          </DialogHeader>
+          {customWhatsappDialog && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Número do WhatsApp:</label>
+                <Input
+                  placeholder="Ex: 48999999999"
+                  value={customWhatsappNumber}
+                  onChange={(e) => setCustomWhatsappNumber(e.target.value)}
+                  data-testid="input-custom-whatsapp"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Digite apenas números com DDD (sem espaços ou traços)
+                </p>
+              </div>
+              <div className="p-3 bg-secondary rounded-lg max-h-40 overflow-y-auto" data-testid="container-custom-whatsapp-message">
+                <pre className="whitespace-pre-wrap text-sm font-mono" data-testid="text-custom-whatsapp-message">{customWhatsappDialog.message}</pre>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    const url = URL.createObjectURL(customWhatsappDialog.pdfBlob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = customWhatsappDialog.fileName;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    toast({ title: "PDF baixado!" });
+                  }}
+                  data-testid="button-apenas-pdf"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Apenas PDF
+                </Button>
+                <Button
+                  className="flex-1 bg-green-600"
+                  onClick={handleSendToCustomWhatsapp}
+                  data-testid="button-enviar-whatsapp-custom"
+                >
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  Enviar WhatsApp
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>
