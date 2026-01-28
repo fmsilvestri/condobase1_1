@@ -43,6 +43,7 @@ import {
   insertInsurancePolicySchema,
   insertLegalChecklistSchema,
   insertParcelSchema,
+  insertMoradorSchema,
 } from "../../shared/schema";
 
 import { z } from "zod";
@@ -2369,6 +2370,99 @@ router.delete("/parcels/:id", requireSindicoOrAdmin, async (req, res) => {
     res.status(204).send();
   } catch (error: any) {
     res.status(500).json({ error: "Failed to delete parcel", details: error?.message });
+  }
+});
+
+// ========== MORADORES ROUTES ==========
+
+router.get("/moradores", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const moradores = await storage.getMoradores(condominiumId || undefined);
+    res.json(moradores);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar moradores", details: error?.message });
+  }
+});
+
+router.get("/moradores/:id", requireGestao, async (req, res) => {
+  try {
+    const morador = await storage.getMoradorById(req.params.id);
+    if (!morador) {
+      return res.status(404).json({ error: "Morador não encontrado" });
+    }
+    res.json(morador);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar morador", details: error?.message });
+  }
+});
+
+router.post("/moradores", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(401).json({ error: "Condomínio não selecionado" });
+    }
+    
+    const dataToValidate = {
+      ...req.body,
+      condominiumId,
+    };
+    
+    const validation = insertMoradorSchema.safeParse(dataToValidate);
+    if (!validation.success) {
+      return res.status(400).json({ 
+        error: "Dados inválidos", 
+        details: validation.error.errors 
+      });
+    }
+    
+    // Check for duplicate CPF
+    const existingMorador = await storage.getMoradorByCpf(condominiumId, validation.data.cpf);
+    if (existingMorador) {
+      return res.status(400).json({ error: "CPF já cadastrado neste condomínio" });
+    }
+    
+    const morador = await storage.createMorador(validation.data);
+    res.status(201).json(morador);
+  } catch (error: any) {
+    console.error("[Moradores POST] error:", error?.message || error);
+    res.status(500).json({ 
+      error: "Falha ao criar morador", 
+      details: error?.message || "Erro desconhecido"
+    });
+  }
+});
+
+router.patch("/moradores/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    // Check if CPF is being updated and if it's unique
+    if (req.body.cpf && condominiumId) {
+      const existingMorador = await storage.getMoradorByCpf(condominiumId, req.body.cpf);
+      if (existingMorador && existingMorador.id !== req.params.id) {
+        return res.status(400).json({ error: "CPF já cadastrado neste condomínio" });
+      }
+    }
+    const morador = await storage.updateMorador(req.params.id, req.body);
+    if (!morador) {
+      return res.status(404).json({ error: "Morador não encontrado" });
+    }
+    res.json(morador);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao atualizar morador", details: error?.message });
+  }
+});
+
+router.delete("/moradores/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const deleted = await storage.deleteMorador(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ error: "Morador não encontrado" });
+    }
+    res.status(204).send();
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao excluir morador", details: error?.message });
   }
 });
 

@@ -3746,34 +3746,53 @@ export async function registerRoutes(
   });
 
   app.post("/api/moradores", requireSindicoOrAdmin, async (req, res) => {
+    console.log("=== MORADORES POST CALLED ===");
     try {
       const condominiumId = req.condominiumContext?.condominiumId;
-      console.log("[Moradores POST] condominiumId:", condominiumId);
-      console.log("[Moradores POST] body:", JSON.stringify(req.body));
+      console.log("[MORADOR] condominiumId:", condominiumId);
+      console.log("[MORADOR] body:", JSON.stringify(req.body));
+      
       if (!condominiumId) {
+        console.log("[MORADOR] Error: no condominiumId");
         return res.status(401).json({ error: "Condomínio não selecionado" });
       }
-      const validation = insertMoradorSchema.safeParse({
+      
+      const dataToValidate = {
         ...req.body,
         condominiumId,
-      });
-      console.log("[Moradores POST] validation success:", validation.success);
+      };
+      
+      const validation = insertMoradorSchema.safeParse(dataToValidate);
+      console.log("[MORADOR] validation success:", validation.success);
+      
       if (!validation.success) {
-        console.log("[Moradores POST] validation errors:", validation.error.errors);
-        return res.status(400).json({ error: validation.error.errors });
+        console.log("[MORADOR] validation errors:", JSON.stringify(validation.error.errors));
+        return res.status(400).json({ 
+          error: "Dados inválidos", 
+          details: validation.error.errors 
+        });
       }
+      
       // Check for duplicate CPF
+      console.log("[MORADOR] checking duplicate CPF:", validation.data.cpf);
       const existingMorador = await storage.getMoradorByCpf(condominiumId, validation.data.cpf);
       if (existingMorador) {
+        console.log("[MORADOR] duplicate CPF found");
         return res.status(400).json({ error: "CPF já cadastrado neste condomínio" });
       }
-      console.log("[Moradores POST] creating morador:", JSON.stringify(validation.data));
+      
+      console.log("[MORADOR] creating morador with data:", JSON.stringify(validation.data));
       const morador = await storage.createMorador(validation.data);
-      console.log("[Moradores POST] created morador:", JSON.stringify(morador));
+      console.log("[MORADOR] created successfully:", JSON.stringify(morador));
+      
       res.status(201).json(morador);
     } catch (error: any) {
-      console.error("[Moradores POST] error:", error);
-      res.status(500).json({ error: "Falha ao criar morador" });
+      console.error("[MORADOR] ERROR:", error?.message || error);
+      console.error("[MORADOR] STACK:", error?.stack);
+      res.status(500).json({ 
+        error: "Falha ao criar morador", 
+        details: error?.message || "Erro desconhecido"
+      });
     }
   });
 
