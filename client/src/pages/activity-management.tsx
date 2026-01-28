@@ -36,6 +36,10 @@ import {
   Download,
   MapPin,
   Pencil,
+  Phone,
+  Save,
+  FileDown,
+  Edit,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -256,6 +260,8 @@ export default function ActivityManagement() {
   const [memberTemplateAssignments, setMemberTemplateAssignments] = useState<Record<string, string[]>>({});
   const [expandedMember, setExpandedMember] = useState<string | null>(null);
   const [workflowType, setWorkflowType] = useState<"diario" | "semanal">("diario");
+  const [batchWhatsappMode, setBatchWhatsappMode] = useState<"registered" | "custom" | "none">("registered");
+  const [batchCustomWhatsappNumbers, setBatchCustomWhatsappNumbers] = useState<Record<string, string>>({});
   const [customTasks, setCustomTasks] = useState<CustomTask[]>([]);
   const [isAddingCustomTask, setIsAddingCustomTask] = useState(false);
   const [newCustomTask, setNewCustomTask] = useState<Omit<CustomTask, "id">>({
@@ -326,8 +332,9 @@ export default function ActivityManagement() {
   });
 
   const createListMutation = useMutation({
-    mutationFn: async (data: CreateListFormData & { atividades: ActivityTemplate[]; tarefasPersonalizadas: CustomTask[] }) => {
-      return apiRequest("POST", "/api/activity-lists", data);
+    mutationFn: async (data: CreateListFormData & { atividades: ActivityTemplate[]; tarefasPersonalizadas: CustomTask[] }): Promise<ActivityList> => {
+      const res = await apiRequest("POST", "/api/activity-lists", data);
+      return res.json();
     },
     onSuccess: () => {
       toast({ title: "Lista criada com sucesso!" });
@@ -444,7 +451,7 @@ export default function ActivityManagement() {
     setIsTemplateDialogOpen(false);
   };
 
-  const handleBatchSend = async () => {
+  const handleBatchSend = async (mode: "save" | "whatsapp" | "pdf") => {
     const membersWithAssignments = getMembersWithAssignments();
     
     if (membersWithAssignments.length === 0) {
@@ -464,11 +471,39 @@ export default function ActivityManagement() {
       return;
     }
 
+    // Validate WhatsApp numbers based on mode
+    if (mode === "whatsapp" && batchWhatsappMode !== "none") {
+      const missingNumbers: string[] = [];
+      for (const [membroId] of membersWithAssignments) {
+        const member = teamMembers.find(m => m.id === membroId);
+        if (batchWhatsappMode === "custom") {
+          const customNumber = batchCustomWhatsappNumbers[membroId];
+          if (!customNumber || customNumber.replace(/\D/g, "").length < 10) {
+            missingNumbers.push(member?.name || "Funcionário");
+          }
+        } else if (batchWhatsappMode === "registered") {
+          const registeredNumber = member?.whatsapp?.replace(/\D/g, "") || "";
+          if (!registeredNumber || registeredNumber.length < 10) {
+            missingNumbers.push(member?.name || "Funcionário");
+          }
+        }
+      }
+      if (missingNumbers.length > 0) {
+        toast({ 
+          title: `WhatsApp inválido ou ausente`, 
+          description: `Funcionários: ${missingNumbers.join(", ")}`,
+          variant: "destructive" 
+        });
+        return;
+      }
+    }
+
     setIsBatchSending(true);
     setBatchProgress({ current: 0, total: membersWithAssignments.length });
 
     const results = { success: 0, error: 0 };
     const workflowLabel = workflowType === "diario" ? "Diário" : "Semanal";
+    const createdLists: { list: ActivityList; member: any; items: ActivityListItem[] }[] = [];
 
     for (let i = 0; i < membersWithAssignments.length; i++) {
       const [membroId, templateIds] = membersWithAssignments[i];
@@ -476,18 +511,74 @@ export default function ActivityManagement() {
       const memberTemplates = allTemplates.filter(t => templateIds.includes(t.id));
       
       try {
-        await createListMutation.mutateAsync({
+        const newList = await createListMutation.mutateAsync({
           ...formData,
           membroId,
           titulo: formData.titulo || `Fluxo ${workflowLabel} - ${member?.name || ""} - ${new Date(formData.dataExecucao).toLocaleDateString("pt-BR")}`,
           atividades: memberTemplates,
           tarefasPersonalizadas: customTasks,
         });
+        
+        // Fetch items for PDF generation with auth headers
+        const headers = getAuthHeaders();
+        const itemsRes = await fetch(`/api/activity-lists/${newList.id}/items`, { headers });
+        if (!itemsRes.ok) throw new Error("Erro ao buscar itens da lista");
+        const items = await itemsRes.json();
+        
+        createdLists.push({ list: newList, member, items });
         results.success++;
       } catch (err) {
         results.error++;
       }
       setBatchProgress({ current: i + 1, total: membersWithAssignments.length });
+    }
+
+    // Handle PDF export or WhatsApp sending
+    if (mode === "pdf" && createdLists.length > 0) {
+      for (const { list, member, items } of createdLists) {
+        const { pdfBlob, fileName } = await generatePDF(list, items);
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+      toast({ title: `${createdLists.length} PDF(s) exportado(s)` });
+    } else if (mode === "whatsapp" && createdLists.length > 0) {
+      let whatsappSent = 0;
+      for (const { list, member, items } of createdLists) {
+        const { pdfBlob, fileName } = await generatePDF(list, items);
+        const dataFormatada = new Date(list.dataExecucao).toLocaleDateString("pt-BR");
+        const mensagem = `*Lista de Atividades*\n*${list.titulo}*\nData: ${dataFormatada}\nTurno: ${turnoLabels[list.turno]}\n\nPor favor, confira o PDF anexado com as atividades do dia.`;
+        
+        // Determine WhatsApp number
+        let telefone = "";
+        if (batchWhatsappMode === "registered") {
+          telefone = member?.whatsapp?.replace(/\D/g, "") || "";
+        } else if (batchWhatsappMode === "custom") {
+          telefone = batchCustomWhatsappNumbers[list.membroId]?.replace(/\D/g, "") || "";
+        }
+        
+        if (telefone && telefone.length >= 10) {
+          // Download PDF first
+          const url = URL.createObjectURL(pdfBlob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = fileName;
+          a.click();
+          URL.revokeObjectURL(url);
+          
+          // Open WhatsApp
+          const whatsappUrl = `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
+          window.open(whatsappUrl, "_blank");
+          
+          // Mark as sent
+          await apiRequest("POST", `/api/activity-lists/${list.id}/enviar-whatsapp`);
+          whatsappSent++;
+        }
+      }
+      toast({ title: `PDF baixado e WhatsApp aberto: ${whatsappSent} de ${createdLists.length}` });
     }
 
     setIsBatchSending(false);
@@ -503,6 +594,7 @@ export default function ActivityManagement() {
       setMemberTemplateAssignments({});
       setExpandedMember(null);
       setCustomTasks([]);
+      setBatchCustomWhatsappNumbers({});
       batchForm.reset();
       setActiveTab("historico");
     }
@@ -1501,13 +1593,81 @@ export default function ActivityManagement() {
                 </div>
               )}
 
-              <div className="flex justify-end gap-3">
+              {/* WhatsApp Options */}
+              {getMembersWithAssignments().length > 0 && (
+                <Card className="bg-secondary/50">
+                  <CardContent className="p-4 space-y-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Enviar via WhatsApp:</label>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant={batchWhatsappMode === "registered" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setBatchWhatsappMode("registered")}
+                          data-testid="button-whatsapp-cadastrado"
+                        >
+                          <Phone className="w-4 h-4 mr-2" />
+                          WhatsApp Cadastrado
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={batchWhatsappMode === "custom" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setBatchWhatsappMode("custom")}
+                          data-testid="button-whatsapp-personalizado"
+                        >
+                          <Edit className="w-4 h-4 mr-2" />
+                          Digitar Outro
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={batchWhatsappMode === "none" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setBatchWhatsappMode("none")}
+                          data-testid="button-whatsapp-nenhum"
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Não Enviar
+                        </Button>
+                      </div>
+                    </div>
+
+                    {batchWhatsappMode === "custom" && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Digite os números de WhatsApp:</label>
+                        {getMembersWithAssignments().map(([memberId]) => {
+                          const member = teamMembers.find(m => m.id === memberId);
+                          return (
+                            <div key={memberId} className="flex items-center gap-2">
+                              <span className="text-sm w-32 truncate">{member?.name}:</span>
+                              <Input
+                                placeholder="Ex: 5511999998888"
+                                value={batchCustomWhatsappNumbers[memberId] || ""}
+                                onChange={(e) => setBatchCustomWhatsappNumbers(prev => ({
+                                  ...prev,
+                                  [memberId]: e.target.value
+                                }))}
+                                className="flex-1"
+                                data-testid={`input-whatsapp-custom-${memberId}`}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              <div className="flex flex-wrap justify-end gap-3">
                 <Button
                   variant="outline"
                   onClick={() => {
                     setMemberTemplateAssignments({});
                     setExpandedMember(null);
                     setCustomTasks([]);
+                    setBatchCustomWhatsappNumbers({});
                     batchForm.reset();
                   }}
                   disabled={isBatchSending}
@@ -1516,8 +1676,34 @@ export default function ActivityManagement() {
                   Limpar
                 </Button>
                 <Button
-                  onClick={handleBatchSend}
+                  variant="outline"
+                  onClick={() => handleBatchSend("save")}
                   disabled={isBatchSending || getMembersWithAssignments().length === 0}
+                  data-testid="button-salvar-lote"
+                >
+                  {isBatchSending ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  Apenas Salvar
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleBatchSend("pdf")}
+                  disabled={isBatchSending || getMembersWithAssignments().length === 0}
+                  data-testid="button-exportar-pdf-lote"
+                >
+                  {isBatchSending ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <FileDown className="w-4 h-4 mr-2" />
+                  )}
+                  Salvar + PDF
+                </Button>
+                <Button
+                  onClick={() => handleBatchSend("whatsapp")}
+                  disabled={isBatchSending || getMembersWithAssignments().length === 0 || batchWhatsappMode === "none"}
                   data-testid="button-enviar-lote"
                 >
                   {isBatchSending ? (
@@ -1525,7 +1711,7 @@ export default function ActivityManagement() {
                   ) : (
                     <Send className="w-4 h-4 mr-2" />
                   )}
-                  Criar e Enviar ({getMembersWithAssignments().length} listas)
+                  Salvar + WhatsApp ({getMembersWithAssignments().length})
                 </Button>
               </div>
             </CardContent>
