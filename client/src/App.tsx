@@ -48,6 +48,7 @@ import Moradores from "@/pages/moradores";
 import MarketplaceAdmin from "@/pages/marketplace-admin";
 import Marketplace from "@/pages/marketplace";
 import FornecedorPainel from "@/pages/fornecedor-painel";
+import MarketplaceFornecedor from "@/pages/marketplace-fornecedor";
 import MarketplaceRelatorios from "@/pages/marketplace-relatorios";
 import MarketplaceCampanhas from "@/pages/marketplace-campanhas";
 import TaxasCobrancas from "@/pages/taxas-cobrancas";
@@ -94,6 +95,7 @@ function Router() {
       <Route path="/marketplace-relatorios" component={MarketplaceRelatorios} />
       <Route path="/marketplace-campanhas" component={MarketplaceCampanhas} />
       <Route path="/fornecedor-painel" component={FornecedorPainel} />
+      <Route path="/marketplace-fornecedor" component={MarketplaceFornecedor} />
       <Route component={NotFound} />
     </Switch>
   );

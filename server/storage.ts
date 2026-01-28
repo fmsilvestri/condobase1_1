@@ -117,6 +117,18 @@ import {
   type InsertHospedagem,
   type ConfiguracoesLocacao,
   type InsertConfiguracoesLocacao,
+  type MarketplaceCategoria,
+  type InsertMarketplaceCategoria,
+  type MarketplaceServico,
+  type InsertMarketplaceServico,
+  type MarketplaceFornecedor,
+  type InsertMarketplaceFornecedor,
+  type MarketplaceOferta,
+  type InsertMarketplaceOferta,
+  type MarketplaceContratacao,
+  type InsertMarketplaceContratacao,
+  type MarketplaceAvaliacao,
+  type InsertMarketplaceAvaliacao,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -505,6 +517,80 @@ export interface IStorage {
   // Configurações de Locação
   getConfiguracoesLocacao(condominiumId: string): Promise<ConfiguracoesLocacao | undefined>;
   upsertConfiguracoesLocacao(config: InsertConfiguracoesLocacao): Promise<ConfiguracoesLocacao>;
+
+  // ===========================
+  // MARKETPLACE
+  // ===========================
+
+  // Marketplace Categories
+  getMarketplaceCategorias(condominiumId?: string): Promise<MarketplaceCategoria[]>;
+  getMarketplaceCategoriaById(id: string): Promise<MarketplaceCategoria | undefined>;
+  createMarketplaceCategoria(categoria: InsertMarketplaceCategoria): Promise<MarketplaceCategoria>;
+  updateMarketplaceCategoria(id: string, updates: Partial<InsertMarketplaceCategoria>): Promise<MarketplaceCategoria | undefined>;
+  deleteMarketplaceCategoria(id: string): Promise<boolean>;
+
+  // Marketplace Services
+  getMarketplaceServicos(condominiumId?: string): Promise<MarketplaceServico[]>;
+  getMarketplaceServicoById(id: string): Promise<MarketplaceServico | undefined>;
+  createMarketplaceServico(servico: InsertMarketplaceServico): Promise<MarketplaceServico>;
+  updateMarketplaceServico(id: string, updates: Partial<InsertMarketplaceServico>): Promise<MarketplaceServico | undefined>;
+  deleteMarketplaceServico(id: string): Promise<boolean>;
+
+  // Marketplace Providers
+  getMarketplaceFornecedores(condominiumId?: string): Promise<MarketplaceFornecedor[]>;
+  getMarketplaceFornecedorById(id: string): Promise<MarketplaceFornecedor | undefined>;
+  getMarketplaceFornecedorByUserId(userId: string, condominiumId?: string): Promise<MarketplaceFornecedor | undefined>;
+  createMarketplaceFornecedor(fornecedor: InsertMarketplaceFornecedor): Promise<MarketplaceFornecedor>;
+  updateMarketplaceFornecedor(id: string, updates: Partial<InsertMarketplaceFornecedor>): Promise<MarketplaceFornecedor | undefined>;
+  deleteMarketplaceFornecedor(id: string): Promise<boolean>;
+
+  // Marketplace Offers
+  getMarketplaceOfertas(condominiumId?: string): Promise<MarketplaceOferta[]>;
+  getMarketplaceOfertaById(id: string): Promise<MarketplaceOferta | undefined>;
+  getMarketplaceOfertasByFornecedor(fornecedorId: string): Promise<MarketplaceOferta[]>;
+  createMarketplaceOferta(oferta: InsertMarketplaceOferta): Promise<MarketplaceOferta>;
+  updateMarketplaceOferta(id: string, updates: Partial<InsertMarketplaceOferta>): Promise<MarketplaceOferta | undefined>;
+  deleteMarketplaceOferta(id: string): Promise<boolean>;
+
+  // Marketplace Contracts
+  getMarketplaceContratacoes(condominiumId?: string): Promise<MarketplaceContratacao[]>;
+  getMarketplaceContratacaoById(id: string): Promise<MarketplaceContratacao | undefined>;
+  getMarketplaceContratacoesByMorador(moradorId: string, condominiumId?: string): Promise<MarketplaceContratacao[]>;
+  getMarketplaceContratacoesByFornecedor(fornecedorId: string, condominiumId?: string): Promise<MarketplaceContratacao[]>;
+  createMarketplaceContratacao(contratacao: InsertMarketplaceContratacao): Promise<MarketplaceContratacao>;
+  updateMarketplaceContratacao(id: string, updates: Partial<InsertMarketplaceContratacao>): Promise<MarketplaceContratacao | undefined>;
+
+  // Marketplace Reviews
+  getMarketplaceAvaliacoes(condominiumId?: string): Promise<MarketplaceAvaliacao[]>;
+  getMarketplaceAvaliacaoById(id: string): Promise<MarketplaceAvaliacao | undefined>;
+  getMarketplaceAvaliacoesByFornecedor(fornecedorId: string): Promise<MarketplaceAvaliacao[]>;
+  createMarketplaceAvaliacao(avaliacao: InsertMarketplaceAvaliacao): Promise<MarketplaceAvaliacao>;
+
+  // Marketplace Reports & Recommendations
+  getMarketplaceRelatorios(condominiumId: string): Promise<any>;
+  getMarketplaceRecomendacoes(moradorId: string, condominiumId: string): Promise<any>;
+
+  // Vehicle and Review helper methods for existing routes
+  getVeiculos(condominiumId?: string): Promise<any[]>;
+  getVeiculoById(id: string): Promise<any | undefined>;
+  getVeiculosByMorador(moradorId: string): Promise<any[]>;
+  createVeiculo(veiculo: any): Promise<any>;
+  updateVeiculo(id: string, veiculo: any): Promise<any | undefined>;
+  deleteVeiculo(id: string): Promise<boolean>;
+
+  getAvaliacoes(condominiumId?: string): Promise<any[]>;
+  getAvaliacaoById(id: string): Promise<any | undefined>;
+  getAvaliacoesByFornecedor(fornecedorId: string): Promise<any[]>;
+  createAvaliacao(avaliacao: any): Promise<any>;
+  updateAvaliacao(id: string, avaliacao: any): Promise<any | undefined>;
+  deleteAvaliacao(id: string): Promise<boolean>;
+
+  getFornecedoresByStatus(status: string, condominiumId?: string): Promise<any[]>;
+  aprovarFornecedor(id: string): Promise<any>;
+  bloquearFornecedor(id: string): Promise<any>;
+  getFornecedorByUserId(userId: string): Promise<any | undefined>;
+  getOfertasByFornecedorUserId(userId: string): Promise<any[]>;
+  getContratacoesByFornecedorUserId(userId: string): Promise<any[]>;
 }
 
 export class MemStorage implements IStorage {

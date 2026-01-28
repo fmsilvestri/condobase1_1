@@ -169,6 +169,11 @@ const mainModules = [
     url: "/marketplace",
     icon: Store,
   },
+  {
+    title: "Meu Painel Fornecedor",
+    url: "/marketplace-fornecedor",
+    icon: Store,
+  },
 ];
 
 const secondaryModules = [
@@ -233,6 +238,9 @@ export function AppSidebar({ userName, userRole, onSignOut }: AppSidebarProps) {
   });
 
   const filteredMainModules = mainModules.filter(item => {
+    if (item.url === "/marketplace-fornecedor") {
+      return effectiveRole === "prestador" || isAdmin;
+    }
     const moduleKey = moduleKeyMap[item.url];
     if (!moduleKey) return true;
     return canAccessModule(moduleKey);

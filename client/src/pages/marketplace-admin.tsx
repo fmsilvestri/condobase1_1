@@ -70,17 +70,18 @@ import { useToast } from "@/hooks/use-toast";
 import { useCondominium } from "@/hooks/use-condominium";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
-  tipoServicoOptions,
-  unidadePrecoOptions,
-  type CategoriaServico,
-  type Servico,
-  type FornecedorMarketplace,
-  type Oferta,
+  marketplaceTipoPrecoOptions,
+  type MarketplaceCategoria,
+  type MarketplaceServico,
+  type MarketplaceFornecedor,
+  type MarketplaceOferta,
 } from "@shared/schema";
 
 const categoriaFormSchema = z.object({
   nome: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   descricao: z.string().optional(),
+  icone: z.string().optional(),
+  ordem: z.coerce.number().default(0),
   ativo: z.boolean().default(true),
 });
 
@@ -88,20 +89,17 @@ const servicoFormSchema = z.object({
   categoriaId: z.string().min(1, "Selecione uma categoria"),
   nome: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   descricao: z.string().optional(),
-  tipoServico: z.string().min(1, "Selecione um tipo"),
-  requisitos: z.string().optional(),
   ativo: z.boolean().default(true),
 });
 
 const fornecedorFormSchema = z.object({
-  nomeFantasia: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-  razaoSocial: z.string().optional(),
-  cnpj: z.string().optional(),
+  nomeComercial: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
+  documento: z.string().optional(),
   telefone: z.string().optional(),
   email: z.string().email("Email invalido").optional().or(z.literal("")),
   whatsapp: z.string().optional(),
+  endereco: z.string().optional(),
   descricao: z.string().optional(),
-  ativo: z.boolean().default(true),
 });
 
 const ofertaFormSchema = z.object({
@@ -109,10 +107,10 @@ const ofertaFormSchema = z.object({
   fornecedorId: z.string().min(1, "Selecione um fornecedor"),
   titulo: z.string().min(2, "Titulo deve ter pelo menos 2 caracteres"),
   descricao: z.string().optional(),
-  precoBase: z.coerce.number().min(0).optional(),
-  recorrente: z.boolean().default(false),
-  unidadePreco: z.string().default("avulso"),
-  ativo: z.boolean().default(true),
+  preco: z.coerce.number().min(0).optional(),
+  tipoPreco: z.string().default("fixo"),
+  disponivel: z.boolean().default(true),
+  destaque: z.boolean().default(false),
 });
 
 type CategoriaFormValues = z.infer<typeof categoriaFormSchema>;
@@ -120,20 +118,11 @@ type ServicoFormValues = z.infer<typeof servicoFormSchema>;
 type FornecedorFormValues = z.infer<typeof fornecedorFormSchema>;
 type OfertaFormValues = z.infer<typeof ofertaFormSchema>;
 
-const tipoServicoLabels: Record<string, string> = {
-  veiculo: "Veiculo",
-  pet: "Pet",
-  limpeza: "Limpeza",
-  manutencao: "Manutencao",
-  pessoal: "Pessoal",
-  geral: "Geral",
-};
-
-const unidadePrecoLabels: Record<string, string> = {
-  avulso: "Avulso",
-  mensal: "Mensal",
-  semanal: "Semanal",
-  anual: "Anual",
+const tipoPrecoLabels: Record<string, string> = {
+  fixo: "Fixo",
+  hora: "Por Hora",
+  negociavel: "Negociável",
+  orcamento: "Sob Orçamento",
 };
 
 export default function MarketplaceAdmin() {
@@ -147,58 +136,58 @@ export default function MarketplaceAdmin() {
   const [fornecedorDialogOpen, setFornecedorDialogOpen] = useState(false);
   const [ofertaDialogOpen, setOfertaDialogOpen] = useState(false);
   
-  const [editingCategoria, setEditingCategoria] = useState<CategoriaServico | null>(null);
-  const [editingServico, setEditingServico] = useState<Servico | null>(null);
-  const [editingFornecedor, setEditingFornecedor] = useState<FornecedorMarketplace | null>(null);
-  const [editingOferta, setEditingOferta] = useState<Oferta | null>(null);
+  const [editingCategoria, setEditingCategoria] = useState<MarketplaceCategoria | null>(null);
+  const [editingServico, setEditingServico] = useState<MarketplaceServico | null>(null);
+  const [editingFornecedor, setEditingFornecedor] = useState<MarketplaceFornecedor | null>(null);
+  const [editingOferta, setEditingOferta] = useState<MarketplaceOferta | null>(null);
   
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ type: string; id: string; name: string } | null>(null);
 
   const categoriaForm = useForm<CategoriaFormValues>({
     resolver: zodResolver(categoriaFormSchema),
-    defaultValues: { nome: "", descricao: "", ativo: true },
+    defaultValues: { nome: "", descricao: "", icone: "", ordem: 0, ativo: true },
   });
 
   const servicoForm = useForm<ServicoFormValues>({
     resolver: zodResolver(servicoFormSchema),
-    defaultValues: { categoriaId: "", nome: "", descricao: "", tipoServico: "geral", requisitos: "", ativo: true },
+    defaultValues: { categoriaId: "", nome: "", descricao: "", ativo: true },
   });
 
   const fornecedorForm = useForm<FornecedorFormValues>({
     resolver: zodResolver(fornecedorFormSchema),
-    defaultValues: { nomeFantasia: "", razaoSocial: "", cnpj: "", telefone: "", email: "", whatsapp: "", descricao: "", ativo: true },
+    defaultValues: { nomeComercial: "", documento: "", telefone: "", email: "", whatsapp: "", endereco: "", descricao: "" },
   });
 
   const ofertaForm = useForm<OfertaFormValues>({
     resolver: zodResolver(ofertaFormSchema),
-    defaultValues: { servicoId: "", fornecedorId: "", titulo: "", descricao: "", precoBase: 0, recorrente: false, unidadePreco: "avulso", ativo: true },
+    defaultValues: { servicoId: "", fornecedorId: "", titulo: "", descricao: "", preco: 0, tipoPreco: "fixo", disponivel: true, destaque: false },
   });
 
-  const { data: categorias = [], isLoading: loadingCategorias } = useQuery<CategoriaServico[]>({
-    queryKey: ["/api/categorias-servicos"],
+  const { data: categorias = [], isLoading: loadingCategorias } = useQuery<MarketplaceCategoria[]>({
+    queryKey: ["/api/marketplace/categorias"],
     enabled: !!selectedCondominium,
   });
 
-  const { data: servicos = [], isLoading: loadingServicos } = useQuery<Servico[]>({
-    queryKey: ["/api/servicos"],
+  const { data: servicos = [], isLoading: loadingServicos } = useQuery<MarketplaceServico[]>({
+    queryKey: ["/api/marketplace/servicos"],
     enabled: !!selectedCondominium,
   });
 
-  const { data: fornecedores = [], isLoading: loadingFornecedores } = useQuery<FornecedorMarketplace[]>({
-    queryKey: ["/api/fornecedores-marketplace"],
+  const { data: fornecedores = [], isLoading: loadingFornecedores } = useQuery<MarketplaceFornecedor[]>({
+    queryKey: ["/api/marketplace/fornecedores"],
     enabled: !!selectedCondominium,
   });
 
-  const { data: ofertas = [], isLoading: loadingOfertas } = useQuery<Oferta[]>({
-    queryKey: ["/api/ofertas"],
+  const { data: ofertas = [], isLoading: loadingOfertas } = useQuery<MarketplaceOferta[]>({
+    queryKey: ["/api/marketplace/ofertas"],
     enabled: !!selectedCondominium,
   });
 
   const createCategoriaMutation = useMutation({
-    mutationFn: (data: CategoriaFormValues) => apiRequest("POST", "/api/categorias-servicos", data),
+    mutationFn: (data: CategoriaFormValues) => apiRequest("POST", "/api/marketplace/categorias", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/categorias-servicos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/categorias"] });
       toast({ title: "Categoria criada com sucesso!" });
       setCategoriaDialogOpen(false);
       categoriaForm.reset();
@@ -207,9 +196,9 @@ export default function MarketplaceAdmin() {
   });
 
   const updateCategoriaMutation = useMutation({
-    mutationFn: (data: CategoriaFormValues) => apiRequest("PATCH", `/api/categorias-servicos/${editingCategoria?.id}`, data),
+    mutationFn: (data: CategoriaFormValues) => apiRequest("PATCH", `/api/marketplace/categorias/${editingCategoria?.id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/categorias-servicos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/categorias"] });
       toast({ title: "Categoria atualizada!" });
       setCategoriaDialogOpen(false);
       setEditingCategoria(null);
@@ -219,9 +208,9 @@ export default function MarketplaceAdmin() {
   });
 
   const createServicoMutation = useMutation({
-    mutationFn: (data: ServicoFormValues) => apiRequest("POST", "/api/servicos", data),
+    mutationFn: (data: ServicoFormValues) => apiRequest("POST", "/api/marketplace/servicos", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/servicos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/servicos"] });
       toast({ title: "Servico criado com sucesso!" });
       setServicoDialogOpen(false);
       servicoForm.reset();
@@ -230,9 +219,9 @@ export default function MarketplaceAdmin() {
   });
 
   const updateServicoMutation = useMutation({
-    mutationFn: (data: ServicoFormValues) => apiRequest("PATCH", `/api/servicos/${editingServico?.id}`, data),
+    mutationFn: (data: ServicoFormValues) => apiRequest("PATCH", `/api/marketplace/servicos/${editingServico?.id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/servicos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/servicos"] });
       toast({ title: "Servico atualizado!" });
       setServicoDialogOpen(false);
       setEditingServico(null);
@@ -242,9 +231,9 @@ export default function MarketplaceAdmin() {
   });
 
   const createFornecedorMutation = useMutation({
-    mutationFn: (data: FornecedorFormValues) => apiRequest("POST", "/api/fornecedores-marketplace", data),
+    mutationFn: (data: FornecedorFormValues) => apiRequest("POST", "/api/marketplace/fornecedores", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/fornecedores-marketplace"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/fornecedores"] });
       toast({ title: "Fornecedor criado com sucesso!" });
       setFornecedorDialogOpen(false);
       fornecedorForm.reset();
@@ -253,9 +242,9 @@ export default function MarketplaceAdmin() {
   });
 
   const updateFornecedorMutation = useMutation({
-    mutationFn: (data: FornecedorFormValues) => apiRequest("PATCH", `/api/fornecedores-marketplace/${editingFornecedor?.id}`, data),
+    mutationFn: (data: FornecedorFormValues) => apiRequest("PATCH", `/api/marketplace/fornecedores/${editingFornecedor?.id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/fornecedores-marketplace"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/fornecedores"] });
       toast({ title: "Fornecedor atualizado!" });
       setFornecedorDialogOpen(false);
       setEditingFornecedor(null);
@@ -265,9 +254,9 @@ export default function MarketplaceAdmin() {
   });
 
   const createOfertaMutation = useMutation({
-    mutationFn: (data: OfertaFormValues) => apiRequest("POST", "/api/ofertas", data),
+    mutationFn: (data: OfertaFormValues) => apiRequest("POST", "/api/marketplace/ofertas", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/ofertas"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/ofertas"] });
       toast({ title: "Oferta criada com sucesso!" });
       setOfertaDialogOpen(false);
       ofertaForm.reset();
@@ -276,9 +265,9 @@ export default function MarketplaceAdmin() {
   });
 
   const updateOfertaMutation = useMutation({
-    mutationFn: (data: OfertaFormValues) => apiRequest("PATCH", `/api/ofertas/${editingOferta?.id}`, data),
+    mutationFn: (data: OfertaFormValues) => apiRequest("PATCH", `/api/marketplace/ofertas/${editingOferta?.id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/ofertas"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/ofertas"] });
       toast({ title: "Oferta atualizada!" });
       setOfertaDialogOpen(false);
       setEditingOferta(null);
@@ -291,19 +280,19 @@ export default function MarketplaceAdmin() {
     mutationFn: () => {
       if (!itemToDelete) return Promise.reject();
       const endpoints: Record<string, string> = {
-        categoria: "/api/categorias-servicos",
-        servico: "/api/servicos",
-        fornecedor: "/api/fornecedores-marketplace",
-        oferta: "/api/ofertas",
+        categoria: "/api/marketplace/categorias",
+        servico: "/api/marketplace/servicos",
+        fornecedor: "/api/marketplace/fornecedores",
+        oferta: "/api/marketplace/ofertas",
       };
       return apiRequest("DELETE", `${endpoints[itemToDelete.type]}/${itemToDelete.id}`, undefined);
     },
     onSuccess: () => {
       const queryKeys: Record<string, string> = {
-        categoria: "/api/categorias-servicos",
-        servico: "/api/servicos",
-        fornecedor: "/api/fornecedores-marketplace",
-        oferta: "/api/ofertas",
+        categoria: "/api/marketplace/categorias",
+        servico: "/api/marketplace/servicos",
+        fornecedor: "/api/marketplace/fornecedores",
+        oferta: "/api/marketplace/ofertas",
       };
       if (itemToDelete) {
         queryClient.invalidateQueries({ queryKey: [queryKeys[itemToDelete.type]] });
@@ -316,9 +305,9 @@ export default function MarketplaceAdmin() {
   });
 
   const aproveFornecedorMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("PATCH", `/api/fornecedores-marketplace/${id}/aprovar`, undefined),
+    mutationFn: (id: string) => apiRequest("POST", `/api/marketplace/fornecedores/${id}/aprovar`, undefined),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/fornecedores-marketplace"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/fornecedores"] });
       toast({ title: "Fornecedor aprovado com sucesso!" });
     },
     onError: () => toast({ title: "Erro ao aprovar fornecedor", variant: "destructive" }),
@@ -330,9 +319,9 @@ export default function MarketplaceAdmin() {
 
   const bloquearFornecedorMutation = useMutation({
     mutationFn: ({ id, motivo }: { id: string; motivo: string }) => 
-      apiRequest("PATCH", `/api/fornecedores-marketplace/${id}/bloquear`, { motivo }),
+      apiRequest("POST", `/api/marketplace/fornecedores/${id}/bloquear`, { motivo }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/fornecedores-marketplace"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/fornecedores"] });
       toast({ title: "Fornecedor bloqueado." });
       setBlockDialogOpen(false);
       setFornecedorToBlock(null);
@@ -341,60 +330,59 @@ export default function MarketplaceAdmin() {
     onError: () => toast({ title: "Erro ao bloquear fornecedor", variant: "destructive" }),
   });
 
-  const handleBlockFornecedor = (fornecedor: FornecedorMarketplace) => {
-    setFornecedorToBlock({ id: fornecedor.id, name: fornecedor.nomeFantasia });
+  const handleBlockFornecedor = (fornecedor: MarketplaceFornecedor) => {
+    setFornecedorToBlock({ id: fornecedor.id, name: fornecedor.nomeComercial });
     setBlockDialogOpen(true);
   };
 
-  const handleEditCategoria = (categoria: CategoriaServico) => {
+  const handleEditCategoria = (categoria: MarketplaceCategoria) => {
     setEditingCategoria(categoria);
     categoriaForm.reset({
       nome: categoria.nome,
       descricao: categoria.descricao || "",
+      icone: categoria.icone || "",
+      ordem: categoria.ordem || 0,
       ativo: categoria.ativo,
     });
     setCategoriaDialogOpen(true);
   };
 
-  const handleEditServico = (servico: Servico) => {
+  const handleEditServico = (servico: MarketplaceServico) => {
     setEditingServico(servico);
     servicoForm.reset({
       categoriaId: servico.categoriaId,
       nome: servico.nome,
       descricao: servico.descricao || "",
-      tipoServico: servico.tipoServico,
-      requisitos: servico.requisitos || "",
       ativo: servico.ativo,
     });
     setServicoDialogOpen(true);
   };
 
-  const handleEditFornecedor = (fornecedor: FornecedorMarketplace) => {
+  const handleEditFornecedor = (fornecedor: MarketplaceFornecedor) => {
     setEditingFornecedor(fornecedor);
     fornecedorForm.reset({
-      nomeFantasia: fornecedor.nomeFantasia,
-      razaoSocial: fornecedor.razaoSocial || "",
-      cnpj: fornecedor.cnpj || "",
+      nomeComercial: fornecedor.nomeComercial,
+      documento: fornecedor.documento || "",
       telefone: fornecedor.telefone || "",
       email: fornecedor.email || "",
       whatsapp: fornecedor.whatsapp || "",
+      endereco: fornecedor.endereco || "",
       descricao: fornecedor.descricao || "",
-      ativo: fornecedor.ativo,
     });
     setFornecedorDialogOpen(true);
   };
 
-  const handleEditOferta = (oferta: Oferta) => {
+  const handleEditOferta = (oferta: MarketplaceOferta) => {
     setEditingOferta(oferta);
     ofertaForm.reset({
       servicoId: oferta.servicoId,
       fornecedorId: oferta.fornecedorId,
       titulo: oferta.titulo,
       descricao: oferta.descricao || "",
-      precoBase: oferta.precoBase || 0,
-      recorrente: oferta.recorrente || false,
-      unidadePreco: oferta.unidadePreco || "avulso",
-      ativo: oferta.ativo,
+      preco: oferta.preco || 0,
+      tipoPreco: oferta.tipoPreco || "fixo",
+      disponivel: oferta.disponivel,
+      destaque: oferta.destaque || false,
     });
     setOfertaDialogOpen(true);
   };
@@ -445,7 +433,7 @@ export default function MarketplaceAdmin() {
   );
 
   const filteredFornecedores = fornecedores.filter(f =>
-    f.nomeFantasia.toLowerCase().includes(searchTerm.toLowerCase())
+    f.nomeComercial.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const filteredOfertas = ofertas.filter(o =>
@@ -454,7 +442,7 @@ export default function MarketplaceAdmin() {
 
   const getCategoriaName = (id: string) => categorias.find(c => c.id === id)?.nome || "-";
   const getServicoName = (id: string) => servicos.find(s => s.id === id)?.nome || "-";
-  const getFornecedorName = (id: string) => fornecedores.find(f => f.id === id)?.nomeFantasia || "-";
+  const getFornecedorName = (id: string) => fornecedores.find(f => f.id === id)?.nomeComercial || "-";
 
   if (!selectedCondominium) {
     return (
@@ -580,7 +568,6 @@ export default function MarketplaceAdmin() {
                     <CardDescription>{getCategoriaName(servico.categoriaId)}</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <Badge variant="outline" className="mb-2">{tipoServicoLabels[servico.tipoServico]}</Badge>
                     <p className="text-sm text-muted-foreground mb-4">{servico.descricao || "Sem descricao"}</p>
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline" onClick={() => handleEditServico(servico)} data-testid={`button-edit-servico-${servico.id}`}>
@@ -617,7 +604,7 @@ export default function MarketplaceAdmin() {
                 <Card key={fornecedor.id} data-testid={`card-fornecedor-${fornecedor.id}`}>
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <CardTitle className="text-lg">{fornecedor.nomeFantasia}</CardTitle>
+                      <CardTitle className="text-lg">{fornecedor.nomeComercial}</CardTitle>
                       <div className="flex gap-1 flex-wrap">
                         {fornecedor.statusAprovacao === "aprovado" && (
                           <Badge variant="default" className="bg-green-600">
@@ -721,7 +708,7 @@ export default function MarketplaceAdmin() {
                       <Button size="sm" variant="outline" onClick={() => handleEditFornecedor(fornecedor)} data-testid={`button-edit-fornecedor-${fornecedor.id}`}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleDelete("fornecedor", fornecedor.id, fornecedor.nomeFantasia)} data-testid={`button-delete-fornecedor-${fornecedor.id}`}>
+                      <Button size="sm" variant="outline" onClick={() => handleDelete("fornecedor", fornecedor.id, fornecedor.nomeComercial)} data-testid={`button-delete-fornecedor-${fornecedor.id}`}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -751,29 +738,31 @@ export default function MarketplaceAdmin() {
               {filteredOfertas.map(oferta => (
                 <Card key={oferta.id} data-testid={`card-oferta-${oferta.id}`}>
                   <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
                       <CardTitle className="text-lg">{oferta.titulo}</CardTitle>
-                      <Badge variant={oferta.ativo ? "default" : "secondary"}>
-                        {oferta.ativo ? "Ativo" : "Inativo"}
-                      </Badge>
+                      <div className="flex gap-1">
+                        <Badge variant={oferta.disponivel ? "default" : "secondary"}>
+                          {oferta.disponivel ? "Disponível" : "Indisponível"}
+                        </Badge>
+                        {oferta.destaque && (
+                          <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
+                            <Star className="h-3 w-3 mr-1" />
+                            Destaque
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <CardDescription>{getServicoName(oferta.servicoId)} - {getFornecedorName(oferta.fornecedorId)}</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2 mb-4">
-                      {oferta.precoBase ? (
+                      {oferta.preco ? (
                         <div className="flex items-center gap-2">
                           <DollarSign className="h-4 w-4 text-green-600" />
-                          <span className="font-semibold">R$ {oferta.precoBase.toFixed(2)}</span>
-                          <Badge variant="outline">{unidadePrecoLabels[oferta.unidadePreco || "avulso"]}</Badge>
+                          <span className="font-semibold">R$ {oferta.preco.toFixed(2)}</span>
+                          <Badge variant="outline">{tipoPrecoLabels[oferta.tipoPreco || "fixo"]}</Badge>
                         </div>
                       ) : null}
-                      {oferta.recorrente && (
-                        <Badge variant="outline">
-                          <RefreshCw className="h-3 w-3 mr-1" />
-                          Recorrente
-                        </Badge>
-                      )}
                       <p className="text-sm text-muted-foreground">{oferta.descricao || "Sem descricao"}</p>
                     </div>
                     <div className="flex gap-2">
@@ -861,20 +850,6 @@ export default function MarketplaceAdmin() {
                   <FormMessage />
                 </FormItem>
               )} />
-              <FormField control={servicoForm.control} name="tipoServico" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tipo de Servico</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger data-testid="select-servico-tipo"><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {tipoServicoOptions.map(t => (
-                        <SelectItem key={t} value={t}>{tipoServicoLabels[t]}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
               <FormField control={servicoForm.control} name="descricao" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Descricao</FormLabel>
@@ -908,26 +883,17 @@ export default function MarketplaceAdmin() {
           </DialogHeader>
           <Form {...fornecedorForm}>
             <form onSubmit={fornecedorForm.handleSubmit(onSubmitFornecedor)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <FormField control={fornecedorForm.control} name="nomeFantasia" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome Fantasia</FormLabel>
-                    <FormControl><Input {...field} data-testid="input-fornecedor-nome" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={fornecedorForm.control} name="razaoSocial" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Razao Social</FormLabel>
-                    <FormControl><Input {...field} data-testid="input-fornecedor-razao" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              </div>
-              <FormField control={fornecedorForm.control} name="cnpj" render={({ field }) => (
+              <FormField control={fornecedorForm.control} name="nomeComercial" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>CNPJ</FormLabel>
-                  <FormControl><Input {...field} data-testid="input-fornecedor-cnpj" /></FormControl>
+                  <FormLabel>Nome Comercial</FormLabel>
+                  <FormControl><Input {...field} data-testid="input-fornecedor-nome" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={fornecedorForm.control} name="documento" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Documento (CPF/CNPJ)</FormLabel>
+                  <FormControl><Input {...field} data-testid="input-fornecedor-documento" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -954,17 +920,18 @@ export default function MarketplaceAdmin() {
                   <FormMessage />
                 </FormItem>
               )} />
+              <FormField control={fornecedorForm.control} name="endereco" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Endereco</FormLabel>
+                  <FormControl><Input {...field} data-testid="input-fornecedor-endereco" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
               <FormField control={fornecedorForm.control} name="descricao" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Descricao</FormLabel>
                   <FormControl><Textarea {...field} data-testid="input-fornecedor-descricao" /></FormControl>
                   <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={fornecedorForm.control} name="ativo" render={({ field }) => (
-                <FormItem className="flex items-center justify-between rounded-lg border p-3">
-                  <FormLabel>Ativo</FormLabel>
-                  <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-fornecedor-ativo" /></FormControl>
                 </FormItem>
               )} />
               <div className="flex justify-end gap-2">
@@ -1007,8 +974,8 @@ export default function MarketplaceAdmin() {
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger data-testid="select-oferta-fornecedor"><SelectValue placeholder="Selecione" /></SelectTrigger></FormControl>
                     <SelectContent>
-                      {fornecedores.filter(f => f.ativo).map(f => (
-                        <SelectItem key={f.id} value={f.id}>{f.nomeFantasia}</SelectItem>
+                      {fornecedores.filter(f => f.status === "aprovado").map(f => (
+                        <SelectItem key={f.id} value={f.id}>{f.nomeComercial}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -1023,21 +990,21 @@ export default function MarketplaceAdmin() {
                 </FormItem>
               )} />
               <div className="grid grid-cols-2 gap-4">
-                <FormField control={ofertaForm.control} name="precoBase" render={({ field }) => (
+                <FormField control={ofertaForm.control} name="preco" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Preco Base (R$)</FormLabel>
+                    <FormLabel>Preco (R$)</FormLabel>
                     <FormControl><Input {...field} type="number" step="0.01" data-testid="input-oferta-preco" /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
-                <FormField control={ofertaForm.control} name="unidadePreco" render={({ field }) => (
+                <FormField control={ofertaForm.control} name="tipoPreco" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Unidade</FormLabel>
+                    <FormLabel>Tipo de Preco</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl><SelectTrigger data-testid="select-oferta-unidade"><SelectValue /></SelectTrigger></FormControl>
+                      <FormControl><SelectTrigger data-testid="select-oferta-tipo-preco"><SelectValue /></SelectTrigger></FormControl>
                       <SelectContent>
-                        {unidadePrecoOptions.map(u => (
-                          <SelectItem key={u} value={u}>{unidadePrecoLabels[u]}</SelectItem>
+                        {marketplaceTipoPrecoOptions.map(t => (
+                          <SelectItem key={t} value={t}>{tipoPrecoLabels[t]}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -1053,16 +1020,16 @@ export default function MarketplaceAdmin() {
                 </FormItem>
               )} />
               <div className="grid grid-cols-2 gap-4">
-                <FormField control={ofertaForm.control} name="recorrente" render={({ field }) => (
+                <FormField control={ofertaForm.control} name="disponivel" render={({ field }) => (
                   <FormItem className="flex items-center justify-between rounded-lg border p-3">
-                    <FormLabel>Recorrente</FormLabel>
-                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-oferta-recorrente" /></FormControl>
+                    <FormLabel>Disponível</FormLabel>
+                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-oferta-disponivel" /></FormControl>
                   </FormItem>
                 )} />
-                <FormField control={ofertaForm.control} name="ativo" render={({ field }) => (
+                <FormField control={ofertaForm.control} name="destaque" render={({ field }) => (
                   <FormItem className="flex items-center justify-between rounded-lg border p-3">
-                    <FormLabel>Ativo</FormLabel>
-                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-oferta-ativo" /></FormControl>
+                    <FormLabel>Destaque</FormLabel>
+                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-oferta-destaque" /></FormControl>
                   </FormItem>
                 )} />
               </div>

@@ -49,19 +49,19 @@ import { useToast } from "@/hooks/use-toast";
 import { useCondominium } from "@/hooks/use-condominium";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
-  type CategoriaServico,
-  type Servico,
-  type FornecedorMarketplace,
-  type Oferta,
-  type Contratacao,
-  type Morador,
-  statusContratacaoOptions,
+  type MarketplaceCategoria,
+  type MarketplaceServico,
+  type MarketplaceFornecedor,
+  type MarketplaceOferta,
+  type MarketplaceContratacao,
+  type MarketplaceAvaliacao,
+  marketplaceStatusContratacaoOptions,
 } from "@shared/schema";
 
-interface OfertaEnriquecida extends Oferta {
-  servico?: Servico;
-  fornecedor?: FornecedorMarketplace;
-  categoria?: CategoriaServico;
+interface OfertaEnriquecida extends MarketplaceOferta {
+  servico?: MarketplaceServico;
+  fornecedor?: MarketplaceFornecedor;
+  categoria?: MarketplaceCategoria;
 }
 
 const tipoServicoIcons: Record<string, any> = {
@@ -84,7 +84,7 @@ const tipoServicoLabels: Record<string, string> = {
 
 const statusLabels: Record<string, string> = {
   solicitado: "Solicitado",
-  aceito: "Aceito",
+  confirmado: "Confirmado",
   em_execucao: "Em Execucao",
   concluido: "Concluido",
   cancelado: "Cancelado",
@@ -92,92 +92,96 @@ const statusLabels: Record<string, string> = {
 
 const statusColors: Record<string, string> = {
   solicitado: "bg-yellow-100 text-yellow-800",
-  aceito: "bg-blue-100 text-blue-800",
+  confirmado: "bg-blue-100 text-blue-800",
   em_execucao: "bg-purple-100 text-purple-800",
   concluido: "bg-green-100 text-green-800",
   cancelado: "bg-red-100 text-red-800",
 };
 
-const unidadePrecoLabels: Record<string, string> = {
-  avulso: "Avulso",
-  mensal: "Mensal",
-  semanal: "Semanal",
-  anual: "Anual",
+const tipoPrecoLabels: Record<string, string> = {
+  fixo: "Preco Fixo",
+  hora: "Por Hora",
+  orcamento: "Sob Orcamento",
+  negociavel: "Negociavel",
 };
 
 export default function Marketplace() {
   const { toast } = useToast();
   const { selectedCondominium } = useCondominium();
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterTipo, setFilterTipo] = useState<string>("todos");
   const [filterCategoria, setFilterCategoria] = useState<string>("todas");
   const [activeTab, setActiveTab] = useState("ofertas");
   
   const [contratarDialogOpen, setContratarDialogOpen] = useState(false);
   const [selectedOferta, setSelectedOferta] = useState<OfertaEnriquecida | null>(null);
   const [observacoes, setObservacoes] = useState("");
-  const [selectedMoradorId, setSelectedMoradorId] = useState<string>("");
   
   const [avaliarDialogOpen, setAvaliarDialogOpen] = useState(false);
-  const [selectedContratacao, setSelectedContratacao] = useState<Contratacao | null>(null);
+  const [selectedContratacao, setSelectedContratacao] = useState<MarketplaceContratacao | null>(null);
   const [avaliacao, setAvaliacao] = useState(5);
   const [comentarioAvaliacao, setComentarioAvaliacao] = useState("");
 
-  const { data: marketplace = [], isLoading: loadingMarketplace } = useQuery<OfertaEnriquecida[]>({
-    queryKey: ["/api/marketplace"],
+  const { data: categorias = [] } = useQuery<MarketplaceCategoria[]>({
+    queryKey: ["/api/marketplace/categorias"],
     enabled: !!selectedCondominium,
   });
 
-  const { data: categorias = [] } = useQuery<CategoriaServico[]>({
-    queryKey: ["/api/categorias-servicos"],
+  const { data: servicos = [] } = useQuery<MarketplaceServico[]>({
+    queryKey: ["/api/marketplace/servicos"],
     enabled: !!selectedCondominium,
   });
 
-  const { data: moradores = [] } = useQuery<Morador[]>({
-    queryKey: ["/api/moradores"],
+  const { data: fornecedores = [] } = useQuery<MarketplaceFornecedor[]>({
+    queryKey: ["/api/marketplace/fornecedores"],
     enabled: !!selectedCondominium,
   });
 
-  const { data: contratacoes = [], isLoading: loadingContratacoes } = useQuery<Contratacao[]>({
-    queryKey: ["/api/contratacoes"],
+  const { data: ofertas = [], isLoading: loadingOfertas } = useQuery<MarketplaceOferta[]>({
+    queryKey: ["/api/marketplace/ofertas"],
     enabled: !!selectedCondominium,
   });
 
-  const { data: ofertas = [] } = useQuery<Oferta[]>({
-    queryKey: ["/api/ofertas"],
+  const { data: contratacoes = [], isLoading: loadingContratacoes } = useQuery<MarketplaceContratacao[]>({
+    queryKey: ["/api/marketplace/contratacoes/morador"],
     enabled: !!selectedCondominium,
   });
 
-  const { data: servicos = [] } = useQuery<Servico[]>({
-    queryKey: ["/api/servicos"],
+  const { data: avaliacoes = [] } = useQuery<MarketplaceAvaliacao[]>({
+    queryKey: ["/api/marketplace/avaliacoes"],
     enabled: !!selectedCondominium,
   });
 
-  const { data: fornecedores = [] } = useQuery<FornecedorMarketplace[]>({
-    queryKey: ["/api/fornecedores-marketplace"],
-    enabled: !!selectedCondominium,
-  });
+  const marketplace: OfertaEnriquecida[] = ofertas.map(oferta => ({
+    ...oferta,
+    servico: servicos.find(s => s.id === oferta.servicoId),
+    fornecedor: fornecedores.find(f => f.id === oferta.fornecedorId),
+    categoria: servicos.find(s => s.id === oferta.servicoId)?.categoriaId 
+      ? categorias.find(c => c.id === servicos.find(s => s.id === oferta.servicoId)?.categoriaId)
+      : undefined,
+  }));
+
+  const loadingMarketplace = loadingOfertas;
 
   const contratarMutation = useMutation({
-    mutationFn: (data: { ofertaId: string; moradorId: string; observacoes?: string }) =>
-      apiRequest("POST", "/api/contratacoes", data),
+    mutationFn: (data: { ofertaId: string; fornecedorId: string; observacoes?: string; valor?: number }) =>
+      apiRequest("POST", "/api/marketplace/contratacoes", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/contratacoes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/contratacoes/morador"] });
       toast({ title: "Servico contratado com sucesso!" });
       setContratarDialogOpen(false);
       setSelectedOferta(null);
       setObservacoes("");
-      setSelectedMoradorId("");
     },
     onError: () => toast({ title: "Erro ao contratar servico", variant: "destructive" }),
   });
 
   const avaliarMutation = useMutation({
-    mutationFn: (data: { avaliacao: number; comentarioAvaliacao: string }) =>
-      apiRequest("PATCH", `/api/contratacoes/${selectedContratacao?.id}/avaliar`, data),
+    mutationFn: (data: { contratacaoId: string; fornecedorId: string; nota: number; comentario?: string }) =>
+      apiRequest("POST", "/api/marketplace/avaliacoes", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/contratacoes"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/fornecedores-marketplace"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/contratacoes/morador"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/fornecedores"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/avaliacoes"] });
       toast({ title: "Avaliacao enviada!" });
       setAvaliarDialogOpen(false);
       setSelectedContratacao(null);
@@ -192,49 +196,55 @@ export default function Marketplace() {
     setContratarDialogOpen(true);
   };
 
-  const handleAvaliar = (contratacao: Contratacao) => {
+  const handleAvaliar = (contratacao: MarketplaceContratacao) => {
     setSelectedContratacao(contratacao);
     setAvaliarDialogOpen(true);
   };
 
   const submitContratacao = () => {
-    if (!selectedOferta || !selectedMoradorId) return;
+    if (!selectedOferta) return;
     contratarMutation.mutate({
       ofertaId: selectedOferta.id,
-      moradorId: selectedMoradorId,
+      fornecedorId: selectedOferta.fornecedorId,
       observacoes: observacoes || undefined,
+      valor: selectedOferta.preco || undefined,
     });
   };
 
   const submitAvaliacao = () => {
     if (!selectedContratacao) return;
-    avaliarMutation.mutate({ avaliacao, comentarioAvaliacao });
+    avaliarMutation.mutate({ 
+      contratacaoId: selectedContratacao.id,
+      fornecedorId: selectedContratacao.fornecedorId,
+      nota: avaliacao, 
+      comentario: comentarioAvaliacao || undefined
+    });
   };
 
-  const getOfertaInfo = (ofertaId: string) => {
+  const getOfertaInfo = (ofertaId: string | null) => {
+    if (!ofertaId) return { oferta: null, servico: null, fornecedor: null };
     const oferta = ofertas.find(o => o.id === ofertaId);
     const servico = oferta ? servicos.find(s => s.id === oferta.servicoId) : null;
     const fornecedor = oferta ? fornecedores.find(f => f.id === oferta.fornecedorId) : null;
     return { oferta, servico, fornecedor };
   };
 
-  const getMoradorName = (moradorId: string) => {
-    const morador = moradores.find(m => m.id === moradorId);
-    return morador?.nomeCompleto || "-";
+  const getFornecedorNome = (fornecedorId: string) => {
+    const fornecedor = fornecedores.find(f => f.id === fornecedorId);
+    return fornecedor?.nomeComercial || "-";
   };
 
   const filteredMarketplace = marketplace.filter(oferta => {
     const matchesSearch = oferta.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      oferta.servico?.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      oferta.fornecedor?.nomeFantasia.toLowerCase().includes(searchTerm.toLowerCase());
+      oferta.servico?.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      oferta.fornecedor?.nomeComercial?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesTipo = filterTipo === "todos" || oferta.servico?.tipoServico === filterTipo;
     const matchesCategoria = filterCategoria === "todas" || oferta.servico?.categoriaId === filterCategoria;
     
-    return matchesSearch && matchesTipo && matchesCategoria;
+    return matchesSearch && matchesCategoria;
   });
 
-  const tiposDisponiveis = Array.from(new Set(marketplace.map(o => o.servico?.tipoServico).filter(Boolean))) as string[];
+  const categoriasDisponiveis = categorias.filter(c => c.ativo);
 
   if (!selectedCondominium) {
     return (
@@ -281,18 +291,6 @@ export default function Marketplace() {
               />
             </div>
             <div className="flex gap-2">
-              <Select value={filterTipo} onValueChange={setFilterTipo}>
-                <SelectTrigger className="w-40" data-testid="select-filter-tipo">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos os tipos</SelectItem>
-                  {tiposDisponiveis.map(tipo => (
-                    <SelectItem key={tipo} value={tipo}>{tipoServicoLabels[tipo]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               <Select value={filterCategoria} onValueChange={setFilterCategoria}>
                 <SelectTrigger className="w-48" data-testid="select-filter-categoria">
                   <Tag className="h-4 w-4 mr-2" />
@@ -300,7 +298,7 @@ export default function Marketplace() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todas">Todas categorias</SelectItem>
-                  {categorias.filter(c => c.ativo).map(cat => (
+                  {categoriasDisponiveis.map(cat => (
                     <SelectItem key={cat.id} value={cat.id}>{cat.nome}</SelectItem>
                   ))}
                 </SelectContent>
@@ -316,14 +314,14 @@ export default function Marketplace() {
             <EmptyState
               icon={Store}
               title="Nenhuma oferta encontrada"
-              description={searchTerm || filterTipo !== "todos" || filterCategoria !== "todas"
+              description={searchTerm || filterCategoria !== "todas"
                 ? "Tente ajustar os filtros de busca."
                 : "Ainda nao ha ofertas disponiveis no marketplace."}
             />
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredMarketplace.map(oferta => {
-                const TipoIcon = oferta.servico?.tipoServico ? tipoServicoIcons[oferta.servico.tipoServico] : Package;
+                const TipoIcon = oferta.categoria?.icone ? tipoServicoIcons[oferta.categoria.icone] || Package : Package;
                 return (
                   <Card key={oferta.id} className="flex flex-col" data-testid={`card-oferta-${oferta.id}`}>
                     <CardHeader className="pb-2">
@@ -352,7 +350,7 @@ export default function Marketplace() {
                         {oferta.fornecedor && (
                           <div className="p-3 rounded-lg bg-muted/50 space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="font-medium text-sm">{oferta.fornecedor.nomeFantasia}</span>
+                              <span className="font-medium text-sm">{oferta.fornecedor.nomeComercial}</span>
                               {oferta.fornecedor.avaliacaoMedia ? (
                                 <div className="flex items-center gap-1">
                                   <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
@@ -383,20 +381,20 @@ export default function Marketplace() {
                           </div>
                         )}
 
-                        {oferta.precoBase ? (
+                        {oferta.preco ? (
                           <div className="flex items-center gap-2">
                             <DollarSign className="h-5 w-5 text-green-600" />
-                            <span className="text-xl font-bold">R$ {oferta.precoBase.toFixed(2)}</span>
-                            <Badge variant="secondary">{unidadePrecoLabels[oferta.unidadePreco || "avulso"]}</Badge>
+                            <span className="text-xl font-bold">R$ {Number(oferta.preco).toFixed(2)}</span>
+                            <Badge variant="secondary">{tipoPrecoLabels[oferta.tipoPreco || "avulso"]}</Badge>
                           </div>
                         ) : (
                           <Badge variant="outline">Consultar preco</Badge>
                         )}
 
-                        {oferta.recorrente && (
+                        {oferta.destaque && (
                           <Badge variant="outline">
-                            <RefreshCw className="h-3 w-3 mr-1" />
-                            Recorrente
+                            <Star className="h-3 w-3 mr-1" />
+                            Destaque
                           </Badge>
                         )}
                       </div>
@@ -441,32 +439,29 @@ export default function Marketplace() {
                             </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            {servico?.nome} - {fornecedor?.nomeFantasia}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Morador: {getMoradorName(contratacao.moradorId)}
+                            {servico?.nome} - {fornecedor?.nomeComercial || getFornecedorNome(contratacao.fornecedorId)}
                           </p>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Clock className="h-4 w-4" />
-                            <span>Solicitado em: {contratacao.dataSolicitacao ? new Date(contratacao.dataSolicitacao).toLocaleDateString("pt-BR") : "-"}</span>
+                            <span>Solicitado em: {contratacao.createdAt ? new Date(contratacao.createdAt).toLocaleDateString("pt-BR") : "-"}</span>
                           </div>
                           {contratacao.observacoes && (
                             <p className="text-sm mt-2 p-2 bg-muted rounded">{contratacao.observacoes}</p>
                           )}
                         </div>
                         <div className="flex gap-2">
-                          {contratacao.status === "concluido" && !contratacao.avaliacao && (
+                          {contratacao.status === "concluido" && !avaliacoes.find(a => a.contratacaoId === contratacao.id) && (
                             <Button size="sm" onClick={() => handleAvaliar(contratacao)} data-testid={`button-avaliar-${contratacao.id}`}>
                               <Star className="h-4 w-4 mr-2" />
                               Avaliar
                             </Button>
                           )}
-                          {contratacao.avaliacao && (
+                          {avaliacoes.find(a => a.contratacaoId === contratacao.id) && (
                             <div className="flex items-center gap-1">
                               {[1, 2, 3, 4, 5].map(i => (
                                 <Star
                                   key={i}
-                                  className={`h-4 w-4 ${i <= contratacao.avaliacao! ? "text-yellow-500 fill-yellow-500" : "text-gray-300"}`}
+                                  className={`h-4 w-4 ${i <= (avaliacoes.find(a => a.contratacaoId === contratacao.id)?.nota || 0) ? "text-yellow-500 fill-yellow-500" : "text-gray-300"}`}
                                 />
                               ))}
                             </div>
@@ -491,21 +486,12 @@ export default function Marketplace() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Morador</label>
-              <Select value={selectedMoradorId} onValueChange={setSelectedMoradorId}>
-                <SelectTrigger data-testid="select-morador">
-                  <SelectValue placeholder="Selecione o morador" />
-                </SelectTrigger>
-                <SelectContent>
-                  {moradores.filter(m => m.status === "ativo").map(morador => (
-                    <SelectItem key={morador.id} value={morador.id}>
-                      {morador.nomeCompleto} - {morador.bloco}/{morador.unidade}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {selectedOferta?.preco && (
+              <div className="p-3 rounded-lg bg-muted">
+                <span className="text-sm text-muted-foreground">Valor:</span>
+                <span className="ml-2 font-semibold">R$ {selectedOferta.preco.toFixed(2)}</span>
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium mb-2 block">Observacoes (opcional)</label>
               <Textarea
@@ -515,12 +501,12 @@ export default function Marketplace() {
                 data-testid="input-observacoes"
               />
             </div>
-            {selectedOferta?.precoBase && (
+            {selectedOferta?.preco && (
               <div className="p-3 bg-muted rounded-lg">
                 <div className="flex items-center justify-between">
                   <span className="font-medium">Valor estimado:</span>
                   <span className="text-xl font-bold text-green-600">
-                    R$ {selectedOferta.precoBase.toFixed(2)}
+                    R$ {Number(selectedOferta.preco).toFixed(2)}
                   </span>
                 </div>
               </div>
