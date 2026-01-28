@@ -2787,4 +2787,166 @@ router.get("/pagamentos/:id", requireAuth, async (req, res) => {
   }
 });
 
+// ========== HOSPEDAGENS (RENTAL MANAGEMENT - AIRBNB) ==========
+
+router.get("/hospedagens", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const hospedagens = await storage.getHospedagens(condominiumId || undefined);
+    res.json(hospedagens);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar hospedagens", details: error?.message });
+  }
+});
+
+router.get("/hospedagens/ativas", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não identificado" });
+    }
+    const hospedagens = await storage.getHospedagensAtivas(condominiumId);
+    res.json(hospedagens);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar hospedagens ativas", details: error?.message });
+  }
+});
+
+router.get("/hospedagens/:id", requireGestao, async (req, res) => {
+  try {
+    const hospedagem = await storage.getHospedagemById(req.params.id);
+    if (!hospedagem) {
+      return res.status(404).json({ error: "Hospedagem não encontrada" });
+    }
+    res.json(hospedagem);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar hospedagem", details: error?.message });
+  }
+});
+
+router.post("/hospedagens", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não identificado" });
+    }
+    const hospedagem = await storage.createHospedagem({
+      ...req.body,
+      condominiumId
+    });
+    res.status(201).json(hospedagem);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao criar hospedagem", details: error?.message });
+  }
+});
+
+router.patch("/hospedagens/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const hospedagem = await storage.updateHospedagem(req.params.id, req.body);
+    res.json(hospedagem);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao atualizar hospedagem", details: error?.message });
+  }
+});
+
+router.delete("/hospedagens/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    await storage.deleteHospedagem(req.params.id);
+    res.status(204).send();
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao excluir hospedagem", details: error?.message });
+  }
+});
+
+router.post("/hospedagens/:id/enviar-boas-vindas", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const { sendWhatsAppMessage } = await import("../server/twilio-client");
+    
+    const hospedagem = await storage.getHospedagemById(req.params.id);
+    if (!hospedagem) {
+      return res.status(404).json({ error: "Hospedagem não encontrada" });
+    }
+    
+    if (!hospedagem.telefoneHospede) {
+      return res.status(400).json({ error: "Telefone do hóspede não cadastrado" });
+    }
+    
+    const { mensagem, urlVideo, urlRegimento } = req.body;
+    
+    let finalMessage = mensagem || "";
+    
+    if (urlRegimento) {
+      finalMessage += `\n\n📄 Regimento Interno Completo:\n${urlRegimento}`;
+    }
+    
+    if (urlVideo) {
+      finalMessage += `\n\n🎥 Vídeo com Tour e Regras do Condomínio:\n${urlVideo}`;
+    }
+    
+    finalMessage += "\n\n---\nDesejamos uma excelente estadia! 🌟";
+    
+    const mediaUrls: string[] = [];
+    if (urlRegimento && urlRegimento.includes('.pdf')) {
+      mediaUrls.push(urlRegimento);
+    }
+    
+    await sendWhatsAppMessage({
+      to: hospedagem.telefoneHospede,
+      body: finalMessage,
+      mediaUrl: mediaUrls.length > 0 ? mediaUrls : undefined,
+    });
+    
+    const updatedHospedagem = await storage.marcarBoasVindasEnviadas(req.params.id);
+    
+    if (urlVideo) {
+      await storage.updateHospedagem(req.params.id, { urlVideoExplicativo: urlVideo });
+    }
+    if (urlRegimento) {
+      await storage.updateHospedagem(req.params.id, { urlRegimentoInterno: urlRegimento });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: "Mensagem de boas-vindas enviada com sucesso!",
+      hospedagem: updatedHospedagem
+    });
+  } catch (error: any) {
+    console.error("[enviar-boas-vindas] Error:", error);
+    res.status(500).json({ 
+      error: "Falha ao enviar mensagem de boas-vindas", 
+      details: error?.message 
+    });
+  }
+});
+
+// Configurações de Locação
+router.get("/configuracoes-locacao", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não identificado" });
+    }
+    const config = await storage.getConfiguracoesLocacao(condominiumId);
+    res.json(config || {});
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao buscar configurações", details: error?.message });
+  }
+});
+
+router.put("/configuracoes-locacao", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não identificado" });
+    }
+    const config = await storage.upsertConfiguracoesLocacao({
+      ...req.body,
+      condominiumId
+    });
+    res.json(config);
+  } catch (error: any) {
+    res.status(500).json({ error: "Falha ao salvar configurações", details: error?.message });
+  }
+});
+
 export default router;

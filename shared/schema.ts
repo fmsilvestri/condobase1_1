@@ -2009,3 +2009,83 @@ export const insertPagamentoSchema = createInsertSchema(pagamentos).omit({
 
 export type InsertPagamento = z.infer<typeof insertPagamentoSchema>;
 export type Pagamento = typeof pagamentos.$inferSelect;
+
+// ========== GESTÃO DE LOCAÇÕES (RENTAL MANAGEMENT - AIRBNB) ==========
+
+export const tipoLocacaoOptions = ["airbnb", "temporada", "longa_duracao", "outros"] as const;
+export type TipoLocacao = (typeof tipoLocacaoOptions)[number];
+
+export const statusHospedagemOptions = ["reservado", "em_andamento", "finalizado", "cancelado"] as const;
+export type StatusHospedagem = (typeof statusHospedagemOptions)[number];
+
+export const hospedagens = pgTable("hospedagens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  unidade: text("unidade").notNull(),
+  bloco: text("bloco"),
+  tipoLocacao: text("tipo_locacao").notNull().$type<TipoLocacao>().default("airbnb"),
+  nomeHospede: text("nome_hospede").notNull(),
+  telefoneHospede: text("telefone_hospede"),
+  emailHospede: text("email_hospede"),
+  documentoHospede: text("documento_hospede"),
+  nacionalidade: text("nacionalidade"),
+  quantidadeHospedes: integer("quantidade_hospedes").default(1),
+  dataCheckIn: timestamp("data_check_in").notNull(),
+  dataCheckOut: timestamp("data_check_out").notNull(),
+  horaCheckIn: text("hora_check_in").default("14:00"),
+  horaCheckOut: text("hora_check_out").default("11:00"),
+  placaVeiculo: text("placa_veiculo"),
+  modeloVeiculo: text("modelo_veiculo"),
+  corVeiculo: text("cor_veiculo"),
+  observacoes: text("observacoes"),
+  status: text("status").notNull().$type<StatusHospedagem>().default("reservado"),
+  proprietarioId: varchar("proprietario_id").references(() => users.id),
+  nomeProprietario: text("nome_proprietario"),
+  telefoneProprietario: text("telefone_proprietario"),
+  boasVindasEnviadas: boolean("boas_vindas_enviadas").default(false),
+  dataEnvioBoasVindas: timestamp("data_envio_boas_vindas"),
+  mensagemPersonalizada: text("mensagem_personalizada"),
+  urlVideoExplicativo: text("url_video_explicativo"),
+  urlRegimentoInterno: text("url_regimento_interno"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertHospedagemSchema = createInsertSchema(hospedagens).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertHospedagem = z.infer<typeof insertHospedagemSchema>;
+export type Hospedagem = typeof hospedagens.$inferSelect;
+
+// Condominium settings for welcome messages
+export const configuracoesLocacao = pgTable("configuracoes_locacao", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id).unique(),
+  horarioSilencio: text("horario_silencio").default("22h às 8h"),
+  horarioPiscina: text("horario_piscina").default("8h às 22h"),
+  horarioAcademia: text("horario_academia").default("6h às 22h"),
+  horarioSalaoDeFestas: text("horario_salao_festas"),
+  diasColetaLixo: text("dias_coleta_lixo").default("Segunda, Quarta e Sexta"),
+  regrasImportantes: text("regras_importantes"),
+  contatoPortaria: text("contato_portaria"),
+  contatoSindico: text("contato_sindico"),
+  contatoEmergencia: text("contato_emergencia"),
+  dicasPraticas: text("dicas_praticas"),
+  mensagemPadrao: text("mensagem_padrao"),
+  urlVideoExplicativoPadrao: text("url_video_explicativo_padrao"),
+  urlRegimentoInternoPadrao: text("url_regimento_interno_padrao"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertConfiguracoesLocacaoSchema = createInsertSchema(configuracoesLocacao).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertConfiguracoesLocacao = z.infer<typeof insertConfiguracoesLocacaoSchema>;
+export type ConfiguracoesLocacao = typeof configuracoesLocacao.$inferSelect;

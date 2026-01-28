@@ -179,6 +179,10 @@ import {
   type InsertCobranca,
   type Pagamento,
   type InsertPagamento,
+  type Hospedagem,
+  type InsertHospedagem,
+  type ConfiguracoesLocacao,
+  type InsertConfiguracoesLocacao,
 } from "@shared/schema";
 
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
@@ -2800,6 +2804,138 @@ export class SupabaseStorage implements IStorage {
       throw new Error(error.message);
     }
     return toCamelCase(data) as Pagamento;
+  }
+
+  // ========== HOSPEDAGENS (RENTAL MANAGEMENT) ==========
+
+  async getHospedagens(condominiumId?: string): Promise<Hospedagem[]> {
+    let query = supabase.from("hospedagens").select("*").order("data_check_in", { ascending: false });
+    if (condominiumId) {
+      query = query.eq("condominium_id", condominiumId);
+    }
+    const { data, error } = await query;
+    if (error) {
+      console.error("[getHospedagens] Error:", error);
+      return [];
+    }
+    return (data || []).map(toCamelCase) as Hospedagem[];
+  }
+
+  async getHospedagemById(id: string): Promise<Hospedagem | undefined> {
+    const { data, error } = await supabase
+      .from("hospedagens")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (error) {
+      console.error("[getHospedagemById] Error:", error);
+      return undefined;
+    }
+    return data ? toCamelCase(data) as Hospedagem : undefined;
+  }
+
+  async getHospedagensAtivas(condominiumId: string): Promise<Hospedagem[]> {
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from("hospedagens")
+      .select("*")
+      .eq("condominium_id", condominiumId)
+      .in("status", ["reservado", "em_andamento"])
+      .gte("data_check_out", now)
+      .order("data_check_in", { ascending: true });
+    if (error) {
+      console.error("[getHospedagensAtivas] Error:", error);
+      return [];
+    }
+    return (data || []).map(toCamelCase) as Hospedagem[];
+  }
+
+  async createHospedagem(hospedagem: InsertHospedagem): Promise<Hospedagem> {
+    const snakeCaseData = toSnakeCase(hospedagem);
+    const { data, error } = await supabase
+      .from("hospedagens")
+      .insert(snakeCaseData)
+      .select()
+      .single();
+    if (error) {
+      console.error("[createHospedagem] Error:", error);
+      throw new Error(error.message);
+    }
+    return toCamelCase(data) as Hospedagem;
+  }
+
+  async updateHospedagem(id: string, hospedagem: Partial<InsertHospedagem>): Promise<Hospedagem> {
+    const snakeCaseData = toSnakeCase({ ...hospedagem, updatedAt: new Date() });
+    const { data, error } = await supabase
+      .from("hospedagens")
+      .update(snakeCaseData)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) {
+      console.error("[updateHospedagem] Error:", error);
+      throw new Error(error.message);
+    }
+    return toCamelCase(data) as Hospedagem;
+  }
+
+  async deleteHospedagem(id: string): Promise<void> {
+    const { error } = await supabase
+      .from("hospedagens")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      console.error("[deleteHospedagem] Error:", error);
+      throw new Error(error.message);
+    }
+  }
+
+  async marcarBoasVindasEnviadas(id: string): Promise<Hospedagem> {
+    const { data, error } = await supabase
+      .from("hospedagens")
+      .update({
+        boas_vindas_enviadas: true,
+        data_envio_boas_vindas: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) {
+      console.error("[marcarBoasVindasEnviadas] Error:", error);
+      throw new Error(error.message);
+    }
+    return toCamelCase(data) as Hospedagem;
+  }
+
+  // ========== CONFIGURAÇÕES DE LOCAÇÃO ==========
+
+  async getConfiguracoesLocacao(condominiumId: string): Promise<ConfiguracoesLocacao | undefined> {
+    const { data, error } = await supabase
+      .from("configuracoes_locacao")
+      .select("*")
+      .eq("condominium_id", condominiumId)
+      .single();
+    if (error) {
+      if (error.code === 'PGRST116') return undefined;
+      console.error("[getConfiguracoesLocacao] Error:", error);
+      return undefined;
+    }
+    return data ? toCamelCase(data) as ConfiguracoesLocacao : undefined;
+  }
+
+  async upsertConfiguracoesLocacao(config: InsertConfiguracoesLocacao): Promise<ConfiguracoesLocacao> {
+    const snakeCaseData = toSnakeCase(config);
+    const { data, error } = await supabase
+      .from("configuracoes_locacao")
+      .upsert(snakeCaseData, { onConflict: 'condominium_id' })
+      .select()
+      .single();
+    if (error) {
+      console.error("[upsertConfiguracoesLocacao] Error:", error);
+      throw new Error(error.message);
+    }
+    return toCamelCase(data) as ConfiguracoesLocacao;
   }
 }
 

@@ -113,6 +113,10 @@ import {
   type InsertCobranca,
   type Pagamento,
   type InsertPagamento,
+  type Hospedagem,
+  type InsertHospedagem,
+  type ConfiguracoesLocacao,
+  type InsertConfiguracoesLocacao,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -488,6 +492,19 @@ export interface IStorage {
   getPagamentoByStripeSession(sessionId: string): Promise<Pagamento | undefined>;
   createPagamento(pagamento: InsertPagamento): Promise<Pagamento>;
   updatePagamento(id: string, pagamento: Partial<InsertPagamento>): Promise<Pagamento>;
+
+  // Hospedagens (Rental Management)
+  getHospedagens(condominiumId?: string): Promise<Hospedagem[]>;
+  getHospedagemById(id: string): Promise<Hospedagem | undefined>;
+  getHospedagensAtivas(condominiumId: string): Promise<Hospedagem[]>;
+  createHospedagem(hospedagem: InsertHospedagem): Promise<Hospedagem>;
+  updateHospedagem(id: string, hospedagem: Partial<InsertHospedagem>): Promise<Hospedagem>;
+  deleteHospedagem(id: string): Promise<void>;
+  marcarBoasVindasEnviadas(id: string): Promise<Hospedagem>;
+
+  // Configurações de Locação
+  getConfiguracoesLocacao(condominiumId: string): Promise<ConfiguracoesLocacao | undefined>;
+  upsertConfiguracoesLocacao(config: InsertConfiguracoesLocacao): Promise<ConfiguracoesLocacao>;
 }
 
 export class MemStorage implements IStorage {
