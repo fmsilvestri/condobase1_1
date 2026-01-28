@@ -10,8 +10,8 @@
 import crypto from 'crypto';
 
 // eWeLink App credentials from environment variables
-const APP_ID = process.env.EWELINK_APP_ID || 'YzfeftUVcZ6twZw1OoVKPRFYTrGEg01Q';
-const APP_SECRET = process.env.EWELINK_APP_SECRET || '4G91qSoboqYO4Y0XJ0LPPKIsq8reHdfa';
+const APP_ID = process.env.EWELINK_APP_ID || 'Uw83EKZFxdif7XFXEsrpduz5YyjP7nTl';
+const APP_SECRET = process.env.EWELINK_APP_SECRET || 'mXLOjea0woSMvK9gw7Fjsy7YlFO4iSu6';
 
 // In-memory token storage per user session
 interface UserSession {
