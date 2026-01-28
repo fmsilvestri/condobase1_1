@@ -9,6 +9,8 @@ import {
   Plus,
   Search,
   Calendar,
+  CalendarDays,
+  ChevronDown,
   Loader2,
   CheckCircle,
   Clock,
@@ -242,7 +244,6 @@ export default function ActivityManagement() {
   const [selectedPeriodicidade, setSelectedPeriodicidade] = useState<string>("");
   const [selectedTemplate, setSelectedTemplate] = useState<ActivityTemplate | null>(null);
   const [selectedTemplates, setSelectedTemplates] = useState<ActivityTemplate[]>([]);
-  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [viewListDialog, setViewListDialog] = useState<ActivityList | null>(null);
   const [whatsappDialog, setWhatsappDialog] = useState<{ list: ActivityList; url: string; message: string } | null>(null);
   const [customWhatsappDialog, setCustomWhatsappDialog] = useState<{ list: ActivityList; pdfBlob: Blob; fileName: string; message: string } | null>(null);
@@ -252,6 +253,9 @@ export default function ActivityManagement() {
   const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
   const [isBatchSending, setIsBatchSending] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
+  const [memberTemplateAssignments, setMemberTemplateAssignments] = useState<Record<string, string[]>>({});
+  const [expandedMember, setExpandedMember] = useState<string | null>(null);
+  const [workflowType, setWorkflowType] = useState<"diario" | "semanal">("diario");
   const [customTasks, setCustomTasks] = useState<CustomTask[]>([]);
   const [isAddingCustomTask, setIsAddingCustomTask] = useState(false);
   const [newCustomTask, setNewCustomTask] = useState<Omit<CustomTask, "id">>({
@@ -303,6 +307,11 @@ export default function ActivityManagement() {
       if (!res.ok) throw new Error("Failed to fetch templates");
       return res.json();
     },
+    enabled: !!selectedCondominium,
+  });
+
+  const { data: allTemplates = [] } = useQuery<ActivityTemplate[]>({
+    queryKey: ["/api/activity-templates"],
     enabled: !!selectedCondominium,
   });
 
@@ -436,12 +445,10 @@ export default function ActivityManagement() {
   };
 
   const handleBatchSend = async () => {
-    if (selectedTemplates.length === 0 && customTasks.length === 0) {
-      toast({ title: "Selecione pelo menos um template", variant: "destructive" });
-      return;
-    }
-    if (selectedMembers.length === 0) {
-      toast({ title: "Selecione pelo menos um funcionário", variant: "destructive" });
+    const membersWithAssignments = getMembersWithAssignments();
+    
+    if (membersWithAssignments.length === 0) {
+      toast({ title: "Atribua templates a pelo menos um funcionário", variant: "destructive" });
       return;
     }
 
@@ -458,27 +465,29 @@ export default function ActivityManagement() {
     }
 
     setIsBatchSending(true);
-    setBatchProgress({ current: 0, total: selectedMembers.length });
+    setBatchProgress({ current: 0, total: membersWithAssignments.length });
 
     const results = { success: 0, error: 0 };
+    const workflowLabel = workflowType === "diario" ? "Diário" : "Semanal";
 
-    for (let i = 0; i < selectedMembers.length; i++) {
-      const membroId = selectedMembers[i];
+    for (let i = 0; i < membersWithAssignments.length; i++) {
+      const [membroId, templateIds] = membersWithAssignments[i];
       const member = teamMembers.find(m => m.id === membroId);
+      const memberTemplates = allTemplates.filter(t => templateIds.includes(t.id));
       
       try {
         await createListMutation.mutateAsync({
           ...formData,
           membroId,
-          titulo: formData.titulo || `Lista ${member?.name || ""} - ${new Date(formData.dataExecucao).toLocaleDateString("pt-BR")}`,
-          atividades: selectedTemplates,
+          titulo: formData.titulo || `Fluxo ${workflowLabel} - ${member?.name || ""} - ${new Date(formData.dataExecucao).toLocaleDateString("pt-BR")}`,
+          atividades: memberTemplates,
           tarefasPersonalizadas: customTasks,
         });
         results.success++;
       } catch (err) {
         results.error++;
       }
-      setBatchProgress({ current: i + 1, total: selectedMembers.length });
+      setBatchProgress({ current: i + 1, total: membersWithAssignments.length });
     }
 
     setIsBatchSending(false);
@@ -486,12 +495,13 @@ export default function ActivityManagement() {
     
     toast({
       title: "Envio em lote concluído",
-      description: `${results.success} sucesso, ${results.error} erro`,
+      description: `${results.success} lista(s) criada(s), ${results.error} erro(s)`,
     });
 
     if (results.success > 0) {
       setSelectedTemplates([]);
-      setSelectedMembers([]);
+      setMemberTemplateAssignments({});
+      setExpandedMember(null);
       setCustomTasks([]);
       batchForm.reset();
       setActiveTab("historico");
@@ -814,22 +824,45 @@ export default function ActivityManagement() {
     });
   };
 
-  const toggleMember = (membroId: string) => {
-    setSelectedMembers(prev => {
-      if (prev.includes(membroId)) {
-        return prev.filter(id => id !== membroId);
+  const clearAllAssignments = () => {
+    setMemberTemplateAssignments({});
+    setExpandedMember(null);
+  };
+
+  const toggleMemberTemplateAssignment = (memberId: string, templateId: string) => {
+    setMemberTemplateAssignments(prev => {
+      const current = prev[memberId] || [];
+      if (current.includes(templateId)) {
+        return { ...prev, [memberId]: current.filter(id => id !== templateId) };
       }
-      return [...prev, membroId];
+      return { ...prev, [memberId]: [...current, templateId] };
     });
   };
 
-  const selectAllMembers = () => {
-    const activeIds = activeMembers.map(m => m.id);
-    setSelectedMembers(activeIds);
+  const assignAllTemplatesToMember = (memberId: string) => {
+    setMemberTemplateAssignments(prev => ({
+      ...prev,
+      [memberId]: allTemplates.map(t => t.id),
+    }));
   };
 
-  const deselectAllMembers = () => {
-    setSelectedMembers([]);
+  const clearMemberTemplates = (memberId: string) => {
+    setMemberTemplateAssignments(prev => ({
+      ...prev,
+      [memberId]: [],
+    }));
+  };
+
+  const getMemberTemplateCount = (memberId: string) => {
+    return memberTemplateAssignments[memberId]?.length || 0;
+  };
+
+  const getTotalAssignments = () => {
+    return Object.values(memberTemplateAssignments).reduce((acc, arr) => acc + arr.length, 0);
+  };
+
+  const getMembersWithAssignments = () => {
+    return Object.entries(memberTemplateAssignments).filter(([_, templates]) => templates.length > 0);
   };
 
   const filteredLists = lists.filter(list => {
@@ -1127,14 +1160,46 @@ export default function ActivityManagement() {
         <TabsContent value="envio" className="space-y-6 mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Enviar Lista em Lote</CardTitle>
-              <CardDescription>
-                Selecione os funcionários, configure a lista e envie via WhatsApp
-              </CardDescription>
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <CardTitle>Montar Fluxo de Trabalho</CardTitle>
+                  <CardDescription>
+                    Atribua templates de atividades para cada funcionário e envie via WhatsApp
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">Tipo de Fluxo:</span>
+                  <div className="flex rounded-lg border p-1 gap-1">
+                    <Button
+                      variant={workflowType === "diario" ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setWorkflowType("diario")}
+                      data-testid="button-fluxo-diario"
+                    >
+                      <Calendar className="w-4 h-4 mr-1" />
+                      Diário
+                    </Button>
+                    <Button
+                      variant={workflowType === "semanal" ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setWorkflowType("semanal")}
+                      data-testid="button-fluxo-semanal"
+                    >
+                      <CalendarDays className="w-4 h-4 mr-1" />
+                      Semanal
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg text-sm">
-                <strong>Dica:</strong> Selecione um template na aba anterior, depois escolha os funcionários para enviar a mesma lista para todos.
+              <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 rounded-lg text-sm border border-blue-200 dark:border-blue-800">
+                <div className="flex items-start gap-2">
+                  <ListChecks className="w-5 h-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <strong>Como funciona:</strong> Clique em um funcionário para expandir e selecionar quais templates de atividades deseja atribuir a ele. Você pode atribuir templates diferentes para cada funcionário.
+                  </div>
+                </div>
               </div>
 
               <div className="grid gap-6 lg:grid-cols-2">
@@ -1142,22 +1207,18 @@ export default function ActivityManagement() {
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold flex items-center gap-2">
                       <Users className="w-5 h-5" />
-                      Selecionar Funcionários
+                      Funcionários e Templates
                     </h3>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={selectAllMembers} data-testid="button-selecionar-todos">
-                        Todos
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={deselectAllMembers} data-testid="button-limpar-selecao">
-                        Limpar
-                      </Button>
-                    </div>
+                    <Button variant="outline" size="sm" onClick={clearAllAssignments} data-testid="button-limpar-selecao">
+                      <X className="w-4 h-4 mr-1" />
+                      Limpar Tudo
+                    </Button>
                   </div>
                   
-                  <div className="border rounded-lg max-h-[400px] overflow-y-auto">
+                  <div className="border rounded-lg max-h-[500px] overflow-y-auto">
                     {loadingMembers ? (
                       <div className="p-4 space-y-2">
-                        {[1, 2, 3].map(i => <Skeleton key={i} className="h-16" />)}
+                        {[1, 2, 3].map(i => <Skeleton key={i} className="h-20" />)}
                       </div>
                     ) : activeMembers.length === 0 ? (
                       <div className="p-4 text-center text-muted-foreground">
@@ -1165,43 +1226,118 @@ export default function ActivityManagement() {
                       </div>
                     ) : (
                       activeMembers.map(member => {
-                        const isSelected = selectedMembers.includes(member.id);
+                        const isExpanded = expandedMember === member.id;
+                        const assignedCount = getMemberTemplateCount(member.id);
+                        const memberAssignedTemplates = memberTemplateAssignments[member.id] || [];
+                        
                         return (
-                          <div
-                            key={member.id}
-                            className={`p-3 flex items-center gap-3 cursor-pointer border-b last:border-b-0 transition-colors ${
-                              isSelected ? "bg-green-50 dark:bg-green-950" : "hover:bg-secondary/50"
-                            }`}
-                            onClick={() => toggleMember(member.id)}
-                            data-testid={`membro-item-${member.id}`}
-                          >
-                            <Checkbox
-                              checked={isSelected}
-                              className="pointer-events-none"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium truncate" data-testid={`membro-nome-${member.id}`}>
-                                {member.name}
+                          <div key={member.id} className="border-b last:border-b-0">
+                            <div
+                              className={`p-3 flex items-center gap-3 cursor-pointer transition-colors ${
+                                assignedCount > 0 ? "bg-green-50 dark:bg-green-950" : "hover:bg-secondary/50"
+                              }`}
+                              onClick={() => setExpandedMember(isExpanded ? null : member.id)}
+                              data-testid={`button-expand-member-${member.id}`}
+                            >
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
+                                assignedCount > 0 ? "bg-green-600" : "bg-gray-400"
+                              }`}>
+                                {assignedCount > 0 ? assignedCount : <User className="w-4 h-4" />}
                               </div>
-                              <div className="text-sm text-muted-foreground">
-                                {roleLabels[member.role] || member.role}
-                              </div>
-                              {member.whatsapp && (
-                                <div className="text-xs text-green-600 flex items-center gap-1">
-                                  <MessageCircle className="w-3 h-3" />
-                                  {member.whatsapp}
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate" data-testid={`membro-nome-${member.id}`}>
+                                  {member.name}
                                 </div>
-                              )}
+                                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                                  <span>{roleLabels[member.role] || member.role}</span>
+                                  {member.whatsapp && (
+                                    <span className="text-green-600 flex items-center gap-1">
+                                      <MessageCircle className="w-3 h-3" />
+                                      {member.whatsapp}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                             </div>
+                            
+                            {isExpanded && (
+                              <div className="p-3 bg-secondary/30 border-t">
+                                <div className="flex items-center justify-between mb-3">
+                                  <span className="text-sm font-medium">Selecione os templates:</span>
+                                  <div className="flex gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => assignAllTemplatesToMember(member.id)}
+                                      data-testid={`button-todos-templates-${member.id}`}
+                                    >
+                                      Todos
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => clearMemberTemplates(member.id)}
+                                      data-testid={`button-limpar-templates-${member.id}`}
+                                    >
+                                      Limpar
+                                    </Button>
+                                  </div>
+                                </div>
+                                
+                                {loadingTemplates ? (
+                                  <Skeleton className="h-20" />
+                                ) : allTemplates.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground text-center py-2">
+                                    Nenhum template disponível. Crie templates na aba anterior.
+                                  </p>
+                                ) : (
+                                  <div className="grid gap-2 max-h-[200px] overflow-y-auto">
+                                    {allTemplates.map(template => {
+                                      const isAssigned = memberAssignedTemplates.includes(template.id);
+                                      return (
+                                        <div
+                                          key={template.id}
+                                          className={`p-2 rounded-md flex items-center gap-2 cursor-pointer transition-colors ${
+                                            isAssigned ? "bg-primary/10 ring-1 ring-primary" : "bg-background hover:bg-secondary"
+                                          }`}
+                                          onClick={() => toggleMemberTemplateAssignment(member.id, template.id)}
+                                          data-testid={`template-assign-${member.id}-${template.id}`}
+                                        >
+                                          <Checkbox checked={isAssigned} className="pointer-events-none" />
+                                          <div className="flex-1 min-w-0">
+                                            <div className="text-sm font-medium truncate">{template.titulo}</div>
+                                            <div className="text-xs text-muted-foreground flex items-center gap-2">
+                                              <Badge variant="secondary" className="text-xs">
+                                                {roleLabels[template.funcao] || template.funcao}
+                                              </Badge>
+                                              {template.periodicidade && (
+                                                <span>{periodicidadeLabels[template.periodicidade]}</span>
+                                              )}
+                                            </div>
+                                          </div>
+                                          {isAssigned && <CheckCircle className="w-4 h-4 text-primary shrink-0" />}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         );
                       })
                     )}
                   </div>
                   
-                  {selectedMembers.length > 0 && (
-                    <div className="text-sm text-muted-foreground">
-                      {selectedMembers.length} funcionário(s) selecionado(s)
+                  {getTotalAssignments() > 0 && (
+                    <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+                      <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                        <CheckCircle className="w-5 h-5" />
+                        <span className="font-medium">
+                          {getMembersWithAssignments().length} funcionário(s) com {getTotalAssignments()} template(s) atribuído(s)
+                        </span>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1209,7 +1345,7 @@ export default function ActivityManagement() {
                 <div className="space-y-4">
                   <h3 className="font-semibold flex items-center gap-2">
                     <FileText className="w-5 h-5" />
-                    Configuração da Lista
+                    Configuração do Fluxo
                   </h3>
                   
                   <Form {...batchForm}>
@@ -1222,7 +1358,7 @@ export default function ActivityManagement() {
                             <FormLabel>Título (opcional)</FormLabel>
                             <FormControl>
                               <Input
-                                placeholder="Ex: Atividades do Dia"
+                                placeholder={`Ex: Fluxo ${workflowType === "diario" ? "Diário" : "Semanal"} - Segunda-feira`}
                                 {...field}
                                 data-testid="input-batch-titulo"
                               />
@@ -1238,7 +1374,9 @@ export default function ActivityManagement() {
                           name="dataExecucao"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Data de Execução</FormLabel>
+                              <FormLabel>
+                                {workflowType === "diario" ? "Data de Execução" : "Data de Início"}
+                              </FormLabel>
                               <FormControl>
                                 <Input type="date" {...field} data-testid="input-batch-data" />
                               </FormControl>
@@ -1302,7 +1440,7 @@ export default function ActivityManagement() {
                             <FormLabel>Observações</FormLabel>
                             <FormControl>
                               <Textarea
-                                placeholder="Instruções adicionais..."
+                                placeholder="Instruções adicionais para o fluxo de trabalho..."
                                 rows={3}
                                 {...field}
                                 data-testid="input-batch-observacoes"
@@ -1315,28 +1453,33 @@ export default function ActivityManagement() {
                     </form>
                   </Form>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-sm">Templates Selecionados:</h4>
-                      <Badge variant="secondary">{selectedTemplates.length}</Badge>
-                    </div>
-                    {selectedTemplates.length === 0 ? (
+                  <div className="p-4 bg-secondary/50 rounded-lg space-y-3">
+                    <h4 className="font-medium text-sm flex items-center gap-2">
+                      <ListChecks className="w-4 h-4" />
+                      Resumo do Fluxo
+                    </h4>
+                    {getMembersWithAssignments().length === 0 ? (
                       <p className="text-sm text-muted-foreground">
-                        Nenhum template selecionado. Vá para a aba Templates para selecionar.
+                        Clique em um funcionário na lista ao lado para atribuir templates.
                       </p>
                     ) : (
-                      <div className="flex flex-wrap gap-2">
-                        {selectedTemplates.map(t => (
-                          <Badge
-                            key={t.id}
-                            variant="outline"
-                            className="cursor-pointer"
-                            onClick={() => toggleTemplate(t)}
-                          >
-                            {t.titulo}
-                            <X className="w-3 h-3 ml-1" />
-                          </Badge>
-                        ))}
+                      <div className="space-y-2 max-h-[200px] overflow-y-auto" data-testid="resumo-fluxo-lista">
+                        {getMembersWithAssignments().map(([memberId, templateIds]) => {
+                          const member = teamMembers.find(m => m.id === memberId);
+                          const memberTemplates = allTemplates.filter(t => templateIds.includes(t.id));
+                          return (
+                            <div key={memberId} className="p-2 bg-background rounded-md" data-testid={`resumo-membro-${memberId}`}>
+                              <div className="font-medium text-sm" data-testid={`resumo-membro-nome-${memberId}`}>{member?.name}</div>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {memberTemplates.map(t => (
+                                  <Badge key={t.id} variant="secondary" className="text-xs" data-testid={`resumo-template-${memberId}-${t.id}`}>
+                                    {t.titulo}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -1346,7 +1489,7 @@ export default function ActivityManagement() {
               {isBatchSending && (
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>Enviando...</span>
+                    <span>Criando listas e enviando...</span>
                     <span>{batchProgress.current} / {batchProgress.total}</span>
                   </div>
                   <div className="w-full bg-secondary rounded-full h-2">
@@ -1362,8 +1505,9 @@ export default function ActivityManagement() {
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setSelectedMembers([]);
-                    setSelectedTemplates([]);
+                    setMemberTemplateAssignments({});
+                    setExpandedMember(null);
+                    setCustomTasks([]);
                     batchForm.reset();
                   }}
                   disabled={isBatchSending}
@@ -1373,7 +1517,7 @@ export default function ActivityManagement() {
                 </Button>
                 <Button
                   onClick={handleBatchSend}
-                  disabled={isBatchSending || selectedTemplates.length === 0 || selectedMembers.length === 0}
+                  disabled={isBatchSending || getMembersWithAssignments().length === 0}
                   data-testid="button-enviar-lote"
                 >
                   {isBatchSending ? (
@@ -1381,7 +1525,7 @@ export default function ActivityManagement() {
                   ) : (
                     <Send className="w-4 h-4 mr-2" />
                   )}
-                  Criar e Enviar ({selectedMembers.length} listas)
+                  Criar e Enviar ({getMembersWithAssignments().length} listas)
                 </Button>
               </div>
             </CardContent>
