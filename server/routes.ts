@@ -226,6 +226,92 @@ export async function registerRoutes(
     }
   });
 
+  // Migration endpoint to create activity tables in Supabase
+  app.post("/api/migrate-activity-tables", async (req, res) => {
+    const { supabaseAdmin, isSupabaseAdminConfigured } = await import("./supabase");
+    
+    if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+      return res.status(400).json({ error: "Supabase admin client not configured" });
+    }
+
+    try {
+      // Create activity_categories table
+      await supabaseAdmin.rpc('exec_sql', { 
+        sql: `
+          CREATE TABLE IF NOT EXISTS activity_categories (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            condominium_id VARCHAR(255) NOT NULL,
+            nome VARCHAR(100) NOT NULL,
+            descricao TEXT,
+            cor VARCHAR(20),
+            ordem INTEGER DEFAULT 0,
+            is_active BOOLEAN DEFAULT true,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          );
+        `
+      }).then(() => console.log("activity_categories created")).catch((e: any) => console.log("activity_categories:", e.message));
+
+      await supabaseAdmin.rpc('exec_sql', { 
+        sql: `
+          CREATE TABLE IF NOT EXISTS activity_templates (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            condominium_id VARCHAR(255) NOT NULL,
+            titulo VARCHAR(255) NOT NULL,
+            descricao TEXT,
+            funcao VARCHAR(100) NOT NULL,
+            categoria_id UUID,
+            area VARCHAR(100),
+            tempo_estimado INTEGER,
+            ordem INTEGER DEFAULT 0,
+            is_active BOOLEAN DEFAULT true,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          );
+        `
+      }).then(() => console.log("activity_templates created")).catch((e: any) => console.log("activity_templates:", e.message));
+
+      await supabaseAdmin.rpc('exec_sql', { 
+        sql: `
+          CREATE TABLE IF NOT EXISTS activity_lists (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            condominium_id VARCHAR(255) NOT NULL,
+            titulo VARCHAR(255) NOT NULL,
+            data DATE NOT NULL,
+            team_member_id VARCHAR(255),
+            status VARCHAR(50) DEFAULT 'pendente',
+            observacoes TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          );
+        `
+      }).then(() => console.log("activity_lists created")).catch((e: any) => console.log("activity_lists:", e.message));
+
+      await supabaseAdmin.rpc('exec_sql', { 
+        sql: `
+          CREATE TABLE IF NOT EXISTS activity_list_items (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            activity_list_id UUID NOT NULL,
+            activity_template_id UUID,
+            titulo VARCHAR(255) NOT NULL,
+            descricao TEXT,
+            area VARCHAR(100),
+            tempo_estimado INTEGER,
+            concluido BOOLEAN DEFAULT false,
+            concluido_em TIMESTAMPTZ,
+            ordem INTEGER DEFAULT 0,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+          );
+        `
+      }).then(() => console.log("activity_list_items created")).catch((e: any) => console.log("activity_list_items:", e.message));
+
+      res.json({ success: true, message: "Migration executed. Please reload Supabase schema cache." });
+    } catch (error: any) {
+      console.error("Migration error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Condominium routes
   app.get("/api/condominiums", async (req, res) => {
     try {

@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from "./supabase";
+import { supabase, supabaseAdmin, isSupabaseConfigured, isSupabaseAdminConfigured } from "./supabase";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
 import type { IStorage } from "./storage";
@@ -3329,20 +3329,24 @@ export class SupabaseStorage implements IStorage {
 
   async createActivityTemplate(template: any): Promise<any> {
     const snakeCaseData = toSnakeCase(template);
-    const { data, error } = await supabase.from("activity_templates").insert(snakeCaseData).select().single();
+    // Use supabaseAdmin for inserts to bypass schema cache issues
+    const client = supabaseAdmin || supabase;
+    const { data, error } = await client.from("activity_templates").insert(snakeCaseData).select().single();
     if (error) throw new Error(error.message);
     return toCamelCase(data);
   }
 
   async updateActivityTemplate(id: string, template: any): Promise<any> {
     const snakeCaseData = toSnakeCase(template);
-    const { data, error } = await supabase.from("activity_templates").update({ ...snakeCaseData, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+    const client = supabaseAdmin || supabase;
+    const { data, error } = await client.from("activity_templates").update({ ...snakeCaseData, updated_at: new Date().toISOString() }).eq("id", id).select().single();
     if (error) throw new Error(error.message);
     return toCamelCase(data);
   }
 
   async deleteActivityTemplate(id: string): Promise<void> {
-    await supabase.from("activity_templates").update({ is_active: false }).eq("id", id);
+    const client = supabaseAdmin || supabase;
+    await client.from("activity_templates").update({ is_active: false }).eq("id", id);
   }
 
   // ========== ACTIVITY LISTS ==========
@@ -3367,21 +3371,24 @@ export class SupabaseStorage implements IStorage {
 
   async createActivityList(list: any): Promise<any> {
     const snakeCaseData = toSnakeCase(list);
-    const { data, error } = await supabase.from("activity_lists").insert(snakeCaseData).select().single();
+    const client = supabaseAdmin || supabase;
+    const { data, error } = await client.from("activity_lists").insert(snakeCaseData).select().single();
     if (error) throw new Error(error.message);
     return toCamelCase(data);
   }
 
   async updateActivityList(id: string, list: any): Promise<any> {
     const snakeCaseData = toSnakeCase(list);
-    const { data, error } = await supabase.from("activity_lists").update({ ...snakeCaseData, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+    const client = supabaseAdmin || supabase;
+    const { data, error } = await client.from("activity_lists").update({ ...snakeCaseData, updated_at: new Date().toISOString() }).eq("id", id).select().single();
     if (error) throw new Error(error.message);
     return toCamelCase(data);
   }
 
   async deleteActivityList(id: string): Promise<void> {
-    await supabase.from("activity_list_items").delete().eq("lista_id", id);
-    await supabase.from("activity_lists").delete().eq("id", id);
+    const client = supabaseAdmin || supabase;
+    await client.from("activity_list_items").delete().eq("lista_id", id);
+    await client.from("activity_lists").delete().eq("id", id);
   }
 
   // ========== ACTIVITY LIST ITEMS ==========
@@ -3394,21 +3401,24 @@ export class SupabaseStorage implements IStorage {
 
   async createActivityListItem(item: any): Promise<any> {
     const snakeCaseData = toSnakeCase(item);
-    const { data, error } = await supabase.from("activity_list_items").insert(snakeCaseData).select().single();
+    const client = supabaseAdmin || supabase;
+    const { data, error } = await client.from("activity_list_items").insert(snakeCaseData).select().single();
     if (error) throw new Error(error.message);
     return toCamelCase(data);
   }
 
   async createActivityListItems(items: any[]): Promise<any[]> {
     const snakeCaseItems = items.map((item: any) => toSnakeCase(item));
-    const { data, error } = await supabase.from("activity_list_items").insert(snakeCaseItems).select();
+    const client = supabaseAdmin || supabase;
+    const { data, error } = await client.from("activity_list_items").insert(snakeCaseItems).select();
     if (error) throw new Error(error.message);
     return (data || []).map((item: any) => toCamelCase(item));
   }
 
   async updateActivityListItem(id: string, item: any): Promise<any> {
     const snakeCaseData = toSnakeCase(item);
-    const { data, error } = await supabase.from("activity_list_items").update(snakeCaseData).eq("id", id).select().single();
+    const client = supabaseAdmin || supabase;
+    const { data, error } = await client.from("activity_list_items").update(snakeCaseData).eq("id", id).select().single();
     if (error) throw new Error(error.message);
     return toCamelCase(data);
   }
@@ -3421,7 +3431,8 @@ export class SupabaseStorage implements IStorage {
     if (observacoes !== undefined) {
       updateData.observacoes = observacoes;
     }
-    const { data, error } = await supabase.from("activity_list_items").update(updateData).eq("id", id).select().single();
+    const client = supabaseAdmin || supabase;
+    const { data, error } = await client.from("activity_list_items").update(updateData).eq("id", id).select().single();
     if (error) throw new Error(error.message);
     
     const item = toCamelCase(data);
