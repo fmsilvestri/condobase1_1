@@ -183,6 +183,20 @@ import {
   type InsertHospedagem,
   type ConfiguracoesLocacao,
   type InsertConfiguracoesLocacao,
+  type MarketplaceCategoria,
+  type InsertMarketplaceCategoria,
+  type MarketplaceFornecedor,
+  type InsertMarketplaceFornecedor,
+  type MarketplaceServico,
+  type InsertMarketplaceServico,
+  type MarketplaceOferta,
+  type InsertMarketplaceOferta,
+  type MarketplaceContratacao,
+  type InsertMarketplaceContratacao,
+  type MarketplaceAvaliacao,
+  type InsertMarketplaceAvaliacao,
+  type MarketplaceComissao,
+  type InsertMarketplaceComissao,
 } from "@shared/schema";
 
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
@@ -2936,6 +2950,331 @@ export class SupabaseStorage implements IStorage {
       throw new Error(error.message);
     }
     return toCamelCase(data) as ConfiguracoesLocacao;
+  }
+
+  // ========== MARKETPLACE CATEGORIAS ==========
+
+  async getMarketplaceCategorias(): Promise<MarketplaceCategoria[]> {
+    const { data, error } = await supabase
+      .from("marketplace_categorias")
+      .select("*")
+      .order("ordem", { ascending: true });
+    if (error) {
+      console.error("[getMarketplaceCategorias] Error:", error);
+      return [];
+    }
+    return (data || []).map((item: any) => toCamelCase(item) as MarketplaceCategoria);
+  }
+
+  async getMarketplaceCategoriaById(id: string): Promise<MarketplaceCategoria | undefined> {
+    const { data, error } = await supabase
+      .from("marketplace_categorias")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (error) return undefined;
+    return data ? toCamelCase(data) as MarketplaceCategoria : undefined;
+  }
+
+  async createMarketplaceCategoria(categoria: InsertMarketplaceCategoria): Promise<MarketplaceCategoria> {
+    const snakeCaseData = toSnakeCase(categoria);
+    const { data, error } = await supabase
+      .from("marketplace_categorias")
+      .insert(snakeCaseData)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data) as MarketplaceCategoria;
+  }
+
+  async updateMarketplaceCategoria(id: string, updates: Partial<InsertMarketplaceCategoria>): Promise<MarketplaceCategoria | undefined> {
+    const snakeCaseData = toSnakeCase({ ...updates, updatedAt: new Date() });
+    const { data, error } = await supabase
+      .from("marketplace_categorias")
+      .update(snakeCaseData)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) return undefined;
+    return toCamelCase(data) as MarketplaceCategoria;
+  }
+
+  async deleteMarketplaceCategoria(id: string): Promise<boolean> {
+    const { error } = await supabase
+      .from("marketplace_categorias")
+      .delete()
+      .eq("id", id);
+    return !error;
+  }
+
+  // ========== MARKETPLACE SERVICOS ==========
+
+  async getMarketplaceServicos(categoriaId?: string): Promise<MarketplaceServico[]> {
+    let query = supabase.from("marketplace_servicos").select("*").eq("ativo", true);
+    if (categoriaId) query = query.eq("categoria_id", categoriaId);
+    const { data, error } = await query.order("nome", { ascending: true });
+    if (error) return [];
+    return (data || []).map((item: any) => toCamelCase(item) as MarketplaceServico);
+  }
+
+  async createMarketplaceServico(servico: InsertMarketplaceServico): Promise<MarketplaceServico> {
+    const snakeCaseData = toSnakeCase(servico);
+    const { data, error } = await supabase.from("marketplace_servicos").insert(snakeCaseData).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data) as MarketplaceServico;
+  }
+
+  async updateMarketplaceServico(id: string, updates: Partial<InsertMarketplaceServico>): Promise<MarketplaceServico | undefined> {
+    const snakeCaseData = toSnakeCase({ ...updates, updatedAt: new Date() });
+    const { data, error } = await supabase.from("marketplace_servicos").update(snakeCaseData).eq("id", id).select().single();
+    if (error) return undefined;
+    return toCamelCase(data) as MarketplaceServico;
+  }
+
+  async deleteMarketplaceServico(id: string): Promise<boolean> {
+    const { error } = await supabase.from("marketplace_servicos").delete().eq("id", id);
+    return !error;
+  }
+
+  // ========== MARKETPLACE FORNECEDORES ==========
+
+  async getMarketplaceFornecedores(condominiumId?: string, status?: string): Promise<MarketplaceFornecedor[]> {
+    let query = supabase.from("marketplace_fornecedores").select("*");
+    if (condominiumId) query = query.eq("condominium_id", condominiumId);
+    if (status) query = query.eq("status", status);
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (error) return [];
+    return (data || []).map((item: any) => toCamelCase(item) as MarketplaceFornecedor);
+  }
+
+  async getMarketplaceFornecedorById(id: string): Promise<MarketplaceFornecedor | undefined> {
+    const { data, error } = await supabase.from("marketplace_fornecedores").select("*").eq("id", id).single();
+    if (error) return undefined;
+    return data ? toCamelCase(data) as MarketplaceFornecedor : undefined;
+  }
+
+  async getMarketplaceFornecedorByUserId(userId: string): Promise<MarketplaceFornecedor | undefined> {
+    const { data, error } = await supabase.from("marketplace_fornecedores").select("*").eq("user_id", userId).single();
+    if (error) return undefined;
+    return data ? toCamelCase(data) as MarketplaceFornecedor : undefined;
+  }
+
+  async createMarketplaceFornecedor(fornecedor: InsertMarketplaceFornecedor): Promise<MarketplaceFornecedor> {
+    const snakeCaseData = toSnakeCase(fornecedor);
+    const { data, error } = await supabase.from("marketplace_fornecedores").insert(snakeCaseData).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data) as MarketplaceFornecedor;
+  }
+
+  async updateMarketplaceFornecedor(id: string, updates: Partial<InsertMarketplaceFornecedor>): Promise<MarketplaceFornecedor | undefined> {
+    const snakeCaseData = toSnakeCase({ ...updates, updatedAt: new Date() });
+    const { data, error } = await supabase.from("marketplace_fornecedores").update(snakeCaseData).eq("id", id).select().single();
+    if (error) return undefined;
+    return toCamelCase(data) as MarketplaceFornecedor;
+  }
+
+  async aprovarMarketplaceFornecedor(id: string, aprovadoPor: string): Promise<MarketplaceFornecedor | undefined> {
+    const { data, error } = await supabase
+      .from("marketplace_fornecedores")
+      .update({ status: "aprovado", aprovado_por: aprovadoPor, aprovado_em: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) return undefined;
+    return toCamelCase(data) as MarketplaceFornecedor;
+  }
+
+  async rejeitarMarketplaceFornecedor(id: string): Promise<MarketplaceFornecedor | undefined> {
+    const { data, error } = await supabase
+      .from("marketplace_fornecedores")
+      .update({ status: "rejeitado", updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) return undefined;
+    return toCamelCase(data) as MarketplaceFornecedor;
+  }
+
+  // ========== MARKETPLACE OFERTAS ==========
+
+  async getMarketplaceOfertas(condominiumId?: string, fornecedorId?: string, servicoId?: string): Promise<MarketplaceOferta[]> {
+    let query = supabase.from("marketplace_ofertas").select("*").eq("disponivel", true);
+    if (condominiumId) query = query.eq("condominium_id", condominiumId);
+    if (fornecedorId) query = query.eq("fornecedor_id", fornecedorId);
+    if (servicoId) query = query.eq("servico_id", servicoId);
+    const { data, error } = await query.order("destaque", { ascending: false }).order("created_at", { ascending: false });
+    if (error) return [];
+    return (data || []).map((item: any) => toCamelCase(item) as MarketplaceOferta);
+  }
+
+  async getMarketplaceOfertaById(id: string): Promise<MarketplaceOferta | undefined> {
+    const { data, error } = await supabase.from("marketplace_ofertas").select("*").eq("id", id).single();
+    if (error) return undefined;
+    return data ? toCamelCase(data) as MarketplaceOferta : undefined;
+  }
+
+  async createMarketplaceOferta(oferta: InsertMarketplaceOferta): Promise<MarketplaceOferta> {
+    const snakeCaseData = toSnakeCase(oferta);
+    const { data, error } = await supabase.from("marketplace_ofertas").insert(snakeCaseData).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data) as MarketplaceOferta;
+  }
+
+  async updateMarketplaceOferta(id: string, updates: Partial<InsertMarketplaceOferta>): Promise<MarketplaceOferta | undefined> {
+    const snakeCaseData = toSnakeCase({ ...updates, updatedAt: new Date() });
+    const { data, error } = await supabase.from("marketplace_ofertas").update(snakeCaseData).eq("id", id).select().single();
+    if (error) return undefined;
+    return toCamelCase(data) as MarketplaceOferta;
+  }
+
+  async deleteMarketplaceOferta(id: string): Promise<boolean> {
+    const { error } = await supabase.from("marketplace_ofertas").delete().eq("id", id);
+    return !error;
+  }
+
+  // ========== MARKETPLACE CONTRATACOES ==========
+
+  async getMarketplaceContratacoes(condominiumId?: string, moradorId?: string, fornecedorId?: string, status?: string): Promise<MarketplaceContratacao[]> {
+    let query = supabase.from("marketplace_contratacoes").select("*");
+    if (condominiumId) query = query.eq("condominium_id", condominiumId);
+    if (moradorId) query = query.eq("morador_id", moradorId);
+    if (fornecedorId) query = query.eq("fornecedor_id", fornecedorId);
+    if (status) query = query.eq("status", status);
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (error) return [];
+    return (data || []).map((item: any) => toCamelCase(item) as MarketplaceContratacao);
+  }
+
+  async getMarketplaceContratacaoById(id: string): Promise<MarketplaceContratacao | undefined> {
+    const { data, error } = await supabase.from("marketplace_contratacoes").select("*").eq("id", id).single();
+    if (error) return undefined;
+    return data ? toCamelCase(data) as MarketplaceContratacao : undefined;
+  }
+
+  async createMarketplaceContratacao(contratacao: InsertMarketplaceContratacao): Promise<MarketplaceContratacao> {
+    const snakeCaseData = toSnakeCase(contratacao);
+    const { data, error } = await supabase.from("marketplace_contratacoes").insert(snakeCaseData).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data) as MarketplaceContratacao;
+  }
+
+  async updateMarketplaceContratacao(id: string, updates: Partial<InsertMarketplaceContratacao>): Promise<MarketplaceContratacao | undefined> {
+    const snakeCaseData = toSnakeCase({ ...updates, updatedAt: new Date() });
+    const { data, error } = await supabase.from("marketplace_contratacoes").update(snakeCaseData).eq("id", id).select().single();
+    if (error) return undefined;
+    return toCamelCase(data) as MarketplaceContratacao;
+  }
+
+  async atualizarStatusContratacao(id: string, status: string): Promise<MarketplaceContratacao | undefined> {
+    const updates: any = { status, updated_at: new Date().toISOString() };
+    if (status === "concluido") updates.data_conclusao = new Date().toISOString();
+    const { data, error } = await supabase.from("marketplace_contratacoes").update(updates).eq("id", id).select().single();
+    if (error) return undefined;
+    return toCamelCase(data) as MarketplaceContratacao;
+  }
+
+  // ========== MARKETPLACE AVALIACOES ==========
+
+  async getMarketplaceAvaliacoes(fornecedorId?: string, contratacaoId?: string): Promise<MarketplaceAvaliacao[]> {
+    let query = supabase.from("marketplace_avaliacoes").select("*");
+    if (fornecedorId) query = query.eq("fornecedor_id", fornecedorId);
+    if (contratacaoId) query = query.eq("contratacao_id", contratacaoId);
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (error) return [];
+    return (data || []).map((item: any) => toCamelCase(item) as MarketplaceAvaliacao);
+  }
+
+  async createMarketplaceAvaliacao(avaliacao: InsertMarketplaceAvaliacao): Promise<MarketplaceAvaliacao> {
+    const snakeCaseData = toSnakeCase(avaliacao);
+    const { data, error } = await supabase.from("marketplace_avaliacoes").insert(snakeCaseData).select().single();
+    if (error) throw new Error(error.message);
+    
+    // Update fornecedor rating
+    await this.atualizarMediaAvaliacaoFornecedor(avaliacao.fornecedorId);
+    
+    return toCamelCase(data) as MarketplaceAvaliacao;
+  }
+
+  async atualizarMediaAvaliacaoFornecedor(fornecedorId: string): Promise<void> {
+    const { data, error } = await supabase
+      .from("marketplace_avaliacoes")
+      .select("nota")
+      .eq("fornecedor_id", fornecedorId);
+    if (error || !data || data.length === 0) return;
+    
+    const totalAvaliacoes = data.length;
+    const avaliacaoMedia = data.reduce((sum, a) => sum + a.nota, 0) / totalAvaliacoes;
+    
+    await supabase
+      .from("marketplace_fornecedores")
+      .update({ avaliacao_media: avaliacaoMedia, total_avaliacoes: totalAvaliacoes, updated_at: new Date().toISOString() })
+      .eq("id", fornecedorId);
+  }
+
+  // ========== MARKETPLACE COMISSOES ==========
+
+  async getMarketplaceComissoes(condominiumId: string): Promise<MarketplaceComissao[]> {
+    const { data, error } = await supabase.from("marketplace_comissoes").select("*").eq("condominium_id", condominiumId);
+    if (error) return [];
+    return (data || []).map((item: any) => toCamelCase(item) as MarketplaceComissao);
+  }
+
+  async upsertMarketplaceComissao(comissao: InsertMarketplaceComissao): Promise<MarketplaceComissao> {
+    const snakeCaseData = toSnakeCase(comissao);
+    const { data, error } = await supabase
+      .from("marketplace_comissoes")
+      .upsert(snakeCaseData, { onConflict: 'condominium_id,categoria_id' })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data) as MarketplaceComissao;
+  }
+
+  // ========== MARKETPLACE METRICS ==========
+
+  async getMarketplaceMetrics(condominiumId: string): Promise<{
+    totalFornecedores: number;
+    fornecedoresPendentes: number;
+    totalContratacoes: number;
+    contratacoesMes: number;
+    avaliacaoMedia: number;
+    servicosMaisContratados: { servicoId: string; total: number }[];
+  }> {
+    const [fornecedores, contratacoes, avaliacoes] = await Promise.all([
+      this.getMarketplaceFornecedores(condominiumId),
+      this.getMarketplaceContratacoes(condominiumId),
+      supabase.from("marketplace_avaliacoes").select("nota")
+    ]);
+    
+    const mesAtual = new Date();
+    mesAtual.setDate(1);
+    const contratacoesMes = contratacoes.filter(c => new Date(c.createdAt!) >= mesAtual).length;
+    
+    const avaliacoesData = avaliacoes.data || [];
+    const avaliacaoMedia = avaliacoesData.length > 0 
+      ? avaliacoesData.reduce((sum, a) => sum + a.nota, 0) / avaliacoesData.length 
+      : 0;
+    
+    const servicoCount: Record<string, number> = {};
+    contratacoes.forEach(c => {
+      if (c.ofertaId) {
+        servicoCount[c.ofertaId] = (servicoCount[c.ofertaId] || 0) + 1;
+      }
+    });
+    
+    const servicosMaisContratados = Object.entries(servicoCount)
+      .map(([servicoId, total]) => ({ servicoId, total }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+    
+    return {
+      totalFornecedores: fornecedores.filter(f => f.status === "aprovado").length,
+      fornecedoresPendentes: fornecedores.filter(f => f.status === "pendente").length,
+      totalContratacoes: contratacoes.length,
+      contratacoesMes,
+      avaliacaoMedia,
+      servicosMaisContratados
+    };
   }
 }
 
