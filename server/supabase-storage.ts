@@ -2823,7 +2823,7 @@ export class SupabaseStorage implements IStorage {
   // ========== HOSPEDAGENS (RENTAL MANAGEMENT) ==========
 
   async getHospedagens(condominiumId?: string): Promise<Hospedagem[]> {
-    let query = supabase.from("hospedagens").select("*").order("data_check_in", { ascending: false });
+    let query = supabase.from("hospedagens").select("*").order("created_at", { ascending: false });
     if (condominiumId) {
       query = query.eq("condominium_id", condominiumId);
     }
@@ -2855,8 +2855,7 @@ export class SupabaseStorage implements IStorage {
       .select("*")
       .eq("condominium_id", condominiumId)
       .in("status", ["reservado", "em_andamento"])
-      .gte("data_check_out", now)
-      .order("data_check_in", { ascending: true });
+      .order("created_at", { ascending: false });
     if (error) {
       console.error("[getHospedagensAtivas] Error:", error);
       return [];

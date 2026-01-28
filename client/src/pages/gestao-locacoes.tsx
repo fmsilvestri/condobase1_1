@@ -69,31 +69,26 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 interface Hospedagem {
   id: string;
   condominiumId: string;
+  unidade: string;
+  bloco: string | null;
   nomeHospede: string;
   telefoneHospede: string | null;
   emailHospede: string | null;
   documentoHospede: string | null;
-  numeroAcompanhantes: number;
-  unidade: string;
-  bloco: string | null;
-  plataforma: string;
+  quantidadeHospedes: number;
+  plataforma: string | null;
   codigoReserva: string | null;
   dataCheckIn: string;
-  horaCheckIn: string | null;
   dataCheckOut: string;
-  horaCheckOut: string | null;
   placaVeiculo: string | null;
   modeloVeiculo: string | null;
   corVeiculo: string | null;
-  vagaEstacionamento: string | null;
-  status: string;
   observacoes: string | null;
-  mensagemPersonalizada: string | null;
+  status: string;
   boasVindasEnviadas: boolean;
   dataEnvioBoasVindas: string | null;
   urlVideoExplicativo: string | null;
   urlRegimentoInterno: string | null;
-  criadoPor: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -103,21 +98,17 @@ const hospedagemSchema = z.object({
   telefoneHospede: z.string().optional(),
   emailHospede: z.string().email("Email inválido").optional().or(z.literal("")),
   documentoHospede: z.string().optional(),
-  numeroAcompanhantes: z.coerce.number().min(0).default(0),
+  quantidadeHospedes: z.coerce.number().min(1).default(1),
   unidade: z.string().min(1, "Unidade é obrigatória"),
   bloco: z.string().optional(),
-  plataforma: z.string().default("airbnb"),
+  plataforma: z.string().optional(),
   codigoReserva: z.string().optional(),
   dataCheckIn: z.string().min(1, "Data de check-in é obrigatória"),
-  horaCheckIn: z.string().optional(),
   dataCheckOut: z.string().min(1, "Data de check-out é obrigatória"),
-  horaCheckOut: z.string().optional(),
   placaVeiculo: z.string().optional(),
   modeloVeiculo: z.string().optional(),
   corVeiculo: z.string().optional(),
-  vagaEstacionamento: z.string().optional(),
   observacoes: z.string().optional(),
-  mensagemPersonalizada: z.string().optional(),
 });
 
 const boasVindasSchema = z.object({
@@ -148,21 +139,17 @@ export default function GestaoLocacoesPage() {
       telefoneHospede: "",
       emailHospede: "",
       documentoHospede: "",
-      numeroAcompanhantes: 0,
+      quantidadeHospedes: 1,
       unidade: "",
       bloco: "",
-      plataforma: "airbnb",
+      plataforma: "",
       codigoReserva: "",
       dataCheckIn: "",
-      horaCheckIn: "15:00",
       dataCheckOut: "",
-      horaCheckOut: "11:00",
       placaVeiculo: "",
       modeloVeiculo: "",
       corVeiculo: "",
-      vagaEstacionamento: "",
       observacoes: "",
-      mensagemPersonalizada: "",
     },
   });
 
@@ -262,21 +249,17 @@ export default function GestaoLocacoesPage() {
         telefoneHospede: hospedagem.telefoneHospede || "",
         emailHospede: hospedagem.emailHospede || "",
         documentoHospede: hospedagem.documentoHospede || "",
-        numeroAcompanhantes: hospedagem.numeroAcompanhantes,
+        quantidadeHospedes: hospedagem.quantidadeHospedes || 1,
         unidade: hospedagem.unidade,
         bloco: hospedagem.bloco || "",
-        plataforma: hospedagem.plataforma,
+        plataforma: hospedagem.plataforma || "",
         codigoReserva: hospedagem.codigoReserva || "",
         dataCheckIn: hospedagem.dataCheckIn.split("T")[0],
-        horaCheckIn: hospedagem.horaCheckIn || "15:00",
         dataCheckOut: hospedagem.dataCheckOut.split("T")[0],
-        horaCheckOut: hospedagem.horaCheckOut || "11:00",
         placaVeiculo: hospedagem.placaVeiculo || "",
         modeloVeiculo: hospedagem.modeloVeiculo || "",
         corVeiculo: hospedagem.corVeiculo || "",
-        vagaEstacionamento: hospedagem.vagaEstacionamento || "",
         observacoes: hospedagem.observacoes || "",
-        mensagemPersonalizada: hospedagem.mensagemPersonalizada || "",
       });
     } else {
       setEditingHospedagem(null);
@@ -288,10 +271,10 @@ export default function GestaoLocacoesPage() {
   const handleOpenBoasVindasDialog = (hospedagem: Hospedagem) => {
     setSelectedHospedagem(hospedagem);
     
-    const defaultMessage = `Olá ${hospedagem.nomeHospede}! Sejam bem-vindos ao nosso condomínio.\n\nSua reserva:\n- Unidade: ${hospedagem.unidade}${hospedagem.bloco ? ` (Bloco ${hospedagem.bloco})` : ""}\n- Check-in: ${format(new Date(hospedagem.dataCheckIn), "dd/MM/yyyy", { locale: ptBR })}${hospedagem.horaCheckIn ? ` às ${hospedagem.horaCheckIn}` : ""}\n- Check-out: ${format(new Date(hospedagem.dataCheckOut), "dd/MM/yyyy", { locale: ptBR })}${hospedagem.horaCheckOut ? ` às ${hospedagem.horaCheckOut}` : ""}\n\nQualquer dúvida, estamos à disposição!`;
+    const defaultMessage = `Olá ${hospedagem.nomeHospede}! Sejam bem-vindos ao nosso condomínio.\n\nSua reserva:\n- Unidade: ${hospedagem.unidade}${hospedagem.bloco ? ` (Bloco ${hospedagem.bloco})` : ""}\n- Check-in: ${format(new Date(hospedagem.dataCheckIn), "dd/MM/yyyy", { locale: ptBR })}\n- Check-out: ${format(new Date(hospedagem.dataCheckOut), "dd/MM/yyyy", { locale: ptBR })}\n\nQualquer dúvida, estamos à disposição!`;
 
     boasVindasForm.reset({
-      mensagem: hospedagem.mensagemPersonalizada || defaultMessage,
+      mensagem: defaultMessage,
       urlVideo: hospedagem.urlVideoExplicativo || "",
       urlRegimento: hospedagem.urlRegimentoInterno || "",
     });
@@ -344,7 +327,7 @@ export default function GestaoLocacoesPage() {
   const hospedagensConcluidas = hospedagens.filter(h => h.status === "concluida");
   const hospedagensCanceladas = hospedagens.filter(h => h.status === "cancelada");
 
-  const totalHospedes = hospedagensAtivas.reduce((acc, h) => acc + 1 + h.numeroAcompanhantes, 0);
+  const totalHospedes = hospedagensAtivas.reduce((acc, h) => acc + (h.quantidadeHospedes || 1), 0);
 
   if (hospedagensLoading) {
     return (
@@ -463,7 +446,7 @@ export default function GestaoLocacoesPage() {
                           <div>
                             <p className="font-medium" data-testid={`text-nome-${hospedagem.id}`}>{hospedagem.nomeHospede}</p>
                             <p className="text-xs text-muted-foreground">
-                              {hospedagem.numeroAcompanhantes > 0 && `+${hospedagem.numeroAcompanhantes} acompanhante(s)`}
+                              {(hospedagem.quantidadeHospedes || 1) > 1 && `${hospedagem.quantidadeHospedes} hóspedes`}
                             </p>
                           </div>
                         </TableCell>
@@ -472,11 +455,9 @@ export default function GestaoLocacoesPage() {
                         </TableCell>
                         <TableCell data-testid={`text-checkin-${hospedagem.id}`}>
                           {format(new Date(hospedagem.dataCheckIn), "dd/MM/yyyy", { locale: ptBR })}
-                          {hospedagem.horaCheckIn && <span className="text-xs text-muted-foreground ml-1">{hospedagem.horaCheckIn}</span>}
                         </TableCell>
                         <TableCell data-testid={`text-checkout-${hospedagem.id}`}>
                           {format(new Date(hospedagem.dataCheckOut), "dd/MM/yyyy", { locale: ptBR })}
-                          {hospedagem.horaCheckOut && <span className="text-xs text-muted-foreground ml-1">{hospedagem.horaCheckOut}</span>}
                         </TableCell>
                         <TableCell>{getPlataformaBadge(hospedagem.plataforma)}</TableCell>
                         <TableCell>{getStatusBadge(hospedagem.status)}</TableCell>
@@ -705,12 +686,12 @@ export default function GestaoLocacoesPage() {
 
                 <FormField
                   control={hospedagemForm.control}
-                  name="numeroAcompanhantes"
+                  name="quantidadeHospedes"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Acompanhantes</FormLabel>
+                      <FormLabel>Quantidade de Hóspedes</FormLabel>
                       <FormControl>
-                        <Input {...field} type="number" min="0" data-testid="input-acompanhantes" />
+                        <Input {...field} type="number" min="1" data-testid="input-quantidade-hospedes" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -799,20 +780,6 @@ export default function GestaoLocacoesPage() {
 
                 <FormField
                   control={hospedagemForm.control}
-                  name="horaCheckIn"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Hora Check-in</FormLabel>
-                      <FormControl>
-                        <Input {...field} type="time" data-testid="input-hora-checkin" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={hospedagemForm.control}
                   name="dataCheckOut"
                   render={({ field }) => (
                     <FormItem>
@@ -825,19 +792,6 @@ export default function GestaoLocacoesPage() {
                   )}
                 />
 
-                <FormField
-                  control={hospedagemForm.control}
-                  name="horaCheckOut"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Hora Check-out</FormLabel>
-                      <FormControl>
-                        <Input {...field} type="time" data-testid="input-hora-checkout" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </div>
 
               <div className="border-t pt-4">
@@ -887,19 +841,6 @@ export default function GestaoLocacoesPage() {
                     )}
                   />
 
-                  <FormField
-                    control={hospedagemForm.control}
-                    name="vagaEstacionamento"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Vaga</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Ex: V-12" data-testid="input-vaga" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                 </div>
               </div>
 
@@ -1035,8 +976,8 @@ export default function GestaoLocacoesPage() {
                   <p className="font-medium">{selectedHospedagem.nomeHospede}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Acompanhantes</p>
-                  <p className="font-medium">{selectedHospedagem.numeroAcompanhantes}</p>
+                  <p className="text-sm text-muted-foreground">Hóspedes</p>
+                  <p className="font-medium">{selectedHospedagem.quantidadeHospedes}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Telefone</p>
@@ -1058,14 +999,12 @@ export default function GestaoLocacoesPage() {
                   <p className="text-sm text-muted-foreground">Check-in</p>
                   <p className="font-medium">
                     {format(new Date(selectedHospedagem.dataCheckIn), "dd/MM/yyyy", { locale: ptBR })}
-                    {selectedHospedagem.horaCheckIn && ` às ${selectedHospedagem.horaCheckIn}`}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Check-out</p>
                   <p className="font-medium">
                     {format(new Date(selectedHospedagem.dataCheckOut), "dd/MM/yyyy", { locale: ptBR })}
-                    {selectedHospedagem.horaCheckOut && ` às ${selectedHospedagem.horaCheckOut}`}
                   </p>
                 </div>
                 <div>
@@ -1095,10 +1034,6 @@ export default function GestaoLocacoesPage() {
                     <div>
                       <p className="text-sm text-muted-foreground">Cor</p>
                       <p className="font-medium">{selectedHospedagem.corVeiculo || "-"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Vaga</p>
-                      <p className="font-medium">{selectedHospedagem.vagaEstacionamento || "-"}</p>
                     </div>
                   </div>
                 </div>
