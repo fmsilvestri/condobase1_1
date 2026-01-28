@@ -178,9 +178,11 @@ export default function TeamManagement() {
     resolver: zodResolver(teamMemberFormSchema),
     defaultValues: {
       name: "",
+      cpf: "",
       role: "",
       department: "",
       phone: "",
+      whatsapp: "",
       email: "",
       workSchedule: "",
       hireDate: "",
@@ -188,6 +190,52 @@ export default function TeamManagement() {
       notes: "",
     },
   });
+
+  // Formatação de CPF
+  const formatCPF = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    if (digits.length <= 11) {
+      return digits
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    }
+    return value;
+  };
+
+  // Formatação de telefone
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    if (digits.length === 11) {
+      return digits.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+    } else if (digits.length === 10) {
+      return digits.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+    }
+    return value;
+  };
+
+  // Validação de CPF
+  const validateCPF = (cpf: string): boolean => {
+    const digits = cpf.replace(/\D/g, '');
+    if (digits.length !== 11) return false;
+    if (/^(\d)\1{10}$/.test(digits)) return false;
+    
+    let sum = 0;
+    for (let i = 0; i < 9; i++) {
+      sum += parseInt(digits.charAt(i)) * (10 - i);
+    }
+    let remainder = 11 - (sum % 11);
+    let digit1 = remainder >= 10 ? 0 : remainder;
+    if (digit1 !== parseInt(digits.charAt(9))) return false;
+    
+    sum = 0;
+    for (let i = 0; i < 10; i++) {
+      sum += parseInt(digits.charAt(i)) * (11 - i);
+    }
+    remainder = 11 - (sum % 11);
+    let digit2 = remainder >= 10 ? 0 : remainder;
+    return digit2 === parseInt(digits.charAt(10));
+  };
 
   const processForm = useForm<ProcessFormValues>({
     resolver: zodResolver(processFormSchema),
@@ -687,7 +735,27 @@ export default function TeamManagement() {
                           <FormItem>
                             <FormLabel>CPF</FormLabel>
                             <FormControl>
-                              <Input placeholder="000.000.000-00" {...field} data-testid="input-member-cpf" />
+                              <Input 
+                                placeholder="000.000.000-00" 
+                                {...field}
+                                onChange={(e) => {
+                                  const formatted = formatCPF(e.target.value);
+                                  field.onChange(formatted);
+                                }}
+                                onBlur={(e) => {
+                                  field.onBlur();
+                                  const cpf = e.target.value;
+                                  if (cpf && cpf.replace(/\D/g, '').length === 11 && !validateCPF(cpf)) {
+                                    toast({
+                                      title: "CPF inválido",
+                                      description: "Por favor, verifique o CPF informado.",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                }}
+                                maxLength={14}
+                                data-testid="input-member-cpf" 
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -764,7 +832,16 @@ export default function TeamManagement() {
                             <FormItem>
                               <FormLabel>Telefone</FormLabel>
                               <FormControl>
-                                <Input placeholder="(11) 99999-9999" {...field} data-testid="input-member-phone" />
+                                <Input 
+                                  placeholder="(11) 99999-9999" 
+                                  {...field}
+                                  onChange={(e) => {
+                                    const formatted = formatPhone(e.target.value);
+                                    field.onChange(formatted);
+                                  }}
+                                  maxLength={15}
+                                  data-testid="input-member-phone" 
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -777,7 +854,16 @@ export default function TeamManagement() {
                             <FormItem>
                               <FormLabel>WhatsApp</FormLabel>
                               <FormControl>
-                                <Input placeholder="(11) 99999-9999" {...field} data-testid="input-member-whatsapp" />
+                                <Input 
+                                  placeholder="(11) 99999-9999" 
+                                  {...field}
+                                  onChange={(e) => {
+                                    const formatted = formatPhone(e.target.value);
+                                    field.onChange(formatted);
+                                  }}
+                                  maxLength={15}
+                                  data-testid="input-member-whatsapp" 
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
