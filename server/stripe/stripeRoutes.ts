@@ -155,8 +155,12 @@ router.post('/checkout', requireAuth, async (req: Request, res: Response) => {
 router.post('/checkout-cobranca', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.condominiumContext?.userId;
+    const condominiumId = req.condominiumContext?.condominiumId;
     if (!userId) {
       return res.status(401).json({ error: 'Authentication required' });
+    }
+    if (!condominiumId) {
+      return res.status(400).json({ error: 'Condominium context required' });
     }
 
     const { cobrancaId } = req.body;
@@ -167,6 +171,14 @@ router.post('/checkout-cobranca', requireAuth, async (req: Request, res: Respons
     const cobranca = await storage.getCobrancaById(cobrancaId);
     if (!cobranca) {
       return res.status(404).json({ error: 'Cobrança not found' });
+    }
+
+    if (cobranca.condominiumId !== condominiumId) {
+      return res.status(403).json({ error: 'Acesso negado a esta cobrança' });
+    }
+
+    if (cobranca.moradorId !== userId) {
+      return res.status(403).json({ error: 'Esta cobrança não pertence a você' });
     }
 
     if (cobranca.status === 'pago') {

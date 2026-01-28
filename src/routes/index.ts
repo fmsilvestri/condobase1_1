@@ -2641,10 +2641,22 @@ router.get("/cobrancas/minhas", requireAuth, async (req, res) => {
 
 router.get("/cobrancas/:id", requireAuth, async (req, res) => {
   try {
+    const userId = getUserId(req);
+    const condominiumId = getCondominiumId(req);
+    const userRole = req.condominiumContext?.role;
+    
     const cobranca = await storage.getCobrancaById(req.params.id);
     if (!cobranca) {
       return res.status(404).json({ error: "Cobrança não encontrada" });
     }
+    
+    const isAdmin = userRole === 'admin' || userRole === 'sindico';
+    if (!isAdmin) {
+      if (cobranca.condominiumId !== condominiumId || cobranca.moradorId !== userId) {
+        return res.status(403).json({ error: "Acesso negado a esta cobrança" });
+      }
+    }
+    
     res.json(cobranca);
   } catch (error: any) {
     res.status(500).json({ error: "Falha ao buscar cobrança", details: error?.message });
