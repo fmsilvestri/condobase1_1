@@ -317,44 +317,63 @@ export default function RecursosHumanos() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: Partial<InsertFuncionario>) => {
+    mutationFn: async (data: Partial<InsertFuncionario> & { condominiumId?: string }) => {
       await supabaseReady;
       if (!supabase) throw new Error("Supabase não configurado");
       
-      // Valid funcionarios fields based on schema
-      const validFields = [
-        'nomeCompleto', 'cpf', 'rg', 'dataNascimento', 'genero', 'estadoCivil',
-        'nacionalidade', 'telefone', 'telefoneEmergencia', 'email', 'cep',
-        'endereco', 'numero', 'complemento', 'bairro', 'cidade', 'estado',
-        'funcao', 'departamento', 'dataAdmissao', 'tipoContrato', 'cargaHorariaSemanal',
-        'horarioTrabalho', 'salarioBase', 'valeTransporte', 'valeRefeicao',
-        'valeAlimentacao', 'planoSaude', 'outrosBeneficios', 'status', 'observacoes',
-        'fotoUrl', 'documentosRgUrl', 'documentosCpfUrl', 'documentosCnhUrl',
-        'documentosCtpsUrl', 'documentosContratoUrl', 'documentosComprovanteResidenciaUrl',
-        'documentosOutros', 'condominiumId'
-      ];
-      
-      const snakeData: Record<string, any> = {};
-      for (const [key, value] of Object.entries(data)) {
-        // Only include valid fields
-        if (!validFields.includes(key)) continue;
-        
-        const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-        // Convert empty strings to null, keep other values as-is
-        if (value === "" || value === undefined) {
-          snakeData[snakeKey] = null;
-        } else {
-          snakeData[snakeKey] = value;
-        }
-      }
-      
+      // Get next matricula number
       const { count } = await supabase.from('funcionarios').select('*', { count: 'exact', head: true });
       const nextNumber = (count || 0) + 1;
-      snakeData.matricula = `FUNC-${String(nextNumber).padStart(4, '0')}`;
+      const matricula = `FUNC-${String(nextNumber).padStart(4, '0')}`;
+      
+      // Build insert object with exact Supabase column names (snake_case)
+      const insertData: Record<string, any> = {
+        condominium_id: data.condominiumId,
+        matricula,
+        nome_completo: data.nomeCompleto || null,
+        cpf: data.cpf || null,
+        rg: data.rg || null,
+        data_nascimento: data.dataNascimento || null,
+        genero: data.genero || null,
+        estado_civil: data.estadoCivil || null,
+        nacionalidade: data.nacionalidade || null,
+        telefone: data.telefone || null,
+        telefone_emergencia: data.telefoneEmergencia || null,
+        email: data.email || null,
+        cep: data.cep || null,
+        endereco: data.endereco || null,
+        numero: data.numero || null,
+        complemento: data.complemento || null,
+        bairro: data.bairro || null,
+        cidade: data.cidade || null,
+        estado: data.estado || null,
+        funcao: data.funcao || null,
+        departamento: data.departamento || null,
+        data_admissao: data.dataAdmissao || null,
+        tipo_contrato: data.tipoContrato || null,
+        carga_horaria_semanal: data.cargaHorariaSemanal || 44,
+        horario_trabalho: data.horarioTrabalho || null,
+        salario_base: data.salarioBase || null,
+        vale_transporte: data.valeTransporte || null,
+        vale_refeicao: data.valeRefeicao || null,
+        vale_alimentacao: data.valeAlimentacao || null,
+        plano_saude: data.planoSaude || null,
+        outros_beneficios: data.outrosBeneficios || null,
+        status: data.status || 'ativo',
+        observacoes: data.observacoes || null,
+        foto_url: data.fotoUrl || null,
+        documentos_rg_url: data.documentosRgUrl || null,
+        documentos_cpf_url: data.documentosCpfUrl || null,
+        documentos_cnh_url: data.documentosCnhUrl || null,
+        documentos_ctps_url: data.documentosCtpsUrl || null,
+        documentos_contrato_url: data.documentosContratoUrl || null,
+        documentos_comprovante_residencia_url: data.documentosComprovanteResidenciaUrl || null,
+        documentos_outros: data.documentosOutros || null,
+      };
       
       const { data: result, error } = await supabase
         .from('funcionarios')
-        .insert([snakeData])
+        .insert(insertData)
         .select()
         .single();
       
@@ -373,41 +392,57 @@ export default function RecursosHumanos() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<InsertFuncionario> }) => {
+    mutationFn: async ({ id, data }: { id: string; data: Partial<InsertFuncionario> & { condominiumId?: string } }) => {
       await supabaseReady;
       if (!supabase) throw new Error("Supabase não configurado");
       
-      // Valid funcionarios fields based on schema
-      const validFields = [
-        'nomeCompleto', 'cpf', 'rg', 'dataNascimento', 'genero', 'estadoCivil',
-        'nacionalidade', 'telefone', 'telefoneEmergencia', 'email', 'cep',
-        'endereco', 'numero', 'complemento', 'bairro', 'cidade', 'estado',
-        'funcao', 'departamento', 'dataAdmissao', 'tipoContrato', 'cargaHorariaSemanal',
-        'horarioTrabalho', 'salarioBase', 'valeTransporte', 'valeRefeicao',
-        'valeAlimentacao', 'planoSaude', 'outrosBeneficios', 'status', 'observacoes',
-        'fotoUrl', 'documentosRgUrl', 'documentosCpfUrl', 'documentosCnhUrl',
-        'documentosCtpsUrl', 'documentosContratoUrl', 'documentosComprovanteResidenciaUrl',
-        'documentosOutros', 'condominiumId'
-      ];
-      
-      const snakeData: Record<string, any> = {};
-      for (const [key, value] of Object.entries(data)) {
-        // Only include valid fields
-        if (!validFields.includes(key)) continue;
-        
-        const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-        // Convert empty strings to null, keep other values as-is
-        if (value === "" || value === undefined) {
-          snakeData[snakeKey] = null;
-        } else {
-          snakeData[snakeKey] = value;
-        }
-      }
-      snakeData.updated_at = new Date().toISOString();
+      // Build update object with exact Supabase column names (snake_case)
+      const updateData: Record<string, any> = {
+        nome_completo: data.nomeCompleto || null,
+        cpf: data.cpf || null,
+        rg: data.rg || null,
+        data_nascimento: data.dataNascimento || null,
+        genero: data.genero || null,
+        estado_civil: data.estadoCivil || null,
+        nacionalidade: data.nacionalidade || null,
+        telefone: data.telefone || null,
+        telefone_emergencia: data.telefoneEmergencia || null,
+        email: data.email || null,
+        cep: data.cep || null,
+        endereco: data.endereco || null,
+        numero: data.numero || null,
+        complemento: data.complemento || null,
+        bairro: data.bairro || null,
+        cidade: data.cidade || null,
+        estado: data.estado || null,
+        funcao: data.funcao || null,
+        departamento: data.departamento || null,
+        data_admissao: data.dataAdmissao || null,
+        tipo_contrato: data.tipoContrato || null,
+        carga_horaria_semanal: data.cargaHorariaSemanal || 44,
+        horario_trabalho: data.horarioTrabalho || null,
+        salario_base: data.salarioBase || null,
+        vale_transporte: data.valeTransporte || null,
+        vale_refeicao: data.valeRefeicao || null,
+        vale_alimentacao: data.valeAlimentacao || null,
+        plano_saude: data.planoSaude || null,
+        outros_beneficios: data.outrosBeneficios || null,
+        status: data.status || 'ativo',
+        observacoes: data.observacoes || null,
+        foto_url: data.fotoUrl || null,
+        documentos_rg_url: data.documentosRgUrl || null,
+        documentos_cpf_url: data.documentosCpfUrl || null,
+        documentos_cnh_url: data.documentosCnhUrl || null,
+        documentos_ctps_url: data.documentosCtpsUrl || null,
+        documentos_contrato_url: data.documentosContratoUrl || null,
+        documentos_comprovante_residencia_url: data.documentosComprovanteResidenciaUrl || null,
+        documentos_outros: data.documentosOutros || null,
+        updated_at: new Date().toISOString(),
+      };
       
       const { data: result, error } = await supabase
         .from('funcionarios')
-        .update(snakeData)
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();
