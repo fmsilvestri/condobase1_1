@@ -5747,7 +5747,7 @@ export async function registerRoutes(
           const produto = await storage.getMercadoProdutoById(item.produtoId);
           if (produto) {
             await storage.updateMercadoProduto(item.produtoId, {
-              estoque: produto.estoque - item.quantidade
+              estoqueAtual: (produto.estoqueAtual || 0) - item.quantidade
             });
           }
         }
