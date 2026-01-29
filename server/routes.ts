@@ -3764,6 +3764,72 @@ export async function registerRoutes(
     }
   });
 
+  // ========== RECURSOS HUMANOS (FUNCIONARIOS) ==========
+
+  app.get("/api/funcionarios", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      const funcionarios = await storage.getFuncionarios(condominiumId);
+      res.json(funcionarios);
+    } catch (error: any) {
+      console.error("Error fetching funcionarios:", error);
+      res.status(500).json({ error: "Failed to fetch funcionarios" });
+    }
+  });
+
+  app.get("/api/funcionarios/:id", requireGestao, async (req, res) => {
+    try {
+      const funcionario = await storage.getFuncionarioById(req.params.id);
+      if (!funcionario) {
+        return res.status(404).json({ error: "Funcionário não encontrado" });
+      }
+      res.json(funcionario);
+    } catch (error: any) {
+      console.error("Error fetching funcionario:", error);
+      res.status(500).json({ error: "Failed to fetch funcionario" });
+    }
+  });
+
+  app.post("/api/funcionarios", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) {
+        return res.status(401).json({ error: "Condomínio não selecionado" });
+      }
+      const funcionario = await storage.createFuncionario({
+        ...req.body,
+        condominiumId,
+      });
+      res.status(201).json(funcionario);
+    } catch (error: any) {
+      console.error("Error creating funcionario:", error);
+      res.status(500).json({ error: error.message || "Failed to create funcionario" });
+    }
+  });
+
+  app.patch("/api/funcionarios/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const funcionario = await storage.updateFuncionario(req.params.id, req.body);
+      if (!funcionario) {
+        return res.status(404).json({ error: "Funcionário não encontrado" });
+      }
+      res.json(funcionario);
+    } catch (error: any) {
+      console.error("Error updating funcionario:", error);
+      res.status(500).json({ error: error.message || "Failed to update funcionario" });
+    }
+  });
+
+  app.delete("/api/funcionarios/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteFuncionario(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting funcionario:", error);
+      res.status(500).json({ error: "Failed to delete funcionario" });
+    }
+  });
+
   // ========== ACTIVITY MANAGEMENT ==========
 
   // Activity Templates

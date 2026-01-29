@@ -129,6 +129,7 @@ import {
   scheduledTasks as scheduledTasksTable,
   operationLogs as operationLogsTable,
   teamMembers as teamMembersTable,
+  funcionarios as funcionariosTable,
   processes as processesTable,
   processExecutions as processExecutionsTable,
   parcels as parcelsTable,
@@ -148,6 +149,8 @@ import {
   type InsertOperationLog,
   type TeamMember,
   type InsertTeamMember,
+  type Funcionario,
+  type InsertFuncionario,
   type Process,
   type InsertProcess,
   type ProcessExecution,
@@ -1941,6 +1944,71 @@ export class SupabaseStorage implements IStorage {
 
   async deleteTeamMember(id: string): Promise<boolean> {
     await db.delete(teamMembersTable).where(eq(teamMembersTable.id, id));
+    return true;
+  }
+
+  // Funcionarios - Sistema de RH
+  async getFuncionarios(condominiumId?: string): Promise<Funcionario[]> {
+    const sb = supabaseAdmin || this.sb;
+    let query = sb.from('funcionarios').select('*').order('nome_completo', { ascending: true });
+    
+    if (condominiumId) {
+      query = query.eq('condominium_id', condominiumId);
+    }
+    
+    const { data, error } = await query;
+    if (error) throw error;
+    
+    return (data || []).map((row: any) => this.toCamelCase(row)) as Funcionario[];
+  }
+
+  async getFuncionarioById(id: string): Promise<Funcionario | undefined> {
+    const sb = supabaseAdmin || this.sb;
+    const { data, error } = await sb.from('funcionarios').select('*').eq('id', id).single();
+    
+    if (error && error.code !== 'PGRST116') throw error;
+    if (!data) return undefined;
+    
+    return this.toCamelCase(data) as Funcionario;
+  }
+
+  async createFuncionario(funcionario: InsertFuncionario): Promise<Funcionario> {
+    const sb = supabaseAdmin || this.sb;
+    
+    // Generate matricula
+    const { count } = await sb.from('funcionarios').select('*', { count: 'exact', head: true });
+    const nextNumber = (count || 0) + 1;
+    const matricula = `FUNC-${String(nextNumber).padStart(4, '0')}`;
+    
+    const dataToInsert = this.toSnakeCase({
+      ...funcionario,
+      matricula,
+    });
+    
+    const { data, error } = await sb.from('funcionarios').insert(dataToInsert).select().single();
+    if (error) throw error;
+    
+    return this.toCamelCase(data) as Funcionario;
+  }
+
+  async updateFuncionario(id: string, funcionario: Partial<InsertFuncionario>): Promise<Funcionario | undefined> {
+    const sb = supabaseAdmin || this.sb;
+    
+    const dataToUpdate = this.toSnakeCase({
+      ...funcionario,
+      updatedAt: new Date().toISOString(),
+    });
+    
+    const { data, error } = await sb.from('funcionarios').update(dataToUpdate).eq('id', id).select().single();
+    if (error) throw error;
+    
+    return this.toCamelCase(data) as Funcionario;
+  }
+
+  async deleteFuncionario(id: string): Promise<boolean> {
+    const sb = supabaseAdmin || this.sb;
+    const { error } = await sb.from('funcionarios').delete().eq('id', id);
+    if (error) throw error;
     return true;
   }
 
