@@ -53,7 +53,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { PageHeader } from "@/components/page-header";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, getAuthHeaders } from "@/lib/queryClient";
 
 const insuranceSchema = z.object({
   policyNumber: z.string().min(1, "Número da apólice é obrigatório"),
@@ -206,10 +206,12 @@ export default function Insurance() {
       const formData = new FormData();
       formData.append("file", file);
 
+      const authHeaders = getAuthHeaders();
       const response = await fetch("/api/insurance/upload-document", {
         method: "POST",
         body: formData,
         credentials: "include",
+        headers: authHeaders,
       });
 
       if (!response.ok) {
