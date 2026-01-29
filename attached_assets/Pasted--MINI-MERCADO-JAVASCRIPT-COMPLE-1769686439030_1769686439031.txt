@@ -1,0 +1,971 @@
+// ============================================================
+// MINI MERCADO - JAVASCRIPT COMPLETO
+// Sistema de gestão, perfil de consumo e cashback
+// ============================================================
+
+// Configuração Supabase
+const supabase = window.supabase.createClient(
+    'https://cqlqvwjcpbccqpfyykao.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxbHF2d2pjcGJjY3FwZnl5a2FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc5OTI1MjIsImV4cCI6MjA1MzU2ODUyMn0.QqH8EwvLTEJKRvmZ9Mn4HEwbFmBZ0QSCQ4dFpxNCjPo'
+);
+
+// Variáveis globais
+let produtosData = [];
+let vendasData = [];
+let perfilConsumoData = [];
+
+// ============================================================
+// INICIALIZAÇÃO
+// ============================================================
+
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('🛒 Iniciando Sistema Mini Mercado...');
+    
+    await carregarDashboard();
+    await carregarProdutos();
+    await carregarPromocoes();
+    await carregarVendas();
+    await carregarPerfilConsumo();
+    await carregarCashback();
+    
+    console.log('✅ Sistema carregado!');
+});
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+
+async function carregarDashboard() {
+    try {
+        // Buscar vendas do mês atual
+        const primeiroDiaMes = new Date();
+        primeiroDiaMes.setDate(1);
+        primeiroDiaMes.setHours(0, 0, 0, 0);
+
+        const { data: vendas, error } = await supabase
+            .from('mercado_vendas')
+            .select('*')
+            .gte('data_venda', primeiroDiaMes.toISOString());
+
+        if (error) throw error;
+
+        // Calcular estatísticas
+        const totalVendas = vendas.reduce((sum, v) => sum + parseFloat(v.total), 0);
+        const ticketMedio = vendas.length > 0 ? totalVendas / vendas.length : 0;
+        const cashback = totalVendas * 0.03; // 3%
+
+        // Buscar total de clientes únicos
+        const { data: perfis } = await supabase
+            .from('mercado_perfil_consumo')
+            .select('count');
+
+        const totalClientes = perfis ? perfis.length : 0;
+
+        // Atualizar stats
+        document.getElementById('statVendasMes').textContent = formatarMoeda(totalVendas);
+        document.getElementById('statTicketMedio').textContent = formatarMoeda(ticketMedio);
+        document.getElementById('statTotalClientes').textContent = totalClientes;
+        document.getElementById('statCashback').textContent = formatarMoeda(cashback);
+
+        // Carregar gráfico de vendas
+        await carregarGraficoVendas();
+
+        // Carregar top produtos
+        await carregarTopProdutos();
+
+    } catch (error) {
+        console.error('Erro ao carregar dashboard:', error);
+    }
+}
+
+async function carregarGraficoVendas() {
+    try {
+        // Buscar vendas dos últimos 7 dias
+        const { data } = await supabase
+            .from('vw_resumo_vendas')
+            .select('*')
+            .order('data', { ascending: true })
+            .limit(7);
+
+        if (!data) return;
+
+        const labels = data.map(d => new Date(d.data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
+        const valores = data.map(d => parseFloat(d.faturamento));
+
+        const ctx = document.getElementById('chartVendas').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Faturamento',
+                    data: valores,
+                    borderColor: '#FF6B35',
+                    backgroundColor: 'rgba(255, 107, 53, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'R$ ' + value.toFixed(0);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Erro ao carregar gráfico:', error);
+    }
+}
+
+async function carregarTopProdutos() {
+    try {
+        const { data, error } = await supabase
+            .from('vw_produtos_mais_vendidos')
+            .select('*')
+            .limit(10);
+
+        if (error) throw error;
+
+        const tbody = document.getElementById('topProdutosBody');
+        
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Nenhum dado disponível</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.map((p, index) => `
+            <tr>
+                <td><strong>${index + 1}</strong></td>
+                <td>${p.nome}</td>
+                <td>${p.categoria || '-'}</td>
+                <td>${p.total_vendido || 0}</td>
+                <td>${formatarMoeda(p.receita_total)}</td>
+            </tr>
+        `).join('');
+
+    } catch (error) {
+        console.error('Erro ao carregar top produtos:', error);
+    }
+}
+
+// ============================================================
+// PRODUTOS
+// ============================================================
+
+async function carregarProdutos() {
+    try {
+        const { data, error } = await supabase
+            .from('mercado_produtos')
+            .select('*, categoria:mercado_categorias(nome, icone)')
+            .eq('ativo', true)
+            .order('nome');
+
+        if (error) throw error;
+
+        produtosData = data;
+        exibirProdutos(data);
+        popularSelectProdutos(data);
+
+    } catch (error) {
+        console.error('Erro ao carregar produtos:', error);
+        document.getElementById('produtosContainer').innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">❌</div>
+                <p>Erro ao carregar produtos</p>
+            </div>
+        `;
+    }
+}
+
+function exibirProdutos(produtos) {
+    const container = document.getElementById('produtosContainer');
+    
+    if (!produtos || produtos.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">🏪</div>
+                <p>Nenhum produto cadastrado</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = produtos.map(p => `
+        <div class="product-card">
+            <div class="product-image">
+                ${p.categoria?.icone || '📦'}
+                ${p.destaque ? '<div class="product-badge badge-destaque">Destaque</div>' : ''}
+            </div>
+            <div class="product-info">
+                <div class="product-category">${p.categoria?.nome || 'Geral'}</div>
+                <div class="product-name">${p.nome}</div>
+                <div class="product-price">
+                    <span class="price-current">${formatarMoeda(p.preco_venda)}</span>
+                </div>
+                <div class="product-stock">
+                    📦 Estoque: ${p.estoque_atual} ${p.unidade}
+                    ${p.estoque_atual <= p.estoque_minimo ? ' ⚠️ <span style="color: #EF476F;">BAIXO</span>' : ''}
+                </div>
+                <div class="product-actions">
+                    <button class="btn btn-primary btn-small" onclick="editarProduto('${p.id}')">
+                        ✏️ Editar
+                    </button>
+                    <button class="btn btn-success btn-small" onclick="adicionarAoCarrinho('${p.id}')">
+                        🛒
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function popularSelectProdutos(produtos) {
+    const select = document.getElementById('vendaProduto');
+    select.innerHTML = '<option value="">Selecione um produto...</option>';
+    
+    produtos.forEach(p => {
+        select.innerHTML += `<option value="${p.id}" data-preco="${p.preco_venda}">${p.nome} - ${formatarMoeda(p.preco_venda)}</option>`;
+    });
+}
+
+// ============================================================
+// PROMOÇÕES
+// ============================================================
+
+async function carregarPromocoes() {
+    try {
+        const { data, error } = await supabase
+            .from('mercado_promocoes')
+            .select('*')
+            .eq('ativo', true)
+            .gte('data_fim', new Date().toISOString().split('T')[0])
+            .order('data_inicio', { ascending: false });
+
+        if (error) throw error;
+
+        exibirPromocoes(data);
+
+    } catch (error) {
+        console.error('Erro ao carregar promoções:', error);
+    }
+}
+
+function exibirPromocoes(promocoes) {
+    const container = document.getElementById('promocoesContainer');
+    
+    if (!promocoes || promocoes.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">🔥</div>
+                <p>Nenhuma promoção ativa no momento</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = promocoes.map(p => `
+        <div class="product-card">
+            <div class="product-image" style="background: linear-gradient(135deg, #FF6B35, #EF476F);">
+                🔥
+                <div class="product-badge badge-promocao">${p.desconto_percentual}% OFF</div>
+            </div>
+            <div class="product-info">
+                <div class="product-category">PROMOÇÃO</div>
+                <div class="product-name">${p.titulo}</div>
+                <div class="product-price">
+                    <span class="price-current">${formatarMoeda(p.preco_promocional)}</span>
+                    ${p.desconto_percentual ? `<span class="price-old">${p.desconto_percentual}% OFF</span>` : ''}
+                </div>
+                <div class="product-stock">
+                    📅 Válido até: ${new Date(p.data_fim).toLocaleDateString('pt-BR')}
+                </div>
+                <div class="product-actions">
+                    <button class="btn btn-primary btn-small" onclick="verPromocao('${p.id}')">
+                        Ver Detalhes
+                    </button>
+                    ${!p.push_enviado ? `
+                    <button class="btn btn-success btn-small" onclick="enviarPushPromocao('${p.id}')">
+                        📱 Enviar Push
+                    </button>
+                    ` : `<span style="font-size: 12px; color: #06D6A0;">✅ Push enviado</span>`}
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function enviarPushPromocao(promocaoId) {
+    try {
+        const { data: promo } = await supabase
+            .from('mercado_promocoes')
+            .select('*')
+            .eq('id', promocaoId)
+            .single();
+
+        if (!promo) return;
+
+        // Criar notificação
+        const { error } = await supabase
+            .from('mercado_notificacoes')
+            .insert([{
+                tipo: 'promocao',
+                titulo: `🔥 ${promo.titulo}`,
+                mensagem: promo.descricao,
+                enviar_para: 'todos',
+                enviado_em: new Date().toISOString()
+            }]);
+
+        if (error) throw error;
+
+        // Marcar promoção como enviada
+        await supabase
+            .from('mercado_promocoes')
+            .update({ push_enviado: true })
+            .eq('id', promocaoId);
+
+        mostrarToast('✅ Notificação push enviada para todos os moradores!', 'success');
+        carregarPromocoes();
+
+    } catch (error) {
+        console.error('Erro ao enviar push:', error);
+        mostrarToast('❌ Erro ao enviar notificação', 'error');
+    }
+}
+
+// ============================================================
+// VENDAS
+// ============================================================
+
+async function carregarVendas() {
+    try {
+        const { data, error } = await supabase
+            .from('mercado_vendas')
+            .select('*')
+            .order('data_venda', { ascending: false })
+            .limit(50);
+
+        if (error) throw error;
+
+        vendasData = data;
+        exibirVendas(data);
+
+    } catch (error) {
+        console.error('Erro ao carregar vendas:', error);
+    }
+}
+
+function exibirVendas(vendas) {
+    const tbody = document.getElementById('vendasTableBody');
+    
+    if (!vendas || vendas.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Nenhuma venda registrada</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = vendas.map(v => `
+        <tr>
+            <td><strong>${v.numero_venda}</strong></td>
+            <td>${new Date(v.data_venda).toLocaleString('pt-BR')}</td>
+            <td>${v.morador_nome || '-'}</td>
+            <td>
+                ${v.morador_tipo === 'proprietario' ? '🏠 Proprietário' : 
+                  v.morador_tipo === 'inquilino' ? '🔑 Inquilino' : 
+                  '✈️ Airbnb'}
+            </td>
+            <td><strong>${formatarMoeda(v.total)}</strong></td>
+            <td>${formatarPagamento(v.forma_pagamento)}</td>
+            <td>
+                <button class="btn btn-primary btn-small" onclick="verDetalhesVenda('${v.id}')">
+                    Ver
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function salvarVenda(event) {
+    event.preventDefault();
+
+    try {
+        const produtoId = document.getElementById('vendaProduto').value;
+        const quantidade = parseFloat(document.getElementById('vendaQuantidade').value);
+        const morador = document.getElementById('vendaMorador').value;
+        const tipo = document.getElementById('vendaTipo').value;
+        const pagamento = document.getElementById('vendaPagamento').value;
+
+        if (!produtoId || !quantidade || !morador) {
+            alert('❌ Preencha todos os campos obrigatórios');
+            return;
+        }
+
+        // Buscar produto
+        const { data: produto } = await supabase
+            .from('mercado_produtos')
+            .select('*')
+            .eq('id', produtoId)
+            .single();
+
+        if (!produto) {
+            alert('❌ Produto não encontrado');
+            return;
+        }
+
+        // Calcular totais
+        const subtotal = produto.preco_venda * quantidade;
+        const total = subtotal;
+
+        // Criar venda
+        const { data: venda, error: vendaError } = await supabase
+            .from('mercado_vendas')
+            .insert([{
+                morador_nome: morador,
+                morador_tipo: tipo,
+                subtotal: subtotal,
+                total: total,
+                forma_pagamento: pagamento
+            }])
+            .select()
+            .single();
+
+        if (vendaError) throw vendaError;
+
+        // Criar item da venda
+        const { error: itemError } = await supabase
+            .from('mercado_itens_venda')
+            .insert([{
+                venda_id: venda.id,
+                produto_id: produto.id,
+                produto_nome: produto.nome,
+                quantidade: quantidade,
+                preco_unitario: produto.preco_venda,
+                subtotal: subtotal
+            }]);
+
+        if (itemError) throw itemError;
+
+        mostrarToast(`✅ Venda ${venda.numero_venda} registrada com sucesso!`, 'success');
+        fecharModal('modalVenda');
+        
+        // Recarregar dados
+        await carregarVendas();
+        await carregarDashboard();
+        await carregarPerfilConsumo();
+
+        // Limpar formulário
+        document.getElementById('formVenda').reset();
+
+    } catch (error) {
+        console.error('Erro ao salvar venda:', error);
+        mostrarToast('❌ Erro ao registrar venda: ' + error.message, 'error');
+    }
+}
+
+// ============================================================
+// PERFIL DE CONSUMO
+// ============================================================
+
+async function carregarPerfilConsumo() {
+    try {
+        const { data, error } = await supabase
+            .from('mercado_perfil_consumo')
+            .select('*')
+            .order('total_gasto', { ascending: false });
+
+        if (error) throw error;
+
+        perfilConsumoData = data;
+        
+        // Atualizar estatísticas
+        const totalClientes = data.length;
+        const clientesFieis = data.filter(d => d.perfil_consumidor === 'fiel' || d.perfil_consumidor === 'premium').length;
+        const mediaCompras = data.reduce((sum, d) => sum + (d.compras_por_mes || 0), 0) / totalClientes || 0;
+        const ticketMedio = data.reduce((sum, d) => sum + (d.ticket_medio || 0), 0) / totalClientes || 0;
+
+        document.getElementById('perfilTotalClientes').textContent = totalClientes;
+        document.getElementById('perfilClientesFieis').textContent = clientesFieis;
+        document.getElementById('perfilComprasMes').textContent = mediaCompras.toFixed(1);
+        document.getElementById('perfilTicketMedio').textContent = formatarMoeda(ticketMedio);
+
+        // Exibir top consumidores
+        exibirTopConsumidores(data.slice(0, 20));
+
+        // Carregar gráfico de categorias
+        await carregarGraficoCategorias();
+
+    } catch (error) {
+        console.error('Erro ao carregar perfil de consumo:', error);
+    }
+}
+
+function exibirTopConsumidores(consumidores) {
+    const tbody = document.getElementById('topConsumidoresBody');
+    
+    if (!consumidores || consumidores.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Nenhum dado disponível</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = consumidores.map(c => `
+        <tr>
+            <td><strong>${c.morador_nome}</strong></td>
+            <td>${formatarTipoCliente(c.morador_tipo)}</td>
+            <td>${c.total_compras || 0}</td>
+            <td>${formatarMoeda(c.total_gasto)}</td>
+            <td>${formatarMoeda(c.ticket_medio)}</td>
+            <td>
+                ${c.perfil_consumidor === 'premium' ? '💎 Premium' :
+                  c.perfil_consumidor === 'fiel' ? '⭐ Fiel' :
+                  c.perfil_consumidor === 'regular' ? '👤 Regular' :
+                  '🌱 Ocasional'}
+            </td>
+            <td>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="width: 50px; height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden;">
+                        <div style="width: ${c.score_fidelidade || 0}%; height: 100%; background: linear-gradient(90deg, #FF6B35, #4ECDC4);"></div>
+                    </div>
+                    <span style="font-weight: 600;">${c.score_fidelidade || 0}</span>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function carregarGraficoCategorias() {
+    try {
+        // Agregar vendas por categoria
+        const { data: itens } = await supabase
+            .from('mercado_itens_venda')
+            .select('produto_id, quantidade');
+
+        if (!itens) return;
+
+        // Buscar produtos com categorias
+        const produtosIds = [...new Set(itens.map(i => i.produto_id))];
+        const { data: produtos } = await supabase
+            .from('mercado_produtos')
+            .select('id, categoria:mercado_categorias(nome)')
+            .in('id', produtosIds);
+
+        if (!produtos) return;
+
+        // Agrupar por categoria
+        const categorias = {};
+        itens.forEach(item => {
+            const produto = produtos.find(p => p.id === item.produto_id);
+            if (produto && produto.categoria) {
+                const cat = produto.categoria.nome;
+                categorias[cat] = (categorias[cat] || 0) + item.quantidade;
+            }
+        });
+
+        const labels = Object.keys(categorias);
+        const valores = Object.values(categorias);
+
+        const ctx = document.getElementById('chartCategorias').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: valores,
+                    backgroundColor: [
+                        '#FF6B35', '#4ECDC4', '#FFE66D', '#06D6A0',
+                        '#EF476F', '#667eea', '#764ba2', '#f093fb'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    }
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Erro ao carregar gráfico de categorias:', error);
+    }
+}
+
+// ============================================================
+// CASHBACK
+// ============================================================
+
+async function carregarCashback() {
+    try {
+        // Buscar vendas do mês atual
+        const mesAtual = new Date().getMonth() + 1;
+        const anoAtual = new Date().getFullYear();
+
+        const primeiroDia = new Date(anoAtual, mesAtual - 1, 1);
+        const ultimoDia = new Date(anoAtual, mesAtual, 0);
+
+        const { data: vendas } = await supabase
+            .from('mercado_vendas')
+            .select('total')
+            .gte('data_venda', primeiroDia.toISOString())
+            .lte('data_venda', ultimoDia.toISOString());
+
+        const totalVendas = vendas ? vendas.reduce((sum, v) => sum + parseFloat(v.total), 0) : 0;
+        const cashback = totalVendas * 0.03; // 3%
+
+        document.getElementById('cashbackValor').textContent = formatarMoeda(cashback);
+        document.getElementById('cashbackTotalVendas').textContent = formatarMoeda(totalVendas);
+
+        // Carregar histórico
+        await carregarHistoricoCashback();
+
+    } catch (error) {
+        console.error('Erro ao carregar cashback:', error);
+    }
+}
+
+async function carregarHistoricoCashback() {
+    try {
+        const { data, error } = await supabase
+            .from('mercado_cashback')
+            .select('*')
+            .order('ano_referencia', { ascending: false })
+            .order('mes_referencia', { ascending: false })
+            .limit(12);
+
+        if (error) throw error;
+
+        const tbody = document.getElementById('cashbackTableBody');
+        
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Nenhum histórico disponível</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.map(c => `
+            <tr>
+                <td><strong>${String(c.mes_referencia).padStart(2, '0')}/${c.ano_referencia}</strong></td>
+                <td>${formatarMoeda(c.total_vendas)}</td>
+                <td>${c.quantidade_vendas}</td>
+                <td>${formatarMoeda(c.ticket_medio)}</td>
+                <td><strong style="color: #06D6A0;">${formatarMoeda(c.valor_cashback)}</strong></td>
+                <td>
+                    ${c.status === 'pago' ? 
+                        '<span style="color: #06D6A0;">✅ Pago</span>' : 
+                        '<span style="color: #FFE66D;">⏳ Calculado</span>'}
+                </td>
+            </tr>
+        `).join('');
+
+    } catch (error) {
+        console.error('Erro ao carregar histórico cashback:', error);
+    }
+}
+
+// ============================================================
+// NOTIFICAÇÕES
+// ============================================================
+
+async function enviarNotificacao(event) {
+    event.preventDefault();
+
+    try {
+        const tipo = document.getElementById('notifTipo').value;
+        const titulo = document.getElementById('notifTitulo').value;
+        const mensagem = document.getElementById('notifMensagem').value;
+        const destino = document.getElementById('notifDestino').value;
+
+        const { error } = await supabase
+            .from('mercado_notificacoes')
+            .insert([{
+                tipo: tipo,
+                titulo: titulo,
+                mensagem: mensagem,
+                enviar_para: destino,
+                enviado_em: new Date().toISOString(),
+                status: 'enviado'
+            }]);
+
+        if (error) throw error;
+
+        mostrarToast('✅ Notificação enviada com sucesso!', 'success');
+        fecharModal('modalNotificacao');
+        document.getElementById('formNotificacao').reset();
+
+    } catch (error) {
+        console.error('Erro ao enviar notificação:', error);
+        mostrarToast('❌ Erro ao enviar notificação', 'error');
+    }
+}
+
+// ============================================================
+// RELATÓRIOS PDF
+// ============================================================
+
+async function gerarRelatorioVendasPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    try {
+        const { data: vendas } = await supabase
+            .from('mercado_vendas')
+            .select('*')
+            .order('data_venda', { ascending: false })
+            .limit(50);
+
+        // Cabeçalho
+        doc.setFontSize(20);
+        doc.setTextColor(255, 107, 53);
+        doc.text('Relatório de Vendas - Mini Mercado', 20, 20);
+
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 20, 28);
+
+        // Linha
+        doc.setDrawColor(255, 107, 53);
+        doc.line(20, 32, 190, 32);
+
+        // Estatísticas
+        const total = vendas.reduce((sum, v) => sum + parseFloat(v.total), 0);
+        const ticketMedio = total / vendas.length;
+
+        doc.setFontSize(10);
+        doc.setTextColor(0);
+        doc.text(`Total de Vendas: ${vendas.length}`, 30, 42);
+        doc.text(`Faturamento Total: R$ ${total.toFixed(2)}`, 30, 48);
+        doc.text(`Ticket Médio: R$ ${ticketMedio.toFixed(2)}`, 30, 54);
+
+        // Tabela
+        const tableData = vendas.map(v => [
+            v.numero_venda,
+            new Date(v.data_venda).toLocaleDateString('pt-BR'),
+            v.morador_nome || '-',
+            v.morador_tipo,
+            `R$ ${parseFloat(v.total).toFixed(2)}`
+        ]);
+
+        doc.autoTable({
+            startY: 65,
+            head: [['Nº Venda', 'Data', 'Cliente', 'Tipo', 'Total']],
+            body: tableData,
+            theme: 'striped',
+            headStyles: { fillColor: [255, 107, 53] }
+        });
+
+        doc.save(`vendas_${new Date().toISOString().split('T')[0]}.pdf`);
+        mostrarToast('✅ Relatório gerado com sucesso!', 'success');
+
+    } catch (error) {
+        console.error('Erro ao gerar PDF:', error);
+        mostrarToast('❌ Erro ao gerar relatório', 'error');
+    }
+}
+
+async function gerarRelatorioPerfilPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    try {
+        const { data: perfis } = await supabase
+            .from('mercado_perfil_consumo')
+            .select('*')
+            .order('total_gasto', { ascending: false })
+            .limit(30);
+
+        // Cabeçalho
+        doc.setFontSize(20);
+        doc.setTextColor(255, 107, 53);
+        doc.text('Relatório de Perfil de Consumo', 20, 20);
+
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 20, 28);
+
+        // Tabela
+        const tableData = perfis.map(p => [
+            p.morador_nome,
+            p.morador_tipo,
+            p.total_compras || 0,
+            `R$ ${parseFloat(p.total_gasto || 0).toFixed(2)}`,
+            `R$ ${parseFloat(p.ticket_medio || 0).toFixed(2)}`,
+            p.perfil_consumidor || '-',
+            p.score_fidelidade || 0
+        ]);
+
+        doc.autoTable({
+            startY: 40,
+            head: [['Cliente', 'Tipo', 'Compras', 'Total Gasto', 'Ticket', 'Perfil', 'Score']],
+            body: tableData,
+            theme: 'striped',
+            headStyles: { fillColor: [255, 107, 53] }
+        });
+
+        doc.save(`perfil_consumo_${new Date().toISOString().split('T')[0]}.pdf`);
+        mostrarToast('✅ Relatório gerado com sucesso!', 'success');
+
+    } catch (error) {
+        console.error('Erro ao gerar PDF:', error);
+        mostrarToast('❌ Erro ao gerar relatório', 'error');
+    }
+}
+
+async function gerarRelatorioCashbackPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    try {
+        const { data: cashback } = await supabase
+            .from('mercado_cashback')
+            .select('*')
+            .order('ano_referencia', { ascending: false })
+            .order('mes_referencia', { ascending: false });
+
+        // Cabeçalho
+        doc.setFontSize(20);
+        doc.setTextColor(255, 107, 53);
+        doc.text('Relatório de Cashback - Condomínio', 20, 20);
+
+        // Tabela
+        const tableData = cashback.map(c => [
+            `${String(c.mes_referencia).padStart(2, '0')}/${c.ano_referencia}`,
+            `R$ ${parseFloat(c.total_vendas).toFixed(2)}`,
+            c.quantidade_vendas,
+            `R$ ${parseFloat(c.valor_cashback).toFixed(2)}`,
+            c.status
+        ]);
+
+        doc.autoTable({
+            startY: 40,
+            head: [['Período', 'Total Vendas', 'Qtd', 'Cashback 3%', 'Status']],
+            body: tableData,
+            theme: 'striped',
+            headStyles: { fillColor: [255, 107, 53] }
+        });
+
+        doc.save(`cashback_${new Date().toISOString().split('T')[0]}.pdf`);
+        mostrarToast('✅ Relatório gerado com sucesso!', 'success');
+
+    } catch (error) {
+        console.error('Erro ao gerar PDF:', error);
+        mostrarToast('❌ Erro ao gerar relatório', 'error');
+    }
+}
+
+async function gerarRelatorioEstoquePDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    try {
+        const { data: produtos } = await supabase
+            .from('mercado_produtos')
+            .select('*, categoria:mercado_categorias(nome)')
+            .eq('ativo', true)
+            .order('estoque_atual');
+
+        // Cabeçalho
+        doc.setFontSize(20);
+        doc.setTextColor(255, 107, 53);
+        doc.text('Relatório de Estoque', 20, 20);
+
+        // Tabela
+        const tableData = produtos.map(p => [
+            p.nome,
+            p.categoria?.nome || '-',
+            p.estoque_atual,
+            p.estoque_minimo,
+            p.estoque_atual <= p.estoque_minimo ? 'BAIXO' : 'OK'
+        ]);
+
+        doc.autoTable({
+            startY: 40,
+            head: [['Produto', 'Categoria', 'Estoque', 'Mínimo', 'Status']],
+            body: tableData,
+            theme: 'striped',
+            headStyles: { fillColor: [255, 107, 53] }
+        });
+
+        doc.save(`estoque_${new Date().toISOString().split('T')[0]}.pdf`);
+        mostrarToast('✅ Relatório gerado com sucesso!', 'success');
+
+    } catch (error) {
+        console.error('Erro ao gerar PDF:', error);
+        mostrarToast('❌ Erro ao gerar relatório', 'error');
+    }
+}
+
+// ============================================================
+// UTILIDADES
+// ============================================================
+
+function formatarMoeda(valor) {
+    return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+    }).format(valor || 0);
+}
+
+function formatarTipoCliente(tipo) {
+    const tipos = {
+        'proprietario': '🏠 Proprietário',
+        'inquilino': '🔑 Inquilino',
+        'airbnb': '✈️ Airbnb'
+    };
+    return tipos[tipo] || tipo;
+}
+
+function formatarPagamento(tipo) {
+    const pagamentos = {
+        'dinheiro': '💵 Dinheiro',
+        'pix': '💳 PIX',
+        'cartao_debito': '💳 Débito',
+        'cartao_credito': '💳 Crédito'
+    };
+    return pagamentos[tipo] || tipo;
+}
+
+function mostrarToast(mensagem, tipo) {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${tipo}`;
+    toast.textContent = mensagem;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+function mudarTab(tab, btn) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    
+    btn.classList.add('active');
+    document.getElementById(`tab-${tab}`).classList.add('active');
+}
+
+function abrirModal(modalId) {
+    document.getElementById(modalId).classList.add('active');
+}
+
+function fecharModal(modalId) {
+    document.getElementById(modalId).classList.remove('active');
+}
+
+// Fechar modal ao clicar fora
+window.onclick = function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.classList.remove('active');
+    }
+}
+
+console.log('✅ Sistema Mini Mercado carregado!');

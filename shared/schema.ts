@@ -2497,3 +2497,201 @@ export const insertMarketplaceComissaoSchema = createInsertSchema(marketplaceCom
 
 export type InsertMarketplaceComissao = z.infer<typeof insertMarketplaceComissaoSchema>;
 export type MarketplaceComissao = typeof marketplaceComissoes.$inferSelect;
+
+// ============================================================
+// MINI MERCADO - Sistema de Gestão de Mini Mercado do Condomínio
+// ============================================================
+
+// Categorias de Produtos do Mini Mercado
+export const mercadoCategorias = pgTable("mercado_categorias", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  nome: varchar("nome", { length: 100 }).notNull(),
+  icone: varchar("icone", { length: 50 }),
+  cor: varchar("cor", { length: 20 }),
+  ordem: integer("ordem").default(0),
+  ativo: boolean("ativo").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMercadoCategoriaSchema = createInsertSchema(mercadoCategorias).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMercadoCategoria = z.infer<typeof insertMercadoCategoriaSchema>;
+export type MercadoCategoria = typeof mercadoCategorias.$inferSelect;
+
+// Produtos do Mini Mercado
+export const mercadoProdutos = pgTable("mercado_produtos", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  categoriaId: uuid("categoria_id").references(() => mercadoCategorias.id),
+  nome: varchar("nome", { length: 200 }).notNull(),
+  descricao: text("descricao"),
+  codigoBarras: varchar("codigo_barras", { length: 50 }),
+  unidade: varchar("unidade", { length: 20 }).default("un"),
+  precoCusto: real("preco_custo").default(0),
+  precoVenda: real("preco_venda").notNull(),
+  margemLucro: real("margem_lucro"),
+  estoqueAtual: integer("estoque_atual").default(0),
+  estoqueMinimo: integer("estoque_minimo").default(5),
+  estoqueMaximo: integer("estoque_maximo").default(100),
+  imagemUrl: varchar("imagem_url", { length: 500 }),
+  destaque: boolean("destaque").default(false),
+  ativo: boolean("ativo").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMercadoProdutoSchema = createInsertSchema(mercadoProdutos).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMercadoProduto = z.infer<typeof insertMercadoProdutoSchema>;
+export type MercadoProduto = typeof mercadoProdutos.$inferSelect;
+
+// Promoções do Mini Mercado
+export const mercadoPromocoes = pgTable("mercado_promocoes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  produtoId: uuid("produto_id").references(() => mercadoProdutos.id),
+  titulo: varchar("titulo", { length: 200 }).notNull(),
+  descricao: text("descricao"),
+  descontoPercentual: real("desconto_percentual"),
+  precoPromocional: real("preco_promocional"),
+  dataInicio: date("data_inicio").notNull(),
+  dataFim: date("data_fim").notNull(),
+  pushEnviado: boolean("push_enviado").default(false),
+  ativo: boolean("ativo").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMercadoPromocaoSchema = createInsertSchema(mercadoPromocoes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMercadoPromocao = z.infer<typeof insertMercadoPromocaoSchema>;
+export type MercadoPromocao = typeof mercadoPromocoes.$inferSelect;
+
+// Vendas do Mini Mercado
+export const mercadoVendas = pgTable("mercado_vendas", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  unidade: varchar("unidade", { length: 50 }),
+  moradorNome: varchar("morador_nome", { length: 200 }),
+  dataVenda: timestamp("data_venda").defaultNow(),
+  subtotal: real("subtotal").default(0),
+  desconto: real("desconto").default(0),
+  cashbackUsado: real("cashback_usado").default(0),
+  total: real("total").notNull(),
+  formaPagamento: varchar("forma_pagamento", { length: 50 }),
+  status: varchar("status", { length: 50 }).default("concluida"),
+  observacoes: text("observacoes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMercadoVendaSchema = createInsertSchema(mercadoVendas).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertMercadoVenda = z.infer<typeof insertMercadoVendaSchema>;
+export type MercadoVenda = typeof mercadoVendas.$inferSelect;
+
+// Itens da Venda do Mini Mercado
+export const mercadoVendaItens = pgTable("mercado_venda_itens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  vendaId: uuid("venda_id").notNull().references(() => mercadoVendas.id),
+  produtoId: uuid("produto_id").notNull().references(() => mercadoProdutos.id),
+  quantidade: integer("quantidade").notNull(),
+  precoUnitario: real("preco_unitario").notNull(),
+  desconto: real("desconto").default(0),
+  total: real("total").notNull(),
+});
+
+export const insertMercadoVendaItemSchema = createInsertSchema(mercadoVendaItens).omit({
+  id: true,
+});
+
+export type InsertMercadoVendaItem = z.infer<typeof insertMercadoVendaItemSchema>;
+export type MercadoVendaItem = typeof mercadoVendaItens.$inferSelect;
+
+// Perfil de Consumo do Morador
+export const mercadoPerfilConsumo = pgTable("mercado_perfil_consumo", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  unidade: varchar("unidade", { length: 50 }).notNull(),
+  moradorNome: varchar("morador_nome", { length: 200 }),
+  totalCompras: real("total_compras").default(0),
+  quantidadeCompras: integer("quantidade_compras").default(0),
+  ticketMedio: real("ticket_medio").default(0),
+  ultimaCompra: timestamp("ultima_compra"),
+  categoriasPreferidas: text("categorias_preferidas"),
+  produtosFrequentes: text("produtos_frequentes"),
+  score: integer("score").default(0),
+  nivel: varchar("nivel", { length: 50 }).default("bronze"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMercadoPerfilConsumoSchema = createInsertSchema(mercadoPerfilConsumo).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMercadoPerfilConsumo = z.infer<typeof insertMercadoPerfilConsumoSchema>;
+export type MercadoPerfilConsumo = typeof mercadoPerfilConsumo.$inferSelect;
+
+// Cashback do Morador
+export const mercadoCashback = pgTable("mercado_cashback", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  unidade: varchar("unidade", { length: 50 }).notNull(),
+  moradorNome: varchar("morador_nome", { length: 200 }),
+  tipo: varchar("tipo", { length: 50 }).notNull(),
+  valor: real("valor").notNull(),
+  descricao: text("descricao"),
+  vendaId: uuid("venda_id").references(() => mercadoVendas.id),
+  dataExpiracao: date("data_expiracao"),
+  utilizado: boolean("utilizado").default(false),
+  dataUtilizacao: timestamp("data_utilizacao"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMercadoCashbackSchema = createInsertSchema(mercadoCashback).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertMercadoCashback = z.infer<typeof insertMercadoCashbackSchema>;
+export type MercadoCashback = typeof mercadoCashback.$inferSelect;
+
+// Notificações do Mini Mercado
+export const mercadoNotificacoes = pgTable("mercado_notificacoes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  tipo: varchar("tipo", { length: 50 }).notNull(),
+  titulo: varchar("titulo", { length: 200 }).notNull(),
+  mensagem: text("mensagem"),
+  enviarPara: varchar("enviar_para", { length: 50 }).default("todos"),
+  unidadeDestino: varchar("unidade_destino", { length: 50 }),
+  enviadoEm: timestamp("enviado_em"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMercadoNotificacaoSchema = createInsertSchema(mercadoNotificacoes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertMercadoNotificacao = z.infer<typeof insertMercadoNotificacaoSchema>;
+export type MercadoNotificacao = typeof mercadoNotificacoes.$inferSelect;
