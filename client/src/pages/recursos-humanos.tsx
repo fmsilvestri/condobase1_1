@@ -324,7 +324,12 @@ export default function RecursosHumanos() {
       const snakeData: Record<string, any> = {};
       for (const [key, value] of Object.entries(data)) {
         const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-        snakeData[snakeKey] = value;
+        // Convert empty strings to null, keep other values as-is
+        if (value === "" || value === undefined) {
+          snakeData[snakeKey] = null;
+        } else {
+          snakeData[snakeKey] = value;
+        }
       }
       
       const { count } = await supabase.from('funcionarios').select('*', { count: 'exact', head: true });
@@ -359,7 +364,12 @@ export default function RecursosHumanos() {
       const snakeData: Record<string, any> = {};
       for (const [key, value] of Object.entries(data)) {
         const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-        snakeData[snakeKey] = value;
+        // Convert empty strings to null, keep other values as-is
+        if (value === "" || value === undefined) {
+          snakeData[snakeKey] = null;
+        } else {
+          snakeData[snakeKey] = value;
+        }
       }
       snakeData.updated_at = new Date().toISOString();
       
