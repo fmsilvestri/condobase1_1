@@ -398,11 +398,12 @@ export class SupabaseStorage implements IStorage {
   }
 
   async updateEquipment(id: string, equipment: Partial<InsertEquipment>): Promise<Equipment | undefined> {
-    // Use Drizzle ORM directly to avoid PostgREST schema cache issues
+    // Use supabaseAdmin to bypass RLS restrictions
+    const client = supabaseAdmin || this.sb;
     try {
       const updateData: Record<string, any> = {};
       
-      // Map fields - handle empty strings and type conversions
+      // Map all fields to snake_case for Supabase
       if (equipment.name !== undefined) updateData.name = equipment.name;
       if (equipment.category !== undefined) updateData.category = equipment.category;
       if (equipment.location !== undefined) updateData.location = equipment.location;
@@ -412,33 +413,43 @@ export class SupabaseStorage implements IStorage {
       if (equipment.icon !== undefined) updateData.icon = equipment.icon || null;
       if (equipment.manufacturer !== undefined) updateData.manufacturer = equipment.manufacturer || null;
       
-      // Handle installationDate - convert string to Date or null
+      // Handle installationDate - convert to ISO string for Supabase
       if (equipment.installationDate !== undefined) {
-        if (equipment.installationDate && typeof equipment.installationDate === 'string' && equipment.installationDate.trim() !== '') {
-          updateData.installationDate = new Date(equipment.installationDate);
-        } else if (equipment.installationDate instanceof Date) {
-          updateData.installationDate = equipment.installationDate;
+        if (equipment.installationDate) {
+          if (equipment.installationDate instanceof Date) {
+            updateData.installation_date = equipment.installationDate.toISOString();
+          } else if (typeof equipment.installationDate === 'string' && equipment.installationDate.trim() !== '') {
+            updateData.installation_date = equipment.installationDate;
+          } else {
+            updateData.installation_date = null;
+          }
         } else {
-          updateData.installationDate = null;
+          updateData.installation_date = null;
         }
       }
       
-      if (equipment.estimatedLifespan !== undefined) updateData.estimatedLifespan = equipment.estimatedLifespan || null;
-      if (equipment.powerConsumption !== undefined) updateData.powerConsumption = equipment.powerConsumption || null;
-      if (equipment.estimatedUsageHours !== undefined) updateData.estimatedUsageHours = equipment.estimatedUsageHours || null;
+      if (equipment.estimatedLifespan !== undefined) updateData.estimated_lifespan = equipment.estimatedLifespan || null;
+      if (equipment.powerConsumption !== undefined) updateData.power_consumption = equipment.powerConsumption || null;
+      if (equipment.estimatedUsageHours !== undefined) updateData.estimated_usage_hours = equipment.estimatedUsageHours || null;
       if (equipment.notes !== undefined) updateData.notes = equipment.notes || null;
       if (equipment.documents !== undefined) updateData.documents = equipment.documents;
-      if (equipment.supplierId !== undefined) updateData.supplierId = equipment.supplierId || null;
+      if (equipment.supplierId !== undefined) updateData.supplier_id = equipment.supplierId || null;
       
-      updateData.updatedAt = new Date();
+      updateData.updated_at = new Date().toISOString();
 
-      const result = await db
-        .update(equipmentTable)
-        .set(updateData)
-        .where(eq(equipmentTable.id, id))
-        .returning();
+      const { data, error } = await client
+        .from("equipment")
+        .update(updateData)
+        .eq("id", id)
+        .select()
+        .single();
       
-      if (!result.length) {
+      if (error) {
+        console.error('[equipment] Update error:', error);
+        return undefined;
+      }
+      
+      if (!data) {
         console.error('[equipment] Update: No rows returned');
         return undefined;
       }
@@ -447,7 +458,7 @@ export class SupabaseStorage implements IStorage {
         this.equipmentIconCache.set(id, equipment.icon);
       }
       
-      return result[0] as Equipment;
+      return toCamelCase(data) as Equipment;
     } catch (error) {
       console.error('[equipment] Update error:', error);
       return undefined;
