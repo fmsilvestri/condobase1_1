@@ -54,6 +54,7 @@ import MarketplaceCampanhas from "@/pages/marketplace-campanhas";
 import TaxasCobrancas from "@/pages/taxas-cobrancas";
 import GestaoLocacoes from "@/pages/gestao-locacoes";
 import ActivityManagement from "@/pages/activity-management";
+import RecursosHumanos from "@/pages/recursos-humanos";
 
 function Router() {
   return (
@@ -62,6 +63,7 @@ function Router() {
       <Route path="/governanca" component={Governance} />
       <Route path="/financeiro" component={Financial} />
       <Route path="/contratos" component={Contracts} />
+      <Route path="/recursos-humanos" component={RecursosHumanos} />
       <Route path="/conformidade" component={Compliance} />
       <Route path="/seguros" component={Insurance} />
       <Route path="/manutencoes" component={Maintenance} />

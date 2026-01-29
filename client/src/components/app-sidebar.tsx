@@ -97,6 +97,13 @@ const pillarModules = [
     bgColor: "bg-purple-500/10",
   },
   {
+    title: "Recursos Humanos",
+    url: "/recursos-humanos",
+    icon: UserCog,
+    iconColor: "text-indigo-500",
+    bgColor: "bg-indigo-500/10",
+  },
+  {
     title: "Conformidade Legal",
     url: "/conformidade",
     icon: Scale,
