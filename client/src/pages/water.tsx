@@ -160,6 +160,7 @@ export default function Water() {
 
   const createReadingMutation = useMutation({
     mutationFn: async (data: z.infer<typeof waterFormSchema>) => {
+      const condominiumId = localStorage.getItem("selectedCondominiumId");
       const reservoirId = (!data.reservoirId || data.reservoirId === "all" || data.reservoirId === "") ? null : data.reservoirId;
       const reservoir = reservoirs.find(r => r.id === reservoirId);
       const capacity = reservoir?.capacityLiters || 50000;
@@ -168,6 +169,7 @@ export default function Water() {
       const estimatedAutonomy = volumeAvailable / estimatedDailyConsumption;
       
       return apiRequest("POST", "/api/water", {
+        condominiumId,
         reservoirId: reservoirId,
         tankLevel: data.tankLevel,
         quality: data.quality,
