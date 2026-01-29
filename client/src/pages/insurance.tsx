@@ -18,6 +18,9 @@ import {
   FileText,
   Building2,
   Pencil,
+  Upload,
+  ExternalLink,
+  Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -78,6 +81,7 @@ interface InsurancePolicy {
   broker: string | null;
   brokerPhone: string | null;
   brokerEmail: string | null;
+  documentUrl: string | null;
   status: string;
   daysUntilExpiry: number;
 }
@@ -103,6 +107,8 @@ export default function Insurance() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [editingPolicy, setEditingPolicy] = useState<InsurancePolicy | null>(null);
+  const [pendingDocumentUrl, setPendingDocumentUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<InsuranceFormData>({
@@ -149,6 +155,7 @@ export default function Insurance() {
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setEditingPolicy(null);
+    setPendingDocumentUrl(null);
     form.reset({
       policyNumber: "",
       insuranceCompany: "",
@@ -164,6 +171,7 @@ export default function Insurance() {
 
   const handleEditPolicy = (policy: InsurancePolicy) => {
     setEditingPolicy(policy);
+    setPendingDocumentUrl(policy.documentUrl);
     form.reset({
       policyNumber: policy.policyNumber,
       insuranceCompany: policy.insuranceCompany,
@@ -178,11 +186,52 @@ export default function Insurance() {
     setIsDialogOpen(true);
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
+    if (!allowedTypes.includes(file.type)) {
+      toast({ title: "Tipo de arquivo não permitido. Use PDF, JPG ou PNG.", variant: "destructive" });
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "Arquivo muito grande. Máximo 10MB.", variant: "destructive" });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const urlRes = await apiRequest("POST", "/api/uploads/request-url", {
+        name: file.name,
+        size: file.size,
+        contentType: file.type,
+      }) as unknown as { uploadURL: string; objectPath: string };
+      const { uploadURL, objectPath } = urlRes;
+
+      await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+
+      setPendingDocumentUrl(objectPath);
+      toast({ title: "Documento enviado com sucesso" });
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({ title: "Erro ao enviar documento", variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const onSubmit = (data: InsuranceFormData) => {
+    const payload = { ...data, documentUrl: pendingDocumentUrl };
     if (editingPolicy) {
-      updateInsurance.mutate({ id: editingPolicy.id, data });
+      updateInsurance.mutate({ id: editingPolicy.id, data: payload as any });
     } else {
-      createInsurance.mutate(data);
+      createInsurance.mutate(payload as any);
     }
   };
 
@@ -427,11 +476,54 @@ export default function Insurance() {
                     )}
                   />
                 </div>
+                <div className="space-y-2">
+                  <FormLabel>Documento da Apólice</FormLabel>
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={handleFileUpload}
+                        disabled={isUploading}
+                        className="cursor-pointer"
+                        data-testid="input-document"
+                      />
+                    </div>
+                    {isUploading && <Loader2 className="h-4 w-4 animate-spin" />}
+                  </div>
+                  {pendingDocumentUrl && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <FileText className="h-4 w-4 text-emerald-500" />
+                      <span>Documento anexado</span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => window.open(pendingDocumentUrl, "_blank")}
+                        data-testid="button-view-document"
+                      >
+                        <ExternalLink className="h-3 w-3 mr-1" />
+                        Visualizar
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={() => setPendingDocumentUrl(null)}
+                        data-testid="button-remove-document"
+                      >
+                        <Trash2 className="h-3 w-3 text-red-500" />
+                      </Button>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">PDF, JPG ou PNG (máx. 10MB)</p>
+                </div>
                 <div className="flex justify-end gap-2 pt-4">
                   <Button type="button" variant="outline" onClick={handleCloseDialog}>
                     Cancelar
                   </Button>
-                  <Button type="submit" disabled={createInsurance.isPending || updateInsurance.isPending} data-testid="button-submit">
+                  <Button type="submit" disabled={createInsurance.isPending || updateInsurance.isPending || isUploading} data-testid="button-submit">
                     {(createInsurance.isPending || updateInsurance.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                     {editingPolicy ? "Salvar" : "Cadastrar"}
                   </Button>
@@ -498,6 +590,17 @@ export default function Insurance() {
                     </div>
                     <div className="flex flex-col items-end gap-2">
                       <div className="flex items-center gap-2">
+                        {policy.documentUrl && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => window.open(policy.documentUrl!, "_blank")}
+                            title="Ver documento da apólice"
+                            data-testid={`button-document-${policy.id}`}
+                          >
+                            <FileText className="h-4 w-4 text-blue-500" />
+                          </Button>
+                        )}
                         <Button
                           size="icon"
                           variant="ghost"
