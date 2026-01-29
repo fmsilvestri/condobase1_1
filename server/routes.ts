@@ -3770,7 +3770,9 @@ export async function registerRoutes(
     try {
       const condominiumId = req.condominiumContext?.condominiumId;
       const funcionarios = await storage.getFuncionarios(condominiumId);
-      console.log("[FUNCIONARIOS GET] condominiumId:", condominiumId, "count:", funcionarios.length, "data:", JSON.stringify(funcionarios.slice(0, 2)));
+      // Debug: Adicionar header com informação de debug
+      res.setHeader('X-Debug-CondominiumId', condominiumId || 'null');
+      res.setHeader('X-Debug-Count', funcionarios.length.toString());
       res.json(funcionarios);
     } catch (error: any) {
       console.error("[FUNCIONARIOS GET ERROR]", error);
