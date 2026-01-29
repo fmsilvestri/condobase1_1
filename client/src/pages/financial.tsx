@@ -83,6 +83,7 @@ export default function Financeiro() {
   const [activeTab, setActiveTab] = useState("transacoes");
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<FinancialTransaction | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -108,6 +109,16 @@ export default function Financeiro() {
     description: "",
     keywords: "",
     color: "#6366f1",
+  });
+
+  const [newTransaction, setNewTransaction] = useState({
+    date: new Date().toISOString().split('T')[0],
+    description: "",
+    amount: 0,
+    type: "despesa",
+    categoryId: "",
+    status: "confirmado",
+    notes: "",
   });
 
   const { data: transactions = [], isLoading: loadingTransactions } = useQuery<FinancialTransaction[]>({
@@ -185,6 +196,34 @@ export default function Financeiro() {
     },
     onError: (error: any) => {
       toast({ title: "Erro ao criar categoria", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const createTransactionMutation = useMutation({
+    mutationFn: async (data: typeof newTransaction) => {
+      const category = categories.find(c => c.id === data.categoryId);
+      return apiRequest("POST", "/api/financial/transactions", {
+        ...data,
+        categoryName: category?.name || null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/financial/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/financial/summary"] });
+      setIsCreateOpen(false);
+      setNewTransaction({
+        date: new Date().toISOString().split('T')[0],
+        description: "",
+        amount: 0,
+        type: "despesa",
+        categoryId: "",
+        status: "confirmado",
+        notes: "",
+      });
+      toast({ title: "Transação criada com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao criar transação", description: error.message, variant: "destructive" });
     },
   });
 
@@ -352,7 +391,11 @@ export default function Financeiro() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-bold">Módulo Financeiro</h1>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setIsUploadOpen(true)} data-testid="button-import-ofx">
+          <Button onClick={() => setIsCreateOpen(true)} data-testid="button-new-transaction">
+            <Plus className="w-4 h-4 mr-2" />
+            Nova Transação
+          </Button>
+          <Button variant="outline" onClick={() => setIsUploadOpen(true)} data-testid="button-import-ofx">
             <Upload className="w-4 h-4 mr-2" />
             Importar OFX
           </Button>
@@ -668,6 +711,113 @@ export default function Financeiro() {
                 Importando transações...
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nova Transação</DialogTitle>
+            <DialogDescription>
+              Adicione uma nova transação manualmente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Data</Label>
+                <Input 
+                  type="date" 
+                  value={newTransaction.date} 
+                  onChange={(e) => setNewTransaction({ ...newTransaction, date: e.target.value })}
+                  data-testid="input-new-date"
+                />
+              </div>
+              <div>
+                <Label>Tipo</Label>
+                <Select value={newTransaction.type} onValueChange={(v) => setNewTransaction({ ...newTransaction, type: v, categoryId: "" })}>
+                  <SelectTrigger data-testid="select-new-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="receita">Receita</SelectItem>
+                    <SelectItem value="despesa">Despesa</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Descrição</Label>
+              <Input 
+                value={newTransaction.description} 
+                onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
+                placeholder="Ex: Pagamento taxa de condomínio"
+                data-testid="input-new-description"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Valor (R$)</Label>
+                <Input 
+                  type="number" 
+                  step="0.01"
+                  min="0"
+                  value={newTransaction.amount} 
+                  onChange={(e) => setNewTransaction({ ...newTransaction, amount: parseFloat(e.target.value) || 0 })}
+                  data-testid="input-new-amount"
+                />
+              </div>
+              <div>
+                <Label>Categoria</Label>
+                <Select 
+                  value={newTransaction.categoryId} 
+                  onValueChange={(v) => setNewTransaction({ ...newTransaction, categoryId: v })}
+                >
+                  <SelectTrigger data-testid="select-new-category">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.filter(c => c.type === newTransaction.type).map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Status</Label>
+              <Select value={newTransaction.status} onValueChange={(v) => setNewTransaction({ ...newTransaction, status: v })}>
+                <SelectTrigger data-testid="select-new-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                  <SelectItem value="confirmado">Confirmado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Observações (opcional)</Label>
+              <Textarea 
+                value={newTransaction.notes} 
+                onChange={(e) => setNewTransaction({ ...newTransaction, notes: e.target.value })}
+                placeholder="Notas adicionais sobre esta transação"
+                data-testid="textarea-new-notes"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={() => createTransactionMutation.mutate(newTransaction)} 
+                disabled={createTransactionMutation.isPending || !newTransaction.description || newTransaction.amount <= 0}
+                data-testid="button-create-transaction"
+              >
+                {createTransactionMutation.isPending ? "Salvando..." : "Criar Transação"}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
