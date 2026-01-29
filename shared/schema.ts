@@ -1266,6 +1266,7 @@ export const legalChecklist = pgTable("legal_checklist", {
 
 export const insertLegalChecklistSchema = createInsertSchema(legalChecklist).omit({
   id: true,
+  condominiumId: true,
   createdAt: true,
   updatedAt: true,
 }).extend({
