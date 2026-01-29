@@ -2226,7 +2226,7 @@ router.post("/insurance/upload-document", requireSindicoOrAdmin, upload.single("
     const fileName = `seguros/${condominiumId}/${timestamp}.${ext}`;
 
     const { data, error } = await supabaseAdmin.storage
-      .from("documents")
+      .from("uploads")
       .upload(fileName, file.buffer, {
         contentType: file.mimetype,
         upsert: true,
@@ -2238,7 +2238,7 @@ router.post("/insurance/upload-document", requireSindicoOrAdmin, upload.single("
     }
 
     const { data: publicUrl } = supabaseAdmin.storage
-      .from("documents")
+      .from("uploads")
       .getPublicUrl(fileName);
 
     res.json({ 
