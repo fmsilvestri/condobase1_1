@@ -1,0 +1,1672 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ativos & Manutenções - Sistema Completo</title>
+    
+    <!-- Bibliotecas -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 15px;
+        }
+
+        .app-container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-outline {
+            background: white;
+            border: 2px solid #667eea;
+            color: #667eea;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        /* Tabs */
+        .tabs {
+            background: white;
+            padding: 8px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 4px;
+            overflow-x: auto;
+        }
+
+        .tab {
+            padding: 12px 20px;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .tab:hover {
+            background: #f1f5f9;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        /* Content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f1f5f9;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+
+        /* Filters */
+        .filters {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .form-input,
+        .form-select {
+            padding: 10px 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .form-input:focus,
+        .form-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .filter-input {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        /* Equipment Cards */
+        .equipment-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+        }
+
+        .equipment-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 18px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .equipment-card:hover {
+            border-color: #667eea;
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        }
+
+        .equipment-header {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .equipment-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .equipment-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .equipment-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .equipment-code {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-bottom: 2px;
+        }
+
+        .equipment-location {
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-operacional {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-manutencao {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-quebrado {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-inativo {
+            background: #e2e8f0;
+            color: #475569;
+        }
+
+        .equipment-details {
+            margin: 12px 0;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 13px;
+        }
+
+        .detail-label {
+            color: #64748b;
+        }
+
+        .detail-value {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .consumption-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            background: #eff6ff;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+
+        .consumption-value {
+            font-weight: 600;
+            color: #1d4ed8;
+        }
+
+        .equipment-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        /* Table */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 13px;
+        }
+
+        th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #475569;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+
+        tr:hover {
+            background: #f8fafc;
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 35px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 12px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #e2e8f0;
+        }
+
+        .timeline-item {
+            position: relative;
+            padding: 12px;
+            margin-bottom: 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 3px solid #667eea;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -24px;
+            top: 18px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #667eea;
+            border: 3px solid white;
+        }
+
+        .timeline-date {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+
+        .timeline-title {
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+
+        .timeline-description {
+            font-size: 13px;
+            color: #64748b;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: start;
+            justify-content: center;
+            padding-top: 50px;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 900px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 25px;
+            position: relative;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f1f5f9;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 28px;
+            color: #94a3b8;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+        }
+
+        .close-modal:hover {
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        /* Form */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #475569;
+            font-size: 13px;
+        }
+
+        .form-textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+            font-family: inherit;
+        }
+
+        .form-hint {
+            display: block;
+            margin-top: 4px;
+            font-size: 11px;
+            color: #94a3b8;
+        }
+
+        .form-section {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 2px solid #f1f5f9;
+        }
+
+        .form-section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .result-box {
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+        }
+
+        .result-item {
+            text-align: center;
+        }
+
+        .result-label {
+            font-size: 11px;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+
+        .result-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        /* Alert */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            color: #1e40af;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .alert-warning {
+            background: #fef3c7;
+            color: #92400e;
+            border-left: 4px solid #f59e0b;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #94a3b8;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #94a3b8;
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .header-actions {
+                flex-direction: column;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .equipment-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .equipment-actions {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            min-width: 300px;
+            background: white;
+            padding: 16px 20px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast-success {
+            border-left: 4px solid #10b981;
+        }
+
+        .toast-error {
+            border-left: 4px solid #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>🔧 Ativos & Manutenções</h1>
+                <p style="color: #64748b; font-size: 13px; margin-top: 4px;">Gestão completa de equipamentos e manutenções</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-outline" onclick="gerarRelatorioPDF()">
+                    📄 Relatório
+                </button>
+                <button class="btn btn-primary" onclick="abrirModal('modalEquipamento')">
+                    ➕ Novo Equipamento
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="statTotal">0</div>
+                <div class="stat-label">Total Equipamentos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statOperacionais">0</div>
+                <div class="stat-label">Operacionais</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statManutencao">0</div>
+                <div class="stat-label">Em Manutenção</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statConsumo">0 kWh</div>
+                <div class="stat-label">Consumo Mensal</div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="mudarTab('equipamentos', this)">
+                📦 Equipamentos
+            </button>
+            <button class="tab" onclick="mudarTab('chamados', this)">
+                🔧 Chamados
+            </button>
+            <button class="tab" onclick="mudarTab('historico', this)">
+                📊 Histórico
+            </button>
+        </div>
+
+        <!-- Tab: Equipamentos -->
+        <div id="tab-equipamentos" class="tab-content active">
+            <div class="section">
+                <div class="filters">
+                    <input type="text" class="form-input filter-input" id="searchEquipamento" placeholder="🔍 Buscar equipamento..." onkeyup="filtrarEquipamentos()">
+                    <select class="form-select" id="filterCategoria" onchange="filtrarEquipamentos()">
+                        <option value="">Todas categorias</option>
+                    </select>
+                    <select class="form-select" id="filterStatus" onchange="filtrarEquipamentos()">
+                        <option value="">Todos status</option>
+                        <option value="operacional">Operacional</option>
+                        <option value="manutencao">Em Manutenção</option>
+                        <option value="quebrado">Quebrado</option>
+                        <option value="inativo">Inativo</option>
+                    </select>
+                </div>
+
+                <div id="equipamentosContainer" class="equipment-grid">
+                    <div class="loading">Carregando equipamentos</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Chamados -->
+        <div id="tab-chamados" class="tab-content">
+            <div class="section">
+                <div class="section-header">
+                    <h3 class="section-title">Chamados de Manutenção</h3>
+                    <button class="btn btn-primary" onclick="abrirModal('modalChamado')">
+                        ➕ Novo Chamado
+                    </button>
+                </div>
+
+                <div class="filters">
+                    <input type="text" class="form-input filter-input" id="searchChamado" placeholder="🔍 Buscar chamado..." onkeyup="filtrarChamados()">
+                    <select class="form-select" id="filterStatusChamado" onchange="filtrarChamados()">
+                        <option value="">Todos status</option>
+                        <option value="aberto">Aberto</option>
+                        <option value="em_andamento">Em Andamento</option>
+                        <option value="concluido">Concluído</option>
+                    </select>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nº Chamado</th>
+                                <th>Equipamento</th>
+                                <th>Tipo</th>
+                                <th>Prioridade</th>
+                                <th>Status</th>
+                                <th>Data</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="chamadosTableBody">
+                            <tr><td colspan="7" class="loading">Carregando chamados</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Histórico -->
+        <div id="tab-historico" class="tab-content">
+            <div class="section">
+                <div class="section-header">
+                    <h3 class="section-title">Histórico de Manutenções</h3>
+                    <button class="btn btn-primary" onclick="gerarRelatorioHistoricoPDF()">
+                        📄 Exportar PDF
+                    </button>
+                </div>
+
+                <div class="filters">
+                    <select class="form-select" id="filterEquipamentoHist" onchange="carregarHistorico()">
+                        <option value="">Todos equipamentos</option>
+                    </select>
+                    <input type="month" class="form-input" id="filterMes" onchange="carregarHistorico()">
+                </div>
+
+                <div id="historicoContainer" class="timeline">
+                    <div class="loading">Carregando histórico</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Equipamento -->
+    <div id="modalEquipamento" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Novo Equipamento</h2>
+                <button class="close-modal" onclick="fecharModal('modalEquipamento')">&times;</button>
+            </div>
+
+            <form id="formEquipamento" onsubmit="salvarEquipamento(event)">
+                <input type="hidden" id="equipamentoId">
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Nome do Equipamento *</label>
+                        <input type="text" class="form-input" id="nomeEquipamento" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Código</label>
+                        <input type="text" class="form-input" id="codigoEquipamento" placeholder="BOMB-001">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Categoria *</label>
+                        <select class="form-select" id="categoriaEquipamento" required>
+                            <option value="">Selecione...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Status *</label>
+                        <select class="form-select" id="statusEquipamento" required>
+                            <option value="operacional">Operacional</option>
+                            <option value="manutencao">Em Manutenção</option>
+                            <option value="quebrado">Quebrado</option>
+                            <option value="inativo">Inativo</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Localização</label>
+                        <input type="text" class="form-input" id="localizacaoEquipamento" placeholder="Bloco A - Subsolo">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Marca</label>
+                        <input type="text" class="form-input" id="marcaEquipamento">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Modelo</label>
+                        <input type="text" class="form-input" id="modeloEquipamento">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Nº Série</label>
+                        <input type="text" class="form-input" id="numeroSerie">
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3 class="form-section-title">⚡ Consumo Elétrico</h3>
+                    
+                    <div class="alert alert-info">
+                        💡 Os valores serão calculados automaticamente
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Potência (kWh)</label>
+                            <input type="number" step="0.001" class="form-input" id="potenciaKwh" onchange="calcularConsumo()">
+                            <span class="form-hint">1 HP = 0,746 kWh</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Horas/Dia</label>
+                            <input type="number" step="0.5" class="form-input" id="horasDia" onchange="calcularConsumo()">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Dias/Mês</label>
+                            <input type="number" class="form-input" id="diasMes" value="30" onchange="calcularConsumo()">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Tarifa (R$/kWh)</label>
+                            <input type="number" step="0.01" class="form-input" id="tarifaEnergia" value="0.80" onchange="calcularConsumo()">
+                        </div>
+                    </div>
+
+                    <div id="resultadoConsumo" style="display: none;"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Descrição</label>
+                    <textarea class="form-textarea" id="descricaoEquipamento"></textarea>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-top: 20px;">
+                    <button type="submit" class="btn btn-primary">
+                        💾 Salvar
+                    </button>
+                    <button type="button" class="btn btn-outline" onclick="fecharModal('modalEquipamento')">
+                        Cancelar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Chamado -->
+    <div id="modalChamado" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Novo Chamado de Manutenção</h2>
+                <button class="close-modal" onclick="fecharModal('modalChamado')">&times;</button>
+            </div>
+
+            <form id="formChamado" onsubmit="salvarChamado(event)">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Equipamento *</label>
+                        <select class="form-select" id="equipamentoChamado" required>
+                            <option value="">Selecione...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Tipo *</label>
+                        <select class="form-select" id="tipoChamado" required>
+                            <option value="preventiva">Preventiva</option>
+                            <option value="corretiva">Corretiva</option>
+                            <option value="urgente">Urgente</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Prioridade *</label>
+                        <select class="form-select" id="prioridadeChamado" required>
+                            <option value="baixa">Baixa</option>
+                            <option value="media" selected>Média</option>
+                            <option value="alta">Alta</option>
+                            <option value="urgente">Urgente</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Prazo</label>
+                        <input type="date" class="form-input" id="prazoChamado">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Título do Problema *</label>
+                    <input type="text" class="form-input" id="tituloChamado" required placeholder="Ex: Vazamento na bomba">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Descrição *</label>
+                    <textarea class="form-textarea" id="descricaoChamado" required placeholder="Descreva o problema..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Prestador</label>
+                    <select class="form-select" id="prestadorChamado">
+                        <option value="">Selecione...</option>
+                    </select>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-top: 20px;">
+                    <button type="submit" class="btn btn-primary">
+                        🔧 Criar Chamado
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="criarEEnviarWhatsApp()">
+                        📱 WhatsApp
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Detalhes -->
+    <div id="modalDetalhes" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="detalhesNome">Detalhes</h2>
+                <button class="close-modal" onclick="fecharModal('modalDetalhes')">&times;</button>
+            </div>
+
+            <div id="detalhesConteudo"></div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px;">
+                <button class="btn btn-primary" onclick="editarEquipamentoAtual()">✏️ Editar</button>
+                <button class="btn btn-success" onclick="novoChamadoAtual()">🔧 Manutenção</button>
+                <button class="btn btn-outline" onclick="gerarPDFEquipamento()">📄 PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // CONFIGURAÇÃO SUPABASE
+        // ============================================================
+        
+        const supabase = window.supabase.createClient(
+            'https://cqlqvwjcpbccqpfyykao.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxbHF2d2pjcGJjY3FwZnl5a2FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc5OTI1MjIsImV4cCI6MjA1MzU2ODUyMn0.QqH8EwvLTEJKRvmZ9Mn4HEwbFmBZ0QSCQ4dFpxNCjPo'
+        );
+
+        // Variáveis globais
+        let equipamentosData = [];
+        let chamadosData = [];
+        let equipamentoAtual = null;
+
+        // ============================================================
+        // INICIALIZAÇÃO
+        // ============================================================
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            carregarCategorias();
+            carregarEquipamentos();
+            carregarChamados();
+            carregarPrestadores();
+            carregarHistorico();
+        });
+
+        // ============================================================
+        // CARREGAR DADOS
+        // ============================================================
+        
+        async function carregarCategorias() {
+            const { data } = await supabase
+                .from('categorias_equipamentos')
+                .select('*')
+                .eq('ativo', true)
+                .order('ordem');
+
+            if (data) {
+                ['categoriaEquipamento', 'filterCategoria'].forEach(id => {
+                    const select = document.getElementById(id);
+                    data.forEach(cat => {
+                        select.innerHTML += `<option value="${cat.id}">${cat.icone} ${cat.nome}</option>`;
+                    });
+                });
+            }
+        }
+
+        async function carregarEquipamentos() {
+            const { data } = await supabase
+                .from('equipamentos')
+                .select('*, categoria:categorias_equipamentos(nome, icone)')
+                .eq('ativo', true)
+                .order('nome');
+
+            if (data) {
+                equipamentosData = data;
+                exibirEquipamentos(data);
+                atualizarStats(data);
+                popularSelects(data);
+            }
+        }
+
+        function exibirEquipamentos(equipamentos) {
+            const container = document.getElementById('equipamentosContainer');
+            
+            if (equipamentos.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><p>Nenhum equipamento cadastrado</p></div>';
+                return;
+            }
+
+            container.innerHTML = equipamentos.map(eq => `
+                <div class="equipment-card" onclick="verDetalhes('${eq.id}')">
+                    <div class="equipment-header">
+                        <div class="equipment-icon">${eq.categoria?.icone || '📦'}</div>
+                        <div class="equipment-info">
+                            <div class="equipment-name">${eq.nome}</div>
+                            ${eq.codigo ? `<div class="equipment-code">${eq.codigo}</div>` : ''}
+                            <div class="equipment-location">📍 ${eq.localizacao || 'Não especificado'}</div>
+                        </div>
+                    </div>
+
+                    <div class="equipment-details">
+                        <div class="detail-row">
+                            <span class="detail-label">Status</span>
+                            <span class="status-badge status-${eq.status}">${formatarStatus(eq.status)}</span>
+                        </div>
+                        ${eq.marca ? `<div class="detail-row"><span class="detail-label">Marca</span><span class="detail-value">${eq.marca}</span></div>` : ''}
+                        ${eq.categoria ? `<div class="detail-row"><span class="detail-label">Categoria</span><span class="detail-value">${eq.categoria.nome}</span></div>` : ''}
+                    </div>
+
+                    ${eq.consumo_mensal_kwh ? `
+                    <div class="consumption-badge">
+                        <span>⚡</span>
+                        <span class="consumption-value">${parseFloat(eq.consumo_mensal_kwh).toFixed(0)} kWh/mês</span>
+                        <span>•</span>
+                        <span>R$ ${parseFloat(eq.custo_energia_mensal || 0).toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+
+                    <div class="equipment-actions">
+                        <button class="btn btn-primary btn-small" onclick="event.stopPropagation(); editarEquipamento('${eq.id}')">✏️ Editar</button>
+                        <button class="btn btn-success btn-small" onclick="event.stopPropagation(); novoChamado('${eq.id}')">🔧 Manutenção</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function carregarChamados() {
+            const { data } = await supabase
+                .from('chamados_manutencao')
+                .select('*, equipamento:equipamentos(nome)')
+                .order('data_abertura', { ascending: false });
+
+            if (data) {
+                chamadosData = data;
+                exibirChamados(data);
+            }
+        }
+
+        function exibirChamados(chamados) {
+            const tbody = document.getElementById('chamadosTableBody');
+            
+            if (chamados.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 30px;">Nenhum chamado registrado</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = chamados.map(ch => `
+                <tr>
+                    <td><strong>${ch.numero_chamado}</strong></td>
+                    <td>${ch.equipamento?.nome || '-'}</td>
+                    <td>${formatarTipo(ch.tipo)}</td>
+                    <td>${ch.prioridade}</td>
+                    <td><span class="status-badge status-${ch.status}">${formatarStatus(ch.status)}</span></td>
+                    <td>${new Date(ch.data_abertura).toLocaleDateString('pt-BR')}</td>
+                    <td>
+                        <button class="btn btn-primary btn-small" onclick="verChamado('${ch.id}')">Ver</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function carregarPrestadores() {
+            const { data } = await supabase
+                .from('prestadores_servico')
+                .select('*')
+                .eq('ativo', true);
+
+            if (data) {
+                const select = document.getElementById('prestadorChamado');
+                data.forEach(p => {
+                    select.innerHTML += `<option value="${p.id}">${p.nome}</option>`;
+                });
+            }
+        }
+
+        async function carregarHistorico() {
+            const equipId = document.getElementById('filterEquipamentoHist')?.value;
+            
+            let query = supabase
+                .from('chamados_manutencao')
+                .select('*, equipamento:equipamentos(nome)')
+                .eq('status', 'concluido')
+                .order('data_conclusao', { ascending: false });
+
+            if (equipId) query = query.eq('equipamento_id', equipId);
+
+            const { data } = await query;
+
+            if (data) {
+                const container = document.getElementById('historicoContainer');
+                
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><p>Nenhum histórico disponível</p></div>';
+                    return;
+                }
+
+                container.innerHTML = data.map(h => `
+                    <div class="timeline-item">
+                        <div class="timeline-date">${new Date(h.data_conclusao).toLocaleDateString('pt-BR')}</div>
+                        <div class="timeline-title">${h.numero_chamado} - ${h.titulo}</div>
+                        <div class="timeline-description">
+                            <strong>Equipamento:</strong> ${h.equipamento?.nome || '-'}<br>
+                            <strong>Tipo:</strong> ${formatarTipo(h.tipo)}
+                            ${h.solucao ? `<br><strong>Solução:</strong> ${h.solucao}` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function popularSelects(equipamentos) {
+            ['equipamentoChamado', 'filterEquipamentoHist'].forEach(id => {
+                const select = document.getElementById(id);
+                if (select) {
+                    equipamentos.forEach(eq => {
+                        select.innerHTML += `<option value="${eq.id}">${eq.nome}</option>`;
+                    });
+                }
+            });
+        }
+
+        function atualizarStats(equipamentos) {
+            document.getElementById('statTotal').textContent = equipamentos.length;
+            document.getElementById('statOperacionais').textContent = equipamentos.filter(e => e.status === 'operacional').length;
+            document.getElementById('statManutencao').textContent = equipamentos.filter(e => e.status === 'manutencao').length;
+            
+            const consumo = equipamentos.reduce((sum, e) => sum + (parseFloat(e.consumo_mensal_kwh) || 0), 0);
+            document.getElementById('statConsumo').textContent = consumo.toFixed(0) + ' kWh';
+        }
+
+        // ============================================================
+        // SALVAR
+        // ============================================================
+        
+        async function salvarEquipamento(e) {
+            e.preventDefault();
+
+            const dados = {
+                nome: document.getElementById('nomeEquipamento').value,
+                codigo: document.getElementById('codigoEquipamento').value,
+                categoria_id: document.getElementById('categoriaEquipamento').value,
+                status: document.getElementById('statusEquipamento').value,
+                localizacao: document.getElementById('localizacaoEquipamento').value,
+                marca: document.getElementById('marcaEquipamento').value,
+                modelo: document.getElementById('modeloEquipamento').value,
+                numero_serie: document.getElementById('numeroSerie').value,
+                descricao: document.getElementById('descricaoEquipamento').value,
+                potencia_kwh: parseFloat(document.getElementById('potenciaKwh').value) || null,
+                horas_funcionamento_dia: parseFloat(document.getElementById('horasDia').value) || null,
+                dias_funcionamento_mes: parseInt(document.getElementById('diasMes').value) || 30,
+                tarifa_energia: parseFloat(document.getElementById('tarifaEnergia').value) || 0.80
+            };
+
+            const equipamentoId = document.getElementById('equipamentoId').value;
+            let result;
+
+            if (equipamentoId) {
+                result = await supabase.from('equipamentos').update(dados).eq('id', equipamentoId).select();
+            } else {
+                result = await supabase.from('equipamentos').insert([dados]).select();
+            }
+
+            if (result.error) {
+                mostrarToast('❌ Erro: ' + result.error.message, 'error');
+            } else {
+                mostrarToast('✅ Equipamento salvo com sucesso!', 'success');
+                fecharModal('modalEquipamento');
+                carregarEquipamentos();
+            }
+        }
+
+        async function salvarChamado(e) {
+            e.preventDefault();
+
+            const dados = {
+                equipamento_id: document.getElementById('equipamentoChamado').value,
+                tipo: document.getElementById('tipoChamado').value,
+                prioridade: document.getElementById('prioridadeChamado').value,
+                titulo: document.getElementById('tituloChamado').value,
+                descricao_problema: document.getElementById('descricaoChamado').value,
+                prazo_estimado: document.getElementById('prazoChamado').value || null,
+                prestador_id: document.getElementById('prestadorChamado').value || null
+            };
+
+            const { data, error } = await supabase.from('chamados_manutencao').insert([dados]).select();
+
+            if (error) {
+                mostrarToast('❌ Erro: ' + error.message, 'error');
+            } else {
+                mostrarToast(`✅ Chamado ${data[0].numero_chamado} criado!`, 'success');
+                fecharModal('modalChamado');
+                carregarChamados();
+            }
+        }
+
+        // ============================================================
+        // AÇÕES
+        // ============================================================
+        
+        async function verDetalhes(id) {
+            const { data } = await supabase
+                .from('equipamentos')
+                .select('*, categoria:categorias_equipamentos(nome, icone)')
+                .eq('id', id)
+                .single();
+
+            if (data) {
+                equipamentoAtual = data;
+                document.getElementById('detalhesNome').textContent = data.nome;
+                
+                document.getElementById('detalhesConteudo').innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                        <div><strong>Código:</strong> ${data.codigo || '-'}</div>
+                        <div><strong>Status:</strong> <span class="status-badge status-${data.status}">${formatarStatus(data.status)}</span></div>
+                        <div><strong>Categoria:</strong> ${data.categoria?.nome || '-'}</div>
+                        <div><strong>Localização:</strong> ${data.localizacao || '-'}</div>
+                        <div><strong>Marca:</strong> ${data.marca || '-'}</div>
+                        <div><strong>Modelo:</strong> ${data.modelo || '-'}</div>
+                        ${data.potencia_kwh ? `
+                        <div><strong>Potência:</strong> ${data.potencia_kwh} kWh</div>
+                        <div><strong>Consumo/Mês:</strong> ${parseFloat(data.consumo_mensal_kwh || 0).toFixed(2)} kWh</div>
+                        ` : ''}
+                    </div>
+                    ${data.descricao ? `<div style="margin-top: 15px;"><strong>Descrição:</strong><br><p style="margin-top: 8px; color: #64748b;">${data.descricao}</p></div>` : ''}
+                `;
+
+                abrirModal('modalDetalhes');
+            }
+        }
+
+        async function editarEquipamento(id) {
+            const { data } = await supabase.from('equipamentos').select('*').eq('id', id).single();
+
+            if (data) {
+                document.getElementById('equipamentoId').value = data.id;
+                document.getElementById('nomeEquipamento').value = data.nome;
+                document.getElementById('codigoEquipamento').value = data.codigo || '';
+                document.getElementById('categoriaEquipamento').value = data.categoria_id;
+                document.getElementById('statusEquipamento').value = data.status;
+                document.getElementById('localizacaoEquipamento').value = data.localizacao || '';
+                document.getElementById('marcaEquipamento').value = data.marca || '';
+                document.getElementById('modeloEquipamento').value = data.modelo || '';
+                document.getElementById('numeroSerie').value = data.numero_serie || '';
+                document.getElementById('descricaoEquipamento').value = data.descricao || '';
+                document.getElementById('potenciaKwh').value = data.potencia_kwh || '';
+                document.getElementById('horasDia').value = data.horas_funcionamento_dia || '';
+                document.getElementById('diasMes').value = data.dias_funcionamento_mes || 30;
+                document.getElementById('tarifaEnergia').value = data.tarifa_energia || 0.80;
+
+                abrirModal('modalEquipamento');
+                
+                if (data.potencia_kwh) calcularConsumo();
+            }
+        }
+
+        function editarEquipamentoAtual() {
+            if (equipamentoAtual) {
+                fecharModal('modalDetalhes');
+                editarEquipamento(equipamentoAtual.id);
+            }
+        }
+
+        function novoChamado(equipamentoId) {
+            document.getElementById('equipamentoChamado').value = equipamentoId;
+            abrirModal('modalChamado');
+        }
+
+        function novoChamadoAtual() {
+            if (equipamentoAtual) {
+                fecharModal('modalDetalhes');
+                novoChamado(equipamentoAtual.id);
+            }
+        }
+
+        // ============================================================
+        // FILTROS
+        // ============================================================
+        
+        function filtrarEquipamentos() {
+            const search = document.getElementById('searchEquipamento').value.toLowerCase();
+            const categoria = document.getElementById('filterCategoria').value;
+            const status = document.getElementById('filterStatus').value;
+
+            const filtrados = equipamentosData.filter(eq => {
+                const matchSearch = eq.nome.toLowerCase().includes(search) || (eq.codigo && eq.codigo.toLowerCase().includes(search));
+                const matchCategoria = !categoria || eq.categoria_id === categoria;
+                const matchStatus = !status || eq.status === status;
+                return matchSearch && matchCategoria && matchStatus;
+            });
+
+            exibirEquipamentos(filtrados);
+        }
+
+        function filtrarChamados() {
+            const search = document.getElementById('searchChamado').value.toLowerCase();
+            const status = document.getElementById('filterStatusChamado').value;
+
+            const filtrados = chamadosData.filter(ch => {
+                const matchSearch = ch.numero_chamado.toLowerCase().includes(search) || ch.titulo.toLowerCase().includes(search);
+                const matchStatus = !status || ch.status === status;
+                return matchSearch && matchStatus;
+            });
+
+            exibirChamados(filtrados);
+        }
+
+        // ============================================================
+        // CÁLCULOS
+        // ============================================================
+        
+        function calcularConsumo() {
+            const potencia = parseFloat(document.getElementById('potenciaKwh').value) || 0;
+            const horas = parseFloat(document.getElementById('horasDia').value) || 0;
+            const dias = parseInt(document.getElementById('diasMes').value) || 30;
+            const tarifa = parseFloat(document.getElementById('tarifaEnergia').value) || 0.80;
+
+            if (potencia > 0 && horas > 0) {
+                const consumo = potencia * horas * dias;
+                const custo = consumo * tarifa;
+
+                document.getElementById('resultadoConsumo').style.display = 'block';
+                document.getElementById('resultadoConsumo').innerHTML = `
+                    <div class="result-box">
+                        <strong style="color: #667eea;">📊 Resultado:</strong>
+                        <div class="result-grid" style="margin-top: 10px;">
+                            <div class="result-item">
+                                <div class="result-label">Consumo/Mês</div>
+                                <div class="result-value">${consumo.toFixed(0)} kWh</div>
+                            </div>
+                            <div class="result-item">
+                                <div class="result-label">Custo/Mês</div>
+                                <div class="result-value">R$ ${custo.toFixed(2)}</div>
+                            </div>
+                            <div class="result-item">
+                                <div class="result-label">Custo/Ano</div>
+                                <div class="result-value">R$ ${(custo * 12).toFixed(2)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                document.getElementById('resultadoConsumo').style.display = 'none';
+            }
+        }
+
+        // ============================================================
+        // RELATÓRIOS PDF
+        // ============================================================
+        
+        async function gerarRelatorioPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            const { data: equipamentos } = await supabase
+                .from('equipamentos')
+                .select('*, categoria:categorias_equipamentos(nome)')
+                .eq('ativo', true)
+                .order('nome');
+
+            // Cabeçalho
+            doc.setFontSize(20);
+            doc.setTextColor(102, 126, 234);
+            doc.text('Relatório de Equipamentos', 20, 20);
+
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 20, 28);
+
+            doc.setDrawColor(102, 126, 234);
+            doc.line(20, 32, 190, 32);
+
+            // Stats
+            const consumoTotal = equipamentos.reduce((s, e) => s + (parseFloat(e.consumo_mensal_kwh) || 0), 0);
+            const custoTotal = equipamentos.reduce((s, e) => s + (parseFloat(e.custo_energia_mensal) || 0), 0);
+
+            doc.setFontSize(10);
+            let y = 40;
+            doc.text(`Total: ${equipamentos.length}`, 30, y);
+            doc.text(`Operacionais: ${equipamentos.filter(e => e.status === 'operacional').length}`, 30, y + 6);
+            doc.text(`Consumo Total: ${consumoTotal.toFixed(0)} kWh/mês`, 30, y + 12);
+            doc.text(`Custo Total: R$ ${custoTotal.toFixed(2)}/mês`, 30, y + 18);
+
+            // Tabela
+            const tableData = equipamentos.map(eq => [
+                eq.nome.substring(0, 30),
+                eq.categoria?.nome || '-',
+                eq.localizacao?.substring(0, 20) || '-',
+                formatarStatus(eq.status),
+                eq.consumo_mensal_kwh ? `${parseFloat(eq.consumo_mensal_kwh).toFixed(0)} kWh` : '-'
+            ]);
+
+            doc.autoTable({
+                startY: 70,
+                head: [['Equipamento', 'Categoria', 'Localização', 'Status', 'Consumo']],
+                body: tableData,
+                theme: 'striped',
+                headStyles: { fillColor: [102, 126, 234] }
+            });
+
+            doc.save(`relatorio_${new Date().toISOString().split('T')[0]}.pdf`);
+            mostrarToast('✅ Relatório gerado!', 'success');
+        }
+
+        async function gerarRelatorioHistoricoPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            const { data: historico } = await supabase
+                .from('chamados_manutencao')
+                .select('*, equipamento:equipamentos(nome)')
+                .eq('status', 'concluido')
+                .order('data_conclusao', { ascending: false })
+                .limit(50);
+
+            doc.setFontSize(20);
+            doc.setTextColor(102, 126, 234);
+            doc.text('Histórico de Manutenções', 20, 20);
+
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text(`Total: ${historico.length} manutenções`, 20, 28);
+
+            const tableData = historico.map(h => [
+                new Date(h.data_conclusao).toLocaleDateString('pt-BR'),
+                h.numero_chamado,
+                h.equipamento?.nome?.substring(0, 25) || '-',
+                formatarTipo(h.tipo),
+                h.custo_real ? `R$ ${parseFloat(h.custo_real).toFixed(2)}` : '-'
+            ]);
+
+            doc.autoTable({
+                startY: 35,
+                head: [['Data', 'Chamado', 'Equipamento', 'Tipo', 'Custo']],
+                body: tableData,
+                theme: 'striped',
+                headStyles: { fillColor: [102, 126, 234] }
+            });
+
+            doc.save(`historico_${new Date().toISOString().split('T')[0]}.pdf`);
+            mostrarToast('✅ Relatório gerado!', 'success');
+        }
+
+        function gerarPDFEquipamento() {
+            if (!equipamentoAtual) return;
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            doc.setFontSize(20);
+            doc.setTextColor(102, 126, 234);
+            doc.text('Ficha do Equipamento', 20, 20);
+
+            doc.setFontSize(14);
+            doc.setTextColor(0);
+            doc.text(equipamentoAtual.nome, 20, 30);
+
+            doc.setFontSize(10);
+            let y = 45;
+            doc.text(`Código: ${equipamentoAtual.codigo || '-'}`, 25, y);
+            doc.text(`Status: ${formatarStatus(equipamentoAtual.status)}`, 25, y + 6);
+            doc.text(`Localização: ${equipamentoAtual.localizacao || '-'}`, 25, y + 12);
+            doc.text(`Marca: ${equipamentoAtual.marca || '-'}`, 25, y + 18);
+
+            if (equipamentoAtual.potencia_kwh) {
+                doc.text(`Potência: ${equipamentoAtual.potencia_kwh} kWh`, 25, y + 30);
+                doc.text(`Consumo/Mês: ${parseFloat(equipamentoAtual.consumo_mensal_kwh || 0).toFixed(2)} kWh`, 25, y + 36);
+            }
+
+            doc.save(`equipamento_${equipamentoAtual.id}.pdf`);
+            mostrarToast('✅ PDF gerado!', 'success');
+        }
+
+        // ============================================================
+        // UTILIDADES
+        // ============================================================
+        
+        function mudarTab(tab, btn) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            btn.classList.add('active');
+            document.getElementById(`tab-${tab}`).classList.add('active');
+
+            if (tab === 'chamados') carregarChamados();
+            if (tab === 'historico') carregarHistorico();
+        }
+
+        function abrirModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+            
+            if (modalId === 'modalEquipamento') {
+                document.getElementById('formEquipamento').reset();
+                document.getElementById('equipamentoId').value = '';
+                document.getElementById('resultadoConsumo').style.display = 'none';
+            }
+        }
+
+        function fecharModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function formatarStatus(status) {
+            return { 'operacional': 'Operacional', 'manutencao': 'Em Manutenção', 'quebrado': 'Quebrado', 'inativo': 'Inativo', 'aberto': 'Aberto', 'em_andamento': 'Em Andamento', 'concluido': 'Concluído' }[status] || status;
+        }
+
+        function formatarTipo(tipo) {
+            return { 'preventiva': 'Preventiva', 'corretiva': 'Corretiva', 'urgente': 'Urgente' }[tipo] || tipo;
+        }
+
+        function mostrarToast(mensagem, tipo) {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${tipo}`;
+            toast.textContent = mensagem;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function criarEEnviarWhatsApp() {
+            mostrarToast('Funcionalidade WhatsApp em desenvolvimento', 'info');
+        }
+
+        // Fechar modal clicando fora
+        window.onclick = function(e) {
+            if (e.target.classList.contains('modal')) {
+                e.target.classList.remove('active');
+            }
+        }
+
+        console.log('✅ Sistema de Ativos & Manutenções carregado!');
+    </script>
+</body>
+</html>

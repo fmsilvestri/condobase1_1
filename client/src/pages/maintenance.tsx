@@ -1259,6 +1259,45 @@ export default function Maintenance() {
         }
       />
 
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="bg-gradient-to-br from-primary/90 to-primary text-primary-foreground">
+          <CardContent className="p-4 text-center">
+            <div className="text-3xl font-bold" data-testid="stat-total-equipment">{equipment.length}</div>
+            <div className="text-sm opacity-90">Total Equipamentos</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
+          <CardContent className="p-4 text-center">
+            <div className="text-3xl font-bold" data-testid="stat-operational">
+              {equipment.filter(e => e.status === "operacional").length}
+            </div>
+            <div className="text-sm opacity-90">Operacionais</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white">
+          <CardContent className="p-4 text-center">
+            <div className="text-3xl font-bold" data-testid="stat-attention">
+              {equipment.filter(e => e.status === "atenção" || e.status === "alerta").length}
+            </div>
+            <div className="text-sm opacity-90">Requer Atenção</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+          <CardContent className="p-4 text-center">
+            <div className="text-3xl font-bold" data-testid="stat-consumption">
+              {equipment.reduce((sum, e) => {
+                if (e.powerConsumption && e.estimatedUsageHours) {
+                  return sum + (e.powerConsumption * e.estimatedUsageHours * 30);
+                }
+                return sum;
+              }, 0).toFixed(0)}
+            </div>
+            <div className="text-sm opacity-90">kWh/mês</div>
+          </CardContent>
+        </Card>
+      </div>
+
       <Tabs defaultValue="equipment" className="space-y-4">
         <TabsList>
           <TabsTrigger value="equipment" data-testid="tab-equipment">
@@ -1273,7 +1312,7 @@ export default function Maintenance() {
             )}
           </TabsTrigger>
           <TabsTrigger value="completions" data-testid="tab-completions">
-            Manutenção Realizada ({completions.length})
+            Histórico ({completions.length})
           </TabsTrigger>
         </TabsList>
 
@@ -1343,20 +1382,16 @@ export default function Maintenance() {
                           <MapPin className="h-3.5 w-3.5" />
                           {eq.location}
                         </div>
-                        {(eq.powerConsumption || eq.estimatedUsageHours) && (
-                          <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                            {eq.powerConsumption && (
-                              <span className="flex items-center gap-1">
-                                <Zap className="h-3 w-3" />
-                                {eq.powerConsumption} kWh
-                              </span>
-                            )}
-                            {eq.estimatedUsageHours && (
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {eq.estimatedUsageHours}h/dia
-                              </span>
-                            )}
+                        {eq.powerConsumption && eq.estimatedUsageHours && (
+                          <div className="mt-2 px-2 py-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-md flex items-center gap-2 text-xs">
+                            <Zap className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                            <span className="font-semibold text-blue-700 dark:text-blue-300">
+                              {(eq.powerConsumption * eq.estimatedUsageHours * 30).toFixed(0)} kWh/mês
+                            </span>
+                            <span className="text-muted-foreground">•</span>
+                            <span className="text-muted-foreground">
+                              R$ {(eq.powerConsumption * eq.estimatedUsageHours * 30 * 0.80).toFixed(2)}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -1604,7 +1639,7 @@ export default function Maintenance() {
           {completions.length === 0 ? (
             <EmptyState
               icon={CheckCircle}
-              title="Nenhuma manutenção registrada"
+              title="Nenhum histórico disponível"
               description="Registre manutenções realizadas para manter o histórico."
               action={canEdit ? {
                 label: "Registrar Manutenção",
@@ -1612,46 +1647,53 @@ export default function Maintenance() {
               } : undefined}
             />
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {completions.map((completion) => (
-                <Card key={completion.id} className="hover-elevate" data-testid={`completion-card-${completion.id}`}>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      {equipment.find(e => e.id === completion.equipmentId)?.name || "Equipamento"}
-                    </CardTitle>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <MapPin className="h-3.5 w-3.5" />
-                      {completion.location}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="text-sm line-clamp-2">{completion.description}</p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Calendar className="h-3.5 w-3.5" />
-                      {completion.completedAt ? new Date(completion.completedAt).toLocaleDateString("pt-BR") : "-"}
-                    </div>
-                    {completion.photos && completion.photos.length > 0 && (
-                      <div className="flex gap-1 overflow-x-auto">
-                        {completion.photos.slice(0, 3).map((photo, index) => (
-                          <img
-                            key={index}
-                            src={photo}
-                            alt={`Foto ${index + 1}`}
-                            className="h-12 w-12 object-cover rounded-md border flex-shrink-0"
-                          />
-                        ))}
-                        {completion.photos.length > 3 && (
-                          <div className="h-12 w-12 flex items-center justify-center rounded-md border bg-muted text-xs text-muted-foreground">
-                            +{completion.photos.length - 3}
+            <Card>
+              <CardContent className="p-6">
+                <div className="relative pl-8 border-l-2 border-muted space-y-6">
+                  {completions.map((completion) => {
+                    const eq = equipment.find(e => e.id === completion.equipmentId);
+                    return (
+                      <div key={completion.id} className="relative" data-testid={`completion-timeline-${completion.id}`}>
+                        <div className="absolute -left-[25px] w-3 h-3 rounded-full bg-primary border-4 border-background" />
+                        <div className="bg-secondary/50 rounded-lg p-4 border-l-4 border-primary">
+                          <div className="text-xs text-muted-foreground mb-1">
+                            {completion.completedAt ? new Date(completion.completedAt).toLocaleDateString("pt-BR") : "-"}
                           </div>
-                        )}
+                          <div className="font-semibold text-foreground mb-1 flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                            {eq?.name || "Equipamento"}
+                          </div>
+                          <div className="text-sm text-muted-foreground space-y-1">
+                            <div className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              <strong>Local:</strong> {completion.location}
+                            </div>
+                            <p>{completion.description}</p>
+                          </div>
+                          {completion.photos && completion.photos.length > 0 && (
+                            <div className="flex gap-1 mt-3 overflow-x-auto">
+                              {completion.photos.slice(0, 4).map((photo, index) => (
+                                <img
+                                  key={index}
+                                  src={photo}
+                                  alt={`Foto ${index + 1}`}
+                                  className="h-14 w-14 object-cover rounded-md border flex-shrink-0"
+                                />
+                              ))}
+                              {completion.photos.length > 4 && (
+                                <div className="h-14 w-14 flex items-center justify-center rounded-md border bg-muted text-xs text-muted-foreground">
+                                  +{completion.photos.length - 4}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
       </Tabs>
