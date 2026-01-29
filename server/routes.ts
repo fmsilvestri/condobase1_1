@@ -3769,12 +3769,11 @@ export async function registerRoutes(
   app.get("/api/funcionarios", requireGestao, async (req, res) => {
     try {
       const condominiumId = req.condominiumContext?.condominiumId;
-      console.log("[funcionarios] GET - condominiumId:", condominiumId, "x-condominium-id header:", req.headers["x-condominium-id"]);
       const funcionarios = await storage.getFuncionarios(condominiumId);
-      console.log("[funcionarios] GET - found:", funcionarios.length, "records, ids:", funcionarios.map(f => f.id).join(", "));
+      console.log("[FUNCIONARIOS GET] condominiumId:", condominiumId, "count:", funcionarios.length, "data:", JSON.stringify(funcionarios.slice(0, 2)));
       res.json(funcionarios);
     } catch (error: any) {
-      console.error("Error fetching funcionarios:", error);
+      console.error("[FUNCIONARIOS GET ERROR]", error);
       res.status(500).json({ error: "Failed to fetch funcionarios" });
     }
   });
