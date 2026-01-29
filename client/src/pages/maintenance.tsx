@@ -15,6 +15,7 @@ import {
   Loader2,
   AlertTriangle,
   Edit,
+  Trash2,
   CheckCircle,
   Clock,
   CircleDot,
@@ -64,6 +65,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -155,6 +166,7 @@ export default function Maintenance() {
   const [isNewEquipmentOpen, setIsNewEquipmentOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState<MaintenanceRequest | null>(null);
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
+  const [deletingEquipment, setDeletingEquipment] = useState<Equipment | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [viewingRequest, setViewingRequest] = useState<MaintenanceRequest | null>(null);
   const [equipmentPhotos, setEquipmentPhotos] = useState<string[]>([]);
@@ -366,6 +378,19 @@ export default function Maintenance() {
     },
     onError: () => {
       toast({ title: "Erro ao atualizar equipamento", variant: "destructive" });
+    },
+  });
+
+  const deleteEquipmentMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/equipment/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      toast({ title: "Equipamento excluído com sucesso!" });
+      setDeletingEquipment(null);
+    },
+    onError: () => {
+      toast({ title: "Erro ao excluir equipamento", variant: "destructive" });
     },
   });
 
@@ -1405,14 +1430,25 @@ export default function Maintenance() {
                       </Badge>
                       <div className="flex items-center gap-1">
                         {canEdit && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEditEquipment(eq)}
-                            data-testid={`button-edit-equipment-${eq.id}`}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEditEquipment(eq)}
+                              data-testid={`button-edit-equipment-${eq.id}`}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setDeletingEquipment(eq)}
+                              className="text-destructive"
+                              data-testid={`button-delete-equipment-${eq.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </>
                         )}
                         <Button
                           variant="ghost"
@@ -1855,6 +1891,32 @@ export default function Maintenance() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deletingEquipment} onOpenChange={(open) => !open && setDeletingEquipment(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Equipamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o equipamento "{deletingEquipment?.name}"? 
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancelar</AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                variant="destructive"
+                onClick={() => deletingEquipment && deleteEquipmentMutation.mutate(deletingEquipment.id)}
+                disabled={deleteEquipmentMutation.isPending}
+                data-testid="button-confirm-delete"
+              >
+                {deleteEquipmentMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Excluir
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
