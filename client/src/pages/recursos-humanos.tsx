@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { supabase, supabaseReady } from "@/lib/supabase";
 import { format, differenceInMonths, differenceInYears, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -318,67 +317,8 @@ export default function RecursosHumanos() {
 
   const createMutation = useMutation({
     mutationFn: async (data: Partial<InsertFuncionario> & { condominiumId?: string }) => {
-      await supabaseReady;
-      if (!supabase) throw new Error("Supabase não configurado");
-      
-      // Get next matricula number
-      const { count } = await supabase.from('funcionarios').select('*', { count: 'exact', head: true });
-      const nextNumber = (count || 0) + 1;
-      const matricula = `FUNC-${String(nextNumber).padStart(4, '0')}`;
-      
-      // Build insert object with exact Supabase column names (snake_case)
-      const insertData: Record<string, any> = {
-        condominium_id: data.condominiumId,
-        matricula,
-        nome_completo: data.nomeCompleto || null,
-        cpf: data.cpf || null,
-        rg: data.rg || null,
-        data_nascimento: data.dataNascimento || null,
-        genero: data.genero || null,
-        estado_civil: data.estadoCivil || null,
-        nacionalidade: data.nacionalidade || null,
-        telefone: data.telefone || null,
-        telefone_emergencia: data.telefoneEmergencia || null,
-        email: data.email || null,
-        cep: data.cep || null,
-        endereco: data.endereco || null,
-        numero: data.numero || null,
-        complemento: data.complemento || null,
-        bairro: data.bairro || null,
-        cidade: data.cidade || null,
-        estado: data.estado || null,
-        funcao: data.funcao || null,
-        departamento: data.departamento || null,
-        data_admissao: data.dataAdmissao || null,
-        tipo_contrato: data.tipoContrato || null,
-        carga_horaria_semanal: data.cargaHorariaSemanal || 44,
-        horario_trabalho: data.horarioTrabalho || null,
-        salario_base: data.salarioBase || null,
-        vale_transporte: data.valeTransporte || null,
-        vale_refeicao: data.valeRefeicao || null,
-        vale_alimentacao: data.valeAlimentacao || null,
-        plano_saude: data.planoSaude || null,
-        outros_beneficios: data.outrosBeneficios || null,
-        status: data.status || 'ativo',
-        observacoes: data.observacoes || null,
-        foto_url: data.fotoUrl || null,
-        documentos_rg_url: data.documentosRgUrl || null,
-        documentos_cpf_url: data.documentosCpfUrl || null,
-        documentos_cnh_url: data.documentosCnhUrl || null,
-        documentos_ctps_url: data.documentosCtpsUrl || null,
-        documentos_contrato_url: data.documentosContratoUrl || null,
-        documentos_comprovante_residencia_url: data.documentosComprovanteResidenciaUrl || null,
-        documentos_outros: data.documentosOutros || null,
-      };
-      
-      const { data: result, error } = await supabase
-        .from('funcionarios')
-        .insert(insertData)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return result;
+      const response = await apiRequest("POST", "/api/funcionarios", data);
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/funcionarios"] });
@@ -393,62 +333,8 @@ export default function RecursosHumanos() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<InsertFuncionario> & { condominiumId?: string } }) => {
-      await supabaseReady;
-      if (!supabase) throw new Error("Supabase não configurado");
-      
-      // Build update object with exact Supabase column names (snake_case)
-      const updateData: Record<string, any> = {
-        nome_completo: data.nomeCompleto || null,
-        cpf: data.cpf || null,
-        rg: data.rg || null,
-        data_nascimento: data.dataNascimento || null,
-        genero: data.genero || null,
-        estado_civil: data.estadoCivil || null,
-        nacionalidade: data.nacionalidade || null,
-        telefone: data.telefone || null,
-        telefone_emergencia: data.telefoneEmergencia || null,
-        email: data.email || null,
-        cep: data.cep || null,
-        endereco: data.endereco || null,
-        numero: data.numero || null,
-        complemento: data.complemento || null,
-        bairro: data.bairro || null,
-        cidade: data.cidade || null,
-        estado: data.estado || null,
-        funcao: data.funcao || null,
-        departamento: data.departamento || null,
-        data_admissao: data.dataAdmissao || null,
-        tipo_contrato: data.tipoContrato || null,
-        carga_horaria_semanal: data.cargaHorariaSemanal || 44,
-        horario_trabalho: data.horarioTrabalho || null,
-        salario_base: data.salarioBase || null,
-        vale_transporte: data.valeTransporte || null,
-        vale_refeicao: data.valeRefeicao || null,
-        vale_alimentacao: data.valeAlimentacao || null,
-        plano_saude: data.planoSaude || null,
-        outros_beneficios: data.outrosBeneficios || null,
-        status: data.status || 'ativo',
-        observacoes: data.observacoes || null,
-        foto_url: data.fotoUrl || null,
-        documentos_rg_url: data.documentosRgUrl || null,
-        documentos_cpf_url: data.documentosCpfUrl || null,
-        documentos_cnh_url: data.documentosCnhUrl || null,
-        documentos_ctps_url: data.documentosCtpsUrl || null,
-        documentos_contrato_url: data.documentosContratoUrl || null,
-        documentos_comprovante_residencia_url: data.documentosComprovanteResidenciaUrl || null,
-        documentos_outros: data.documentosOutros || null,
-        updated_at: new Date().toISOString(),
-      };
-      
-      const { data: result, error } = await supabase
-        .from('funcionarios')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return result;
+      const response = await apiRequest("PATCH", `/api/funcionarios/${id}`, data);
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/funcionarios"] });
@@ -463,15 +349,7 @@ export default function RecursosHumanos() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await supabaseReady;
-      if (!supabase) throw new Error("Supabase não configurado");
-      
-      const { error } = await supabase
-        .from('funcionarios')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
+      await apiRequest("DELETE", `/api/funcionarios/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/funcionarios"] });
