@@ -118,8 +118,10 @@ export default function Water() {
   });
 
   const createReservoirMutation = useMutation({
-    mutationFn: (data: z.infer<typeof reservoirFormSchema>) =>
-      apiRequest("POST", "/api/reservoirs", data),
+    mutationFn: (data: z.infer<typeof reservoirFormSchema>) => {
+      const condominiumId = localStorage.getItem("selectedCondominiumId");
+      return apiRequest("POST", "/api/reservoirs", { ...data, condominiumId });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reservoirs"] });
       toast({ title: "Reservatório cadastrado com sucesso!" });
