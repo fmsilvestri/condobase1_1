@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { supabase, supabaseReady } from "@/lib/supabase";
 import { format, differenceInMonths, differenceInYears, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -317,8 +318,27 @@ export default function RecursosHumanos() {
 
   const createMutation = useMutation({
     mutationFn: async (data: Partial<InsertFuncionario>) => {
-      const res = await apiRequest("POST", "/api/funcionarios", data);
-      return res.json();
+      await supabaseReady;
+      if (!supabase) throw new Error("Supabase não configurado");
+      
+      const snakeData: Record<string, any> = {};
+      for (const [key, value] of Object.entries(data)) {
+        const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+        snakeData[snakeKey] = value;
+      }
+      
+      const { count } = await supabase.from('funcionarios').select('*', { count: 'exact', head: true });
+      const nextNumber = (count || 0) + 1;
+      snakeData.matricula = `FUNC-${String(nextNumber).padStart(4, '0')}`;
+      
+      const { data: result, error } = await supabase
+        .from('funcionarios')
+        .insert([snakeData])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/funcionarios"] });
@@ -333,8 +353,25 @@ export default function RecursosHumanos() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<InsertFuncionario> }) => {
-      const res = await apiRequest("PATCH", `/api/funcionarios/${id}`, data);
-      return res.json();
+      await supabaseReady;
+      if (!supabase) throw new Error("Supabase não configurado");
+      
+      const snakeData: Record<string, any> = {};
+      for (const [key, value] of Object.entries(data)) {
+        const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+        snakeData[snakeKey] = value;
+      }
+      snakeData.updated_at = new Date().toISOString();
+      
+      const { data: result, error } = await supabase
+        .from('funcionarios')
+        .update(snakeData)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/funcionarios"] });
@@ -349,7 +386,15 @@ export default function RecursosHumanos() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/funcionarios/${id}`);
+      await supabaseReady;
+      if (!supabase) throw new Error("Supabase não configurado");
+      
+      const { error } = await supabase
+        .from('funcionarios')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/funcionarios"] });
