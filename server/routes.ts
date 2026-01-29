@@ -97,6 +97,19 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
+  // Debug endpoint BEFORE any auth middleware
+  app.get("/api/debug/funcionarios-all", async (req, res) => {
+    try {
+      const funcionarios = await storage.getFuncionarios(); // No filter
+      res.json({ 
+        count: funcionarios.length, 
+        funcionarios: funcionarios.map(f => ({ id: f.id, nome: f.nomeCompleto, condominiumId: f.condominiumId }))
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.use(optionalJWT);
   app.use(condominiumContextMiddleware);
 
@@ -104,7 +117,9 @@ export async function registerRoutes(
   const userScopedPaths = ["/condominiums", "/users", "/user-condominiums", "/admin"];
   
   app.use("/api", (req, res, next) => {
-    if (publicPaths.some(p => req.path === p || req.path.startsWith(p + "/"))) {
+    const isPublic = publicPaths.some(p => req.path === p || req.path.startsWith(p + "/"));
+    console.log("[AUTH MIDDLEWARE] path:", req.path, "isPublic:", isPublic);
+    if (isPublic) {
       return next();
     }
     return requireAuth(req, res, next);

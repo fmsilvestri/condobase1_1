@@ -71,7 +71,7 @@ const storage = createStorage();
 
 export { storage };
 
-const publicPaths = ["/supabase-config", "/supabase-status", "/login", "/auth/debug", "/auth/fix-association"];
+const publicPaths = ["/supabase-config", "/supabase-status", "/login", "/auth/debug", "/auth/fix-association", "/debug/funcionarios-all"];
 const userScopedPaths = ["/condominiums", "/users", "/user-condominiums", "/admin", "/auth"];
 
 router.use(optionalJWT);
@@ -3851,6 +3851,81 @@ router.post("/activity-lists/:id/enviar-whatsapp", requireSindicoOrAdmin, async 
     res.json({ sucesso: true, mensagem, urlWhatsApp });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
+  }
+});
+
+// ============ FUNCIONARIOS (RH) ROUTES ============
+
+// Debug endpoint - antes de qualquer middleware
+router.get("/debug/funcionarios-all", async (req, res) => {
+  try {
+    const funcionarios = await storage.getFuncionarios();
+    res.json({ 
+      count: funcionarios.length, 
+      funcionarios: funcionarios.map((f: any) => ({ id: f.id, nome: f.nomeCompleto, condominiumId: f.condominiumId }))
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/funcionarios", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const funcionarios = await storage.getFuncionarios(condominiumId);
+    res.json(funcionarios);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/funcionarios/:id", requireGestao, async (req, res) => {
+  try {
+    const funcionario = await storage.getFuncionarioById(req.params.id);
+    if (!funcionario) {
+      return res.status(404).json({ error: "Funcionário não encontrado" });
+    }
+    res.json(funcionario);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/funcionarios", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não selecionado" });
+    }
+    const data = { ...req.body, condominiumId };
+    const funcionario = await storage.createFuncionario(data);
+    res.status(201).json(funcionario);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.patch("/funcionarios/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const funcionario = await storage.updateFuncionario(req.params.id, req.body);
+    if (!funcionario) {
+      return res.status(404).json({ error: "Funcionário não encontrado" });
+    }
+    res.json(funcionario);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.delete("/funcionarios/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const deleted = await storage.deleteFuncionario(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ error: "Funcionário não encontrado" });
+    }
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 
