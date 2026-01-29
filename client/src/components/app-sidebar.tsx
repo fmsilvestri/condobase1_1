@@ -35,6 +35,7 @@ import {
   BarChart3,
   Send,
   Home,
+  ShoppingCart,
 } from "lucide-react";
 import {
   Sidebar,
@@ -231,6 +232,13 @@ const mainModules = [
     icon: Store,
     iconColor: "text-fuchsia-600",
     bgColor: "bg-fuchsia-600/10",
+  },
+  {
+    title: "Mini Mercado",
+    url: "/mini-mercado",
+    icon: ShoppingCart,
+    iconColor: "text-orange-500",
+    bgColor: "bg-orange-500/10",
   },
 ];
 

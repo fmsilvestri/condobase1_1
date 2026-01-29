@@ -55,6 +55,7 @@ import TaxasCobrancas from "@/pages/taxas-cobrancas";
 import GestaoLocacoes from "@/pages/gestao-locacoes";
 import ActivityManagement from "@/pages/activity-management";
 import RecursosHumanos from "@/pages/recursos-humanos";
+import MiniMercado from "@/pages/mini-mercado";
 
 function Router() {
   return (
@@ -100,6 +101,7 @@ function Router() {
       <Route path="/marketplace-campanhas" component={MarketplaceCampanhas} />
       <Route path="/fornecedor-painel" component={FornecedorPainel} />
       <Route path="/marketplace-fornecedor" component={MarketplaceFornecedor} />
+      <Route path="/mini-mercado" component={MiniMercado} />
       <Route component={NotFound} />
     </Switch>
   );
