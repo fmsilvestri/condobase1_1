@@ -116,8 +116,8 @@ export default function Financeiro() {
       const params = new URLSearchParams();
       if (filterStartDate) params.append("startDate", filterStartDate);
       if (filterEndDate) params.append("endDate", filterEndDate);
-      if (filterType) params.append("type", filterType);
-      if (filterCategory) params.append("categoryId", filterCategory);
+      if (filterType && filterType !== "all") params.append("type", filterType);
+      if (filterCategory && filterCategory !== "all") params.append("categoryId", filterCategory);
       const res = await fetch(`/api/financial/transactions?${params}`, {
         headers: getAuthHeaders(),
       });
