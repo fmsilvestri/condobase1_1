@@ -1549,6 +1549,97 @@ export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({
 export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
 export type TeamMember = typeof teamMembers.$inferSelect;
 
+// Funcionarios - Sistema de RH
+export const funcionarioStatuses = ["ativo", "afastado", "ferias", "demitido"] as const;
+export type FuncionarioStatus = (typeof funcionarioStatuses)[number];
+
+export const funcionarioGeneros = ["Masculino", "Feminino", "Outro"] as const;
+export type FuncionarioGenero = (typeof funcionarioGeneros)[number];
+
+export const funcionarioEstadosCivis = ["Solteiro", "Casado", "Divorciado", "Viúvo"] as const;
+export type FuncionarioEstadoCivil = (typeof funcionarioEstadosCivis)[number];
+
+export const funcionarioTiposContrato = ["CLT", "PJ", "Estagiário", "Temporário"] as const;
+export type FuncionarioTipoContrato = (typeof funcionarioTiposContrato)[number];
+
+export const funcionarios = pgTable("funcionarios", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  
+  // Dados Pessoais
+  fotoUrl: text("foto_url"),
+  status: text("status").notNull().default("ativo"),
+  matricula: text("matricula").unique(),
+  nomeCompleto: text("nome_completo").notNull(),
+  cpf: text("cpf").unique().notNull(),
+  rg: text("rg"),
+  dataNascimento: date("data_nascimento"),
+  genero: text("genero"),
+  estadoCivil: text("estado_civil"),
+  nacionalidade: text("nacionalidade"),
+  telefone: text("telefone"),
+  telefoneEmergencia: text("telefone_emergencia"),
+  email: text("email"),
+  
+  // Endereço
+  cep: text("cep"),
+  endereco: text("endereco"),
+  numero: text("numero"),
+  complemento: text("complemento"),
+  bairro: text("bairro"),
+  cidade: text("cidade"),
+  estado: text("estado"),
+  
+  // Dados Profissionais
+  funcao: text("funcao").notNull(),
+  departamento: text("departamento"),
+  dataAdmissao: date("data_admissao").notNull(),
+  tipoContrato: text("tipo_contrato").notNull().default("CLT"),
+  cargaHorariaSemanal: integer("carga_horaria_semanal").default(44),
+  horarioTrabalho: text("horario_trabalho"),
+  
+  // Remuneração
+  salarioBase: real("salario_base").notNull(),
+  valeTransporte: real("vale_transporte"),
+  valeRefeicao: real("vale_refeicao"),
+  valeAlimentacao: real("vale_alimentacao"),
+  planoSaude: real("plano_saude"),
+  outrosBeneficios: text("outros_beneficios"),
+  
+  // Documentos
+  documentosRgUrl: text("documentos_rg_url"),
+  documentosCpfUrl: text("documentos_cpf_url"),
+  documentosCnhUrl: text("documentos_cnh_url"),
+  documentosCtpsUrl: text("documentos_ctps_url"),
+  documentosContratoUrl: text("documentos_contrato_url"),
+  documentosComprovanteResidenciaUrl: text("documentos_comprovante_residencia_url"),
+  documentosOutros: jsonb("documentos_outros"),
+  
+  // Controle
+  observacoes: text("observacoes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFuncionarioSchema = createInsertSchema(funcionarios).omit({
+  id: true,
+  matricula: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  dataNascimento: z.string().optional().nullable(),
+  dataAdmissao: z.string(),
+  salarioBase: z.coerce.number(),
+  valeTransporte: z.coerce.number().optional().nullable(),
+  valeRefeicao: z.coerce.number().optional().nullable(),
+  valeAlimentacao: z.coerce.number().optional().nullable(),
+  planoSaude: z.coerce.number().optional().nullable(),
+  cargaHorariaSemanal: z.coerce.number().optional().nullable(),
+});
+
+export type InsertFuncionario = z.infer<typeof insertFuncionarioSchema>;
+export type Funcionario = typeof funcionarios.$inferSelect;
+
 // Processes - Processos e rotinas do condomínio
 export const processCategories = ["limpeza", "segurança", "manutenção", "administrativo", "jardinagem", "piscina", "portaria", "outro"] as const;
 export type ProcessCategory = (typeof processCategories)[number];

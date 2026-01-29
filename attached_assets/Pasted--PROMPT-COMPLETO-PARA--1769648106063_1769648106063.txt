@@ -1,0 +1,557 @@
+═══════════════════════════════════════════════════════════════════════════
+  PROMPT COMPLETO PARA CRIAR SISTEMA DE RH NO REPLIT
+  Sistema Profissional de Recursos Humanos com Gestão de Passivos
+═══════════════════════════════════════════════════════════════════════════
+
+Crie um sistema COMPLETO de Recursos Humanos para gestão de funcionários com as seguintes especificações:
+
+═══════════════════════════════════════════════════════════════════════════
+1. BANCO DE DADOS - SUPABASE SQL
+═══════════════════════════════════════════════════════════════════════════
+
+Criar tabela FUNCIONARIOS com todos os campos:
+
+DADOS PESSOAIS:
+- id (UUID primary key)
+- foto_url (TEXT)
+- status (VARCHAR) - valores: 'ativo', 'afastado', 'ferias', 'demitido'
+- matricula (VARCHAR único) - gerar automaticamente: FUNC-0001
+- nome_completo (VARCHAR obrigatório)
+- cpf (VARCHAR(14) único obrigatório com máscara)
+- rg (VARCHAR)
+- data_nascimento (DATE)
+- idade (INTEGER) - CALCULADO automaticamente
+- genero (VARCHAR) - 'Masculino', 'Feminino', 'Outro'
+- estado_civil (VARCHAR) - 'Solteiro', 'Casado', 'Divorciado', 'Viúvo'
+- nacionalidade (VARCHAR)
+- telefone (VARCHAR com máscara)
+- telefone_emergencia (VARCHAR)
+- email (VARCHAR)
+
+ENDEREÇO:
+- cep (VARCHAR com máscara)
+- endereco (VARCHAR)
+- numero (VARCHAR)
+- complemento (VARCHAR)
+- bairro (VARCHAR)
+- cidade (VARCHAR)
+- estado (VARCHAR(2))
+
+DADOS PROFISSIONAIS:
+- funcao (VARCHAR obrigatório)
+- departamento (VARCHAR)
+- data_admissao (DATE obrigatório)
+- tipo_contrato (VARCHAR) - 'CLT', 'PJ', 'Estagiário', 'Temporário'
+- carga_horaria_semanal (INTEGER) - padrão 44
+- horario_trabalho (VARCHAR) - ex: "08:00 às 17:00"
+
+REMUNERAÇÃO:
+- salario_base (DECIMAL obrigatório)
+- vale_transporte (DECIMAL)
+- vale_refeicao (DECIMAL)
+- vale_alimentacao (DECIMAL)
+- plano_saude (DECIMAL)
+- outros_beneficios (TEXT)
+
+ENCARGOS (CALCULADOS AUTOMATICAMENTE):
+- inss_percentual (DECIMAL) - calculado por faixa
+- inss_valor (DECIMAL) - calculado
+- fgts_percentual (DECIMAL) - fixo 8%
+- fgts_valor (DECIMAL) - calculado
+- irrf_percentual (DECIMAL) - calculado por faixa
+- irrf_valor (DECIMAL) - calculado
+- custo_total_mensal (DECIMAL) - salário + encargos empresa
+
+PASSIVO TRABALHISTA (CALCULADOS AUTOMATICAMENTE):
+- tempo_servico_anos (DECIMAL) - calculado da data_admissao até hoje
+- tempo_servico_meses (INTEGER) - calculado
+- ferias_vencidas_dias (INTEGER) - períodos de 12 meses sem férias
+- ferias_proporcionais_valor (DECIMAL) - calculado
+- decimo_terceiro_proporcional (DECIMAL) - (salário/12) * meses
+- multa_fgts_40_porcento (DECIMAL) - 40% do FGTS acumulado
+- aviso_previo_valor (DECIMAL) - 30 dias + 3 por ano (máx 90 dias)
+- saldo_fgts_acumulado (DECIMAL) - 8% * salário * meses
+- passivo_total_rescisao (DECIMAL) - SOMA DE TUDO
+
+DOCUMENTOS:
+- documentos_rg_url (TEXT)
+- documentos_cpf_url (TEXT)
+- documentos_cnh_url (TEXT)
+- documentos_ctps_url (TEXT)
+- documentos_contrato_url (TEXT)
+- documentos_comprovante_residencia_url (TEXT)
+- documentos_outros (JSONB) - array de URLs
+
+CONTROLE:
+- observacoes (TEXT)
+- created_at (TIMESTAMP)
+- updated_at (TIMESTAMP)
+
+═══════════════════════════════════════════════════════════════════════════
+2. FUNÇÕES DE CÁLCULO AUTOMÁTICO (POSTGRESQL FUNCTIONS)
+═══════════════════════════════════════════════════════════════════════════
+
+Criar FUNCTION calcular_idade:
+- A partir de data_nascimento
+- Retorna idade em anos
+
+Criar FUNCTION calcular_inss_2024:
+Tabela progressiva:
+- Até R$ 1.412,00: 7,5%
+- R$ 1.412,01 a R$ 2.666,68: 9%
+- R$ 2.666,69 a R$ 4.000,03: 12%
+- R$ 4.000,04 a R$ 7.786,02: 14%
+- Teto máximo: R$ 908,86
+
+Criar FUNCTION calcular_fgts:
+- Fixo: 8% sobre salário bruto
+
+Criar FUNCTION calcular_irrf_2024:
+Tabela progressiva mensal:
+- Até R$ 2.112,00: Isento
+- R$ 2.112,01 a R$ 2.826,65: 7,5% (dedução R$ 158,40)
+- R$ 2.826,66 a R$ 3.751,05: 15% (dedução R$ 370,40)
+- R$ 3.751,06 a R$ 4.664,68: 22,5% (dedução R$ 651,73)
+- Acima de R$ 4.664,68: 27,5% (dedução R$ 884,96)
+Base de cálculo: salário - INSS - dependentes
+
+Criar FUNCTION calcular_passivo_trabalhista:
+1. Tempo de serviço = hoje - data_admissao
+2. Férias vencidas = períodos completos de 12 meses sem férias
+3. Férias proporcionais = (meses trabalhados / 12) * salário * 1,33
+4. 13º proporcional = (salário / 12) * meses trabalhados
+5. FGTS acumulado = salário * 8% * meses trabalhados
+6. Multa 40% FGTS = FGTS acumulado * 0,40
+7. Aviso prévio = salário * (30 dias + 3 dias por ano, máx 90 dias) / 30
+8. TOTAL = soma de todos
+
+Criar FUNCTION calcular_custo_mensal:
+- Salário base
++ INSS patronal (20%)
++ FGTS (8%)
++ Benefícios (vale transporte + refeição + alimentação + plano saúde)
++ 13º proporcional (salário/12)
++ Férias proporcionais (salário/12 * 1,33)
+= CUSTO TOTAL MENSAL
+
+Criar TRIGGER atualizar_calculos:
+- Executar BEFORE INSERT ou UPDATE
+- Calcular todos os valores automaticamente
+- Atualizar campos calculados
+
+═══════════════════════════════════════════════════════════════════════════
+3. INTERFACE - DESIGN PROFISSIONAL
+═══════════════════════════════════════════════════════════════════════════
+
+HEADER (fixo no topo):
+┌─────────────────────────────────────────────────────────────┐
+│ 👔 SISTEMA RH                                    [+ Novo] [📊 Relatórios] │
+│ Funcionários: 25 | Folha Mensal: R$ 125.000 | Passivo: R$ 450.000      │
+└─────────────────────────────────────────────────────────────┘
+
+ABAS:
+[📋 Funcionários] [💰 Folha de Pagamento] [📄 Relatórios] [⚙️ Configurações]
+
+ABA FUNCIONÁRIOS:
+- Filtros: [Status ▼] [Função ▼] [Departamento ▼] [🔍 Buscar...]
+- Grid de cards (3 colunas responsivo)
+
+CARD DO FUNCIONÁRIO:
+┌─────────────────────────────────────┐
+│ [Foto]  JOÃO DA SILVA               │
+│         FUNC-0001                    │
+│         Porteiro | CLT               │
+│         Admissão: 15/03/2020         │
+│         ────────────────────         │
+│         💰 Salário: R$ 2.500,00     │
+│         📊 Custo Total: R$ 3.850,00 │
+│         ⚠️ Passivo: R$ 18.750,00    │
+│         ────────────────────         │
+│         [Ver Detalhes] [Editar]      │
+└─────────────────────────────────────┘
+
+MODAL DE CADASTRO/EDIÇÃO (multi-step):
+
+PASSO 1 - DADOS PESSOAIS:
+┌─────────────────────────────────────┐
+│ Upload Foto: [Arraste ou clique]   │
+│ Nome Completo: [_____________]      │
+│ CPF: [___.___.___-__]              │
+│ RG: [_____________]                │
+│ Data Nascimento: [__/__/____]      │
+│ Idade: 35 anos (calculado)         │
+│ Gênero: [Selecione ▼]             │
+│ Estado Civil: [Selecione ▼]       │
+│ Telefone: [(__) _____-____]        │
+│ Email: [_____________]             │
+└─────────────────────────────────────┘
+[Cancelar] [Próximo →]
+
+PASSO 2 - ENDEREÇO:
+┌─────────────────────────────────────┐
+│ CEP: [_____-___] [🔍 Buscar]       │
+│ Endereço: [________________]        │
+│ Número: [____] Compl: [_______]    │
+│ Bairro: [_____________]            │
+│ Cidade: [_____________]            │
+│ Estado: [__]                       │
+└─────────────────────────────────────┘
+[← Voltar] [Próximo →]
+
+PASSO 3 - DADOS PROFISSIONAIS:
+┌─────────────────────────────────────┐
+│ Matrícula: FUNC-0026 (auto)        │
+│ Função: [Selecione ▼]             │
+│ Departamento: [Selecione ▼]       │
+│ Data Admissão: [__/__/____]        │
+│ Tipo Contrato: [CLT ▼]            │
+│ Carga Horária: [44] h/semana      │
+│ Horário: [________________]        │
+└─────────────────────────────────────┘
+[← Voltar] [Próximo →]
+
+PASSO 4 - REMUNERAÇÃO E ENCARGOS:
+┌─────────────────────────────────────┐
+│ 💰 REMUNERAÇÃO                      │
+│ Salário Base: R$ [_______]         │
+│ Vale Transporte: R$ [_____]        │
+│ Vale Refeição: R$ [_____]          │
+│ Vale Alimentação: R$ [_____]       │
+│ Plano de Saúde: R$ [_____]         │
+│                                     │
+│ 📊 ENCARGOS (calculados)           │
+│ ┌─────────────────────────────┐   │
+│ │ INSS: R$ 320,00 (12%)      │   │
+│ │ FGTS: R$ 200,00 (8%)       │   │
+│ │ IRRF: R$ 85,00 (3,4%)      │   │
+│ │ ─────────────────────────   │   │
+│ │ Custo Mensal: R$ 3.850,00  │   │
+│ └─────────────────────────────┘   │
+└─────────────────────────────────────┘
+[← Voltar] [Próximo →]
+
+PASSO 5 - PASSIVO TRABALHISTA:
+┌─────────────────────────────────────┐
+│ ⚠️ PROJEÇÃO DE RESCISÃO            │
+│ ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓ │
+│ ┃ Tempo de Serviço: 4 anos     ┃ │
+│ ┃ Tempo em Meses: 48 meses     ┃ │
+│ ┃                               ┃ │
+│ ┃ Férias Vencidas: 0 dias      ┃ │
+│ ┃ Férias Proporcionais: R$ 0   ┃ │
+│ ┃ 13º Proporcional: R$ 2.500   ┃ │
+│ ┃ Aviso Prévio: R$ 3.500       ┃ │
+│ ┃ Saldo FGTS: R$ 9.600         ┃ │
+│ ┃ Multa 40% FGTS: R$ 3.840     ┃ │
+│ ┃ ─────────────────────────     ┃ │
+│ ┃ TOTAL RESCISÃO:              ┃ │
+│ ┃ R$ 19.440,00                 ┃ │
+│ ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ │
+└─────────────────────────────────────┘
+[← Voltar] [Próximo →]
+
+PASSO 6 - DOCUMENTOS:
+┌─────────────────────────────────────┐
+│ 📄 UPLOAD DE DOCUMENTOS             │
+│                                     │
+│ RG (Frente): [📎 Anexar] ✓         │
+│ RG (Verso): [📎 Anexar] ✓          │
+│ CPF: [📎 Anexar] ✓                 │
+│ CNH: [📎 Anexar]                   │
+│ CTPS: [📎 Anexar] ✓                │
+│ Contrato: [📎 Anexar] ✓            │
+│ Comprov. Residência: [📎 Anexar]   │
+│ Outros: [📎 Anexar vários]         │
+│                                     │
+│ Formatos: PDF, JPG, PNG (máx 5MB)  │
+└─────────────────────────────────────┘
+[← Voltar] [Salvar]
+
+MODAL DE DETALHES (quando clicar "Ver Detalhes"):
+┌───────────────────────────────────────────────┐
+│ [Foto]  JOÃO DA SILVA - FUNC-0001            │
+│         Porteiro | Departamento Operacional   │
+│         Status: [🟢 Ativo]                    │
+├───────────────────────────────────────────────┤
+│ DADOS PESSOAIS                                │
+│ CPF: 123.456.789-00 | RG: 12.345.678-9       │
+│ Nascimento: 15/08/1989 (35 anos)             │
+│ Telefone: (11) 98765-4321                    │
+│ Email: joao@email.com                        │
+│                                               │
+│ ENDEREÇO                                      │
+│ Rua das Flores, 123 - Apto 45                │
+│ Jardim Primavera - São Paulo/SP              │
+│ CEP: 01234-567                               │
+├───────────────────────────────────────────────┤
+│ 💼 INFORMAÇÕES PROFISSIONAIS                  │
+│ Admissão: 15/03/2020 (4 anos e 10 meses)    │
+│ Tipo: CLT | Carga: 44h/semana               │
+├───────────────────────────────────────────────┤
+│ 💰 REMUNERAÇÃO E ENCARGOS                     │
+│ Salário Base: R$ 2.500,00                    │
+│ Vale Transporte: R$ 180,00                   │
+│ Vale Refeição: R$ 450,00                     │
+│ Plano Saúde: R$ 120,00                       │
+│ ─────────────────────────                    │
+│ INSS (12%): R$ 300,00                        │
+│ FGTS (8%): R$ 200,00                         │
+│ IRRF (3,4%): R$ 85,00                        │
+│ ─────────────────────────                    │
+│ 📊 Custo Total Mensal: R$ 3.850,00          │
+├───────────────────────────────────────────────┤
+│ ⚠️ PASSIVO TRABALHISTA TOTAL                  │
+│ ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓ │
+│ ┃ Custo Total de Rescisão:              ┃ │
+│ ┃ R$ 19.440,00                          ┃ │
+│ ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ │
+│                                               │
+│ Detalhamento:                                 │
+│ • 13º Proporcional: R$ 2.500,00              │
+│ • Aviso Prévio (42 dias): R$ 3.500,00        │
+│ • Saldo FGTS: R$ 9.600,00                    │
+│ • Multa 40% FGTS: R$ 3.840,00                │
+├───────────────────────────────────────────────┤
+│ 📄 DOCUMENTOS ANEXADOS (6)                    │
+│ [📎 RG.pdf] [📎 CPF.pdf] [📎 Contrato.pdf]  │
+│ [Ver Todos os Documentos]                     │
+├───────────────────────────────────────────────┤
+│ [Editar] [Gerar Holerite] [Demitir] [Fechar] │
+└───────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════
+4. FOLHA DE PAGAMENTO
+═══════════════════════════════════════════════════════════════════════════
+
+ABA FOLHA DE PAGAMENTO:
+┌─────────────────────────────────────────────┐
+│ Mês/Ano: [Janeiro ▼] [2026 ▼] [Gerar]     │
+└─────────────────────────────────────────────┘
+
+TABELA:
+┌─────────────────────────────────────────────────────────────────┐
+│ Nome         | Função   | Salário  | INSS   | IRRF  | Líquido  │
+├─────────────────────────────────────────────────────────────────┤
+│ João Silva   | Porteiro | 2.500,00 | 300,00 | 85,00 | 2.115,00 │
+│ Maria Santos | Zeladora | 2.100,00 | 252,00 | 0,00  | 1.848,00 │
+│ ...          | ...      | ...      | ...    | ...   | ...      │
+├─────────────────────────────────────────────────────────────────┤
+│ TOTAL        |          |42.500,00 |5.100,00|850,00 |36.550,00 │
+└─────────────────────────────────────────────────────────────────┘
+
+[Gerar PDF Folha Completa] [Gerar Holerites Individuais] [Exportar Excel]
+
+═══════════════════════════════════════════════════════════════════════════
+5. RELATÓRIOS
+═══════════════════════════════════════════════════════════════════════════
+
+ABA RELATÓRIOS:
+┌─────────────────────────────────────────┐
+│ 📊 RELATÓRIOS DISPONÍVEIS              │
+│                                         │
+│ [📄 Relatório Geral de Funcionários]   │
+│     Lista completa com todos os dados   │
+│                                         │
+│ [💰 Relatório de Folha de Pagamento]   │
+│     Detalhamento de salários e encargos │
+│                                         │
+│ [⚠️ Relatório de Passivos Trabalhistas] │
+│     Projeção de custos de rescisão      │
+│                                         │
+│ [📁 Relatório de Documentos Pendentes]  │
+│     Funcionários sem documentação       │
+│                                         │
+│ [🎂 Aniversariantes do Mês]            │
+│     Lista de aniversariantes            │
+└─────────────────────────────────────────┘
+
+RELATÓRIO DE PASSIVOS (exemplo):
+┌─────────────────────────────────────────────────────────┐
+│ RELATÓRIO DE PASSIVOS TRABALHISTAS                     │
+│ Data: 28/01/2026                                        │
+├─────────────────────────────────────────────────────────┤
+│ Nome              | Admissão   | Salário   | Passivo   │
+│ João Silva        | 15/03/2020 | 2.500,00  | 19.440,00 │
+│ Maria Santos      | 10/05/2018 | 2.100,00  | 28.750,00 │
+│ Pedro Oliveira    | 22/01/2021 | 3.200,00  | 22.800,00 │
+│ ...               | ...        | ...       | ...       │
+├─────────────────────────────────────────────────────────┤
+│ PASSIVO TOTAL DA EMPRESA: R$ 458.900,00                │
+└─────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════
+6. FUNCIONALIDADES ESPECIAIS
+═══════════════════════════════════════════════════════════════════════════
+
+UPLOAD DE DOCUMENTOS:
+- Usar Supabase Storage
+- Bucket: 'documentos-rh'
+- Organizar: /funcionarios/{cpf}/{tipo_documento}
+- Formatos: PDF, JPG, PNG
+- Tamanho máx: 5MB por arquivo
+- Preview inline para imagens e PDFs
+
+BUSCA DE CEP:
+- Integrar API ViaCEP
+- Preencher automaticamente: endereco, bairro, cidade, estado
+- URL: https://viacep.com.br/ws/{cep}/json/
+
+MÁSCARAS DE INPUT:
+- CPF: 000.000.000-00
+- Telefone: (00) 00000-0000
+- CEP: 00000-000
+- Salário: R$ 0.000,00
+
+VALIDAÇÕES:
+- CPF: validar dígitos verificadores
+- Data admissão: não pode ser futura
+- Salário: mínimo R$ 1.412,00
+- Email: formato válido
+- Documentos obrigatórios: RG, CPF, CTPS, Contrato
+
+ALERTAS NO DASHBOARD:
+- 🎂 5 aniversariantes este mês
+- 📄 3 funcionários com documentos pendentes
+- 🏖️ 2 funcionários com férias vencidas
+- ⚠️ Passivo total: R$ 458.900,00
+
+═══════════════════════════════════════════════════════════════════════════
+7. GERAÇÃO DE PDFs
+═══════════════════════════════════════════════════════════════════════════
+
+Usar: jsPDF + jspdf-autotable
+
+HOLERITE INDIVIDUAL:
+┌─────────────────────────────────────┐
+│ HOLERITE - JANEIRO/2026             │
+│                                     │
+│ JOÃO DA SILVA                       │
+│ CPF: 123.456.789-00                │
+│ Função: Porteiro                   │
+│ Admissão: 15/03/2020               │
+│                                     │
+│ PROVENTOS:                         │
+│ Salário Base........... 2.500,00   │
+│                                     │
+│ DESCONTOS:                         │
+│ INSS (12%).............. 300,00    │
+│ IRRF (3,4%).............. 85,00    │
+│                                     │
+│ LÍQUIDO............... 2.115,00    │
+└─────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════
+8. EXEMPLO DE FLUXO COMPLETO
+═══════════════════════════════════════════════════════════════════════════
+
+1. CADASTRAR FUNCIONÁRIO:
+   → Clicar "Novo Funcionário"
+   → Preencher dados pessoais (Nome, CPF, etc)
+   → Buscar CEP (preenche endereço automaticamente)
+   → Definir função e salário
+   → Sistema calcula INSS, FGTS, IRRF automaticamente
+   → Sistema calcula passivo trabalhista
+   → Upload de documentos (RG, CPF, Contrato)
+   → Salvar
+   → Card aparece na lista de funcionários
+
+2. VER DETALHES E PASSIVO:
+   → Clicar "Ver Detalhes" no card
+   → Ver todas informações
+   → Ver PASSIVO TOTAL EM DESTAQUE: R$ 19.440,00
+   → Ver detalhamento: 13º, aviso, FGTS, multa
+
+3. GERAR FOLHA DE PAGAMENTO:
+   → Ir na aba "Folha de Pagamento"
+   → Selecionar mês/ano
+   → Clicar "Gerar"
+   → Sistema calcula proventos e descontos de todos
+   → Mostra tabela com totalizadores
+   → Gerar PDF ou Excel
+
+4. GERAR RELATÓRIO DE PASSIVOS:
+   → Ir na aba "Relatórios"
+   → Clicar "Relatório de Passivos Trabalhistas"
+   → Ver lista de todos funcionários com passivo individual
+   → Ver PASSIVO TOTAL DA EMPRESA
+   → Gerar PDF
+
+═══════════════════════════════════════════════════════════════════════════
+9. TECNOLOGIAS E BIBLIOTECAS
+═══════════════════════════════════════════════════════════════════════════
+
+FRONTEND:
+- HTML5, CSS3 (design moderno)
+- JavaScript vanilla ou Vue.js
+- Tailwind CSS ou CSS customizado
+
+BACKEND:
+- Supabase (PostgreSQL + Storage + Auth)
+
+BIBLIOTECAS:
+- jsPDF (https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js)
+- jspdf-autotable (tabelas em PDF)
+- SheetJS/xlsx (exportar Excel)
+- IMask.js (máscaras de input)
+
+APIs:
+- ViaCEP (busca de endereço)
+
+═══════════════════════════════════════════════════════════════════════════
+10. CREDENCIAIS SUPABASE
+═══════════════════════════════════════════════════════════════════════════
+
+URL: https://cqlqvwjcpbccqpfyykao.supabase.co
+KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxbHF2d2pjcGJjY3FwZnl5a2FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc5OTI1MjIsImV4cCI6MjA1MzU2ODUyMn0.QqH8EwvLTEJKRvmZ9Mn4HEwbFmBZ0QSCQ4dFpxNCjPo
+
+═══════════════════════════════════════════════════════════════════════════
+11. CHECKLIST DE ENTREGA
+═══════════════════════════════════════════════════════════════════════════
+
+BANCO DE DADOS:
+□ Tabela funcionarios com todos os campos
+□ Functions de cálculo (idade, INSS, FGTS, IRRF, passivo)
+□ Trigger automático para calcular valores
+□ Storage bucket para documentos
+□ Dados iniciais (departamentos, funções)
+
+INTERFACE:
+□ Header com estatísticas
+□ Dashboard com cards de funcionários
+□ Formulário multi-step completo
+□ Modal de detalhes com passivo em destaque
+□ Upload de documentos drag-and-drop
+□ Busca e filtros funcionando
+□ Máscaras em todos os campos
+
+FUNCIONALIDADES:
+□ Cadastrar funcionário completo
+□ Editar funcionário
+□ Ver detalhes com passivo calculado
+□ Upload e download de documentos
+□ Cálculo automático de encargos
+□ Cálculo automático de passivo
+□ Busca de CEP automática
+□ Folha de pagamento mensal
+□ Geração de holerites (PDF)
+□ Relatório de passivos (PDF)
+□ Exportação Excel
+□ Validações completas
+
+RESULTADO FINAL:
+Um sistema profissional onde o gestor pode:
+✅ Cadastrar funcionários com todos os dados
+✅ Ver quanto cada funcionário custa (custo total mensal)
+✅ Ver quanto custaria demitir cada um (passivo trabalhista)
+✅ Armazenar e gerenciar documentos
+✅ Gerar folha de pagamento
+✅ Gerar relatórios profissionais
+
+═══════════════════════════════════════════════════════════════════════════
+
+IMPORTANTE:
+O sistema deve estar 100% FUNCIONAL e pronto para uso em produção.
+Todos os cálculos devem estar corretos conforme legislação brasileira.
+Interface deve ser moderna, intuitiva e responsiva.
+
+═══════════════════════════════════════════════════════════════════════════
