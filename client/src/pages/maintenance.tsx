@@ -360,10 +360,12 @@ export default function Maintenance() {
 
   const updateEquipmentMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: z.infer<typeof equipmentFormSchema> }) => {
+      const condominiumId = localStorage.getItem("selectedCondominiumId");
       const dataWithFiles = {
         ...data,
         photos: equipmentPhotos.length > 0 ? equipmentPhotos : [],
         documents: equipmentDocuments.length > 0 ? equipmentDocuments : [],
+        condominiumId,
       };
       return apiRequest("PATCH", `/api/equipment/${id}`, dataWithFiles);
     },
