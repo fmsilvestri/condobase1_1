@@ -307,7 +307,7 @@ export default function MiniMercado() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["mercado-categorias"] });
       setIsCategoriaDialogOpen(false);
-      setCategoriaForm({ nome: "", icone: "📦", cor: "#FF6B35" });
+      setCategoriaForm({ nome: "", icone: "Package", cor: "#FF6B35" });
       toast({ title: "Categoria criada com sucesso!" });
     },
     onError: (error: any) => {
@@ -418,11 +418,12 @@ export default function MiniMercado() {
     mutationFn: async (data: typeof promocaoForm) => {
       await supabaseReady;
       if (!supabase || !condominiumId) throw new Error("Não configurado");
+      const produtoId = data.produtoId && data.produtoId.trim() !== "" ? data.produtoId : null;
       const { error } = await supabase.from("mercado_promocoes").insert({
         condominium_id: condominiumId,
-        produto_id: data.produtoId || null,
+        produto_id: produtoId,
         titulo: data.titulo,
-        descricao: data.descricao || null,
+        descricao: data.descricao && data.descricao.trim() !== "" ? data.descricao : null,
         desconto_percentual: parseFloat(data.descontoPercentual) || null,
         preco_promocional: parseFloat(data.precoPromocional) || null,
         data_inicio: data.dataInicio,
