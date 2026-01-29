@@ -1276,6 +1276,357 @@ router.patch("/energy/:id", async (req, res) => {
   }
 });
 
+router.get("/energy-consumption", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const { year } = req.query;
+    
+    let query = supabaseAdmin
+      .from("energy_consumption")
+      .select("*")
+      .eq("condominium_id", condominiumId)
+      .order("year", { ascending: false })
+      .order("month", { ascending: false });
+    
+    if (year) {
+      query = query.eq("year", parseInt(year as string));
+    }
+    
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json((data || []).map(toCamelCase));
+  } catch (error: any) {
+    console.error("[Energy Consumption GET] Error:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch energy consumption" });
+  }
+});
+
+router.post("/energy-consumption", requireSindicoOrAdmin, upload.single("invoicePdf"), async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    let invoicePdfUrl = null;
+    
+    if (req.file) {
+      const fileName = `energy-invoices/${condominiumId}/${Date.now()}-${req.file.originalname}`;
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from("uploads")
+        .upload(fileName, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: true,
+        });
+      if (uploadError) throw uploadError;
+      
+      const { data: urlData } = supabaseAdmin.storage.from("uploads").getPublicUrl(fileName);
+      invoicePdfUrl = urlData.publicUrl;
+    }
+    
+    const insertData = toSnakeCase({
+      ...req.body,
+      condominiumId,
+      consumptionKwh: parseFloat(req.body.consumptionKwh) || 0,
+      cost: parseFloat(req.body.cost) || null,
+      peakConsumptionKwh: parseFloat(req.body.peakConsumptionKwh) || null,
+      offPeakConsumptionKwh: parseFloat(req.body.offPeakConsumptionKwh) || null,
+      month: parseInt(req.body.month),
+      year: parseInt(req.body.year),
+      invoicePdfUrl,
+    });
+    
+    const { data, error } = await supabaseAdmin
+      .from("energy_consumption")
+      .insert(insertData)
+      .select()
+      .single();
+    if (error) throw error;
+    res.status(201).json(toCamelCase(data));
+  } catch (error: any) {
+    console.error("[Energy Consumption POST] Error:", error);
+    res.status(400).json({ error: error.message || "Failed to create energy consumption" });
+  }
+});
+
+router.patch("/energy-consumption/:id", requireSindicoOrAdmin, upload.single("invoicePdf"), async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    let invoicePdfUrl = req.body.invoicePdfUrl;
+    
+    if (req.file) {
+      const fileName = `energy-invoices/${condominiumId}/${Date.now()}-${req.file.originalname}`;
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from("uploads")
+        .upload(fileName, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: true,
+        });
+      if (uploadError) throw uploadError;
+      
+      const { data: urlData } = supabaseAdmin.storage.from("uploads").getPublicUrl(fileName);
+      invoicePdfUrl = urlData.publicUrl;
+    }
+    
+    const updateData = toSnakeCase({
+      ...req.body,
+      consumptionKwh: req.body.consumptionKwh ? parseFloat(req.body.consumptionKwh) : undefined,
+      cost: req.body.cost ? parseFloat(req.body.cost) : undefined,
+      month: req.body.month ? parseInt(req.body.month) : undefined,
+      year: req.body.year ? parseInt(req.body.year) : undefined,
+      invoicePdfUrl,
+      updatedAt: new Date(),
+    });
+    
+    const { data, error } = await supabaseAdmin
+      .from("energy_consumption")
+      .update(updateData)
+      .eq("id", req.params.id)
+      .eq("condominium_id", condominiumId)
+      .select()
+      .single();
+    if (error) throw error;
+    res.json(toCamelCase(data));
+  } catch (error: any) {
+    console.error("[Energy Consumption PATCH] Error:", error);
+    res.status(400).json({ error: error.message || "Failed to update energy consumption" });
+  }
+});
+
+router.delete("/energy-consumption/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const { error } = await supabaseAdmin
+      .from("energy_consumption")
+      .delete()
+      .eq("id", req.params.id)
+      .eq("condominium_id", condominiumId);
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("[Energy Consumption DELETE] Error:", error);
+    res.status(400).json({ error: error.message || "Failed to delete energy consumption" });
+  }
+});
+
+router.get("/solar-panels", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const { data, error } = await supabaseAdmin
+      .from("solar_panels")
+      .select("*")
+      .eq("condominium_id", condominiumId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    res.json((data || []).map(toCamelCase));
+  } catch (error: any) {
+    console.error("[Solar Panels GET] Error:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch solar panels" });
+  }
+});
+
+router.post("/solar-panels", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const insertData = toSnakeCase({
+      ...req.body,
+      condominiumId,
+      capacityKw: parseFloat(req.body.capacityKw) || 0,
+    });
+    
+    const { data, error } = await supabaseAdmin
+      .from("solar_panels")
+      .insert(insertData)
+      .select()
+      .single();
+    if (error) throw error;
+    res.status(201).json(toCamelCase(data));
+  } catch (error: any) {
+    console.error("[Solar Panels POST] Error:", error);
+    res.status(400).json({ error: error.message || "Failed to create solar panel" });
+  }
+});
+
+router.patch("/solar-panels/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const updateData = toSnakeCase({
+      ...req.body,
+      capacityKw: req.body.capacityKw ? parseFloat(req.body.capacityKw) : undefined,
+      updatedAt: new Date(),
+    });
+    
+    const { data, error } = await supabaseAdmin
+      .from("solar_panels")
+      .update(updateData)
+      .eq("id", req.params.id)
+      .eq("condominium_id", condominiumId)
+      .select()
+      .single();
+    if (error) throw error;
+    res.json(toCamelCase(data));
+  } catch (error: any) {
+    console.error("[Solar Panels PATCH] Error:", error);
+    res.status(400).json({ error: error.message || "Failed to update solar panel" });
+  }
+});
+
+router.delete("/solar-panels/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const { error } = await supabaseAdmin
+      .from("solar_panels")
+      .delete()
+      .eq("id", req.params.id)
+      .eq("condominium_id", condominiumId);
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("[Solar Panels DELETE] Error:", error);
+    res.status(400).json({ error: error.message || "Failed to delete solar panel" });
+  }
+});
+
+router.get("/solar-generation", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const { year, solarPanelId } = req.query;
+    
+    let query = supabaseAdmin
+      .from("solar_generation")
+      .select("*, solar_panels(name)")
+      .eq("condominium_id", condominiumId)
+      .order("year", { ascending: false })
+      .order("month", { ascending: false });
+    
+    if (year) query = query.eq("year", parseInt(year as string));
+    if (solarPanelId) query = query.eq("solar_panel_id", solarPanelId);
+    
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json((data || []).map((row: any) => ({
+      ...toCamelCase(row),
+      solarPanelName: row.solar_panels?.name,
+    })));
+  } catch (error: any) {
+    console.error("[Solar Generation GET] Error:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch solar generation" });
+  }
+});
+
+router.post("/solar-generation", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const insertData = toSnakeCase({
+      ...req.body,
+      condominiumId,
+      generationKwh: parseFloat(req.body.generationKwh) || 0,
+      injectedKwh: parseFloat(req.body.injectedKwh) || null,
+      creditsKwh: parseFloat(req.body.creditsKwh) || null,
+      savings: parseFloat(req.body.savings) || null,
+      month: parseInt(req.body.month),
+      year: parseInt(req.body.year),
+    });
+    
+    const { data, error } = await supabaseAdmin
+      .from("solar_generation")
+      .insert(insertData)
+      .select()
+      .single();
+    if (error) throw error;
+    res.status(201).json(toCamelCase(data));
+  } catch (error: any) {
+    console.error("[Solar Generation POST] Error:", error);
+    res.status(400).json({ error: error.message || "Failed to create solar generation" });
+  }
+});
+
+router.patch("/solar-generation/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const updateData = toSnakeCase({
+      ...req.body,
+      generationKwh: req.body.generationKwh ? parseFloat(req.body.generationKwh) : undefined,
+      injectedKwh: req.body.injectedKwh ? parseFloat(req.body.injectedKwh) : undefined,
+      creditsKwh: req.body.creditsKwh ? parseFloat(req.body.creditsKwh) : undefined,
+      savings: req.body.savings ? parseFloat(req.body.savings) : undefined,
+      updatedAt: new Date(),
+    });
+    
+    const { data, error } = await supabaseAdmin
+      .from("solar_generation")
+      .update(updateData)
+      .eq("id", req.params.id)
+      .eq("condominium_id", condominiumId)
+      .select()
+      .single();
+    if (error) throw error;
+    res.json(toCamelCase(data));
+  } catch (error: any) {
+    console.error("[Solar Generation PATCH] Error:", error);
+    res.status(400).json({ error: error.message || "Failed to update solar generation" });
+  }
+});
+
+router.delete("/solar-generation/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const { error } = await supabaseAdmin
+      .from("solar_generation")
+      .delete()
+      .eq("id", req.params.id)
+      .eq("condominium_id", condominiumId);
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("[Solar Generation DELETE] Error:", error);
+    res.status(400).json({ error: error.message || "Failed to delete solar generation" });
+  }
+});
+
+router.get("/energy-summary", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const { year } = req.query;
+    const targetYear = year ? parseInt(year as string) : new Date().getFullYear();
+    
+    const { data: consumption, error: consumptionError } = await supabaseAdmin
+      .from("energy_consumption")
+      .select("*")
+      .eq("condominium_id", condominiumId)
+      .eq("year", targetYear)
+      .order("month", { ascending: true });
+    if (consumptionError) throw consumptionError;
+    
+    const { data: generation, error: generationError } = await supabaseAdmin
+      .from("solar_generation")
+      .select("*")
+      .eq("condominium_id", condominiumId)
+      .eq("year", targetYear)
+      .order("month", { ascending: true });
+    if (generationError) throw generationError;
+    
+    const totalConsumption = (consumption || []).reduce((sum: number, c: any) => sum + (c.consumption_kwh || 0), 0);
+    const totalCost = (consumption || []).reduce((sum: number, c: any) => sum + (c.cost || 0), 0);
+    const totalGeneration = (generation || []).reduce((sum: number, g: any) => sum + (g.generation_kwh || 0), 0);
+    const totalSavings = (generation || []).reduce((sum: number, g: any) => sum + (g.savings || 0), 0);
+    
+    res.json({
+      year: targetYear,
+      totalConsumption,
+      totalCost,
+      totalGeneration,
+      totalSavings,
+      monthlyData: (consumption || []).map((c: any) => ({
+        month: c.month,
+        consumptionKwh: c.consumption_kwh,
+        cost: c.cost,
+        generationKwh: (generation || []).find((g: any) => g.month === c.month)?.generation_kwh || 0,
+        savings: (generation || []).find((g: any) => g.month === c.month)?.savings || 0,
+      })),
+    });
+  } catch (error: any) {
+    console.error("[Energy Summary GET] Error:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch energy summary" });
+  }
+});
+
 router.get("/occupancy", async (req, res) => {
   try {
     const condominiumId = req.condominiumContext?.condominiumId || undefined;
