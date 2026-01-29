@@ -321,8 +321,24 @@ export default function RecursosHumanos() {
       await supabaseReady;
       if (!supabase) throw new Error("Supabase não configurado");
       
+      // Valid funcionarios fields based on schema
+      const validFields = [
+        'nomeCompleto', 'cpf', 'rg', 'dataNascimento', 'genero', 'estadoCivil',
+        'nacionalidade', 'telefone', 'telefoneEmergencia', 'email', 'cep',
+        'endereco', 'numero', 'complemento', 'bairro', 'cidade', 'estado',
+        'funcao', 'departamento', 'dataAdmissao', 'tipoContrato', 'cargaHorariaSemanal',
+        'horarioTrabalho', 'salarioBase', 'valeTransporte', 'valeRefeicao',
+        'valeAlimentacao', 'planoSaude', 'outrosBeneficios', 'status', 'observacoes',
+        'fotoUrl', 'documentosRgUrl', 'documentosCpfUrl', 'documentosCnhUrl',
+        'documentosCtpsUrl', 'documentosContratoUrl', 'documentosComprovanteResidenciaUrl',
+        'documentosOutros', 'condominiumId'
+      ];
+      
       const snakeData: Record<string, any> = {};
       for (const [key, value] of Object.entries(data)) {
+        // Only include valid fields
+        if (!validFields.includes(key)) continue;
+        
         const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
         // Convert empty strings to null, keep other values as-is
         if (value === "" || value === undefined) {
@@ -361,8 +377,24 @@ export default function RecursosHumanos() {
       await supabaseReady;
       if (!supabase) throw new Error("Supabase não configurado");
       
+      // Valid funcionarios fields based on schema
+      const validFields = [
+        'nomeCompleto', 'cpf', 'rg', 'dataNascimento', 'genero', 'estadoCivil',
+        'nacionalidade', 'telefone', 'telefoneEmergencia', 'email', 'cep',
+        'endereco', 'numero', 'complemento', 'bairro', 'cidade', 'estado',
+        'funcao', 'departamento', 'dataAdmissao', 'tipoContrato', 'cargaHorariaSemanal',
+        'horarioTrabalho', 'salarioBase', 'valeTransporte', 'valeRefeicao',
+        'valeAlimentacao', 'planoSaude', 'outrosBeneficios', 'status', 'observacoes',
+        'fotoUrl', 'documentosRgUrl', 'documentosCpfUrl', 'documentosCnhUrl',
+        'documentosCtpsUrl', 'documentosContratoUrl', 'documentosComprovanteResidenciaUrl',
+        'documentosOutros', 'condominiumId'
+      ];
+      
       const snakeData: Record<string, any> = {};
       for (const [key, value] of Object.entries(data)) {
+        // Only include valid fields
+        if (!validFields.includes(key)) continue;
+        
         const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
         // Convert empty strings to null, keep other values as-is
         if (value === "" || value === undefined) {
@@ -472,8 +504,15 @@ export default function RecursosHumanos() {
   };
 
   const handleSubmit = () => {
+    const condominiumId = localStorage.getItem("selectedCondominiumId");
+    if (!condominiumId) {
+      toast({ title: "Erro", description: "Nenhum condomínio selecionado", variant: "destructive" });
+      return;
+    }
+    
     const dataToSubmit = {
       ...formData,
+      condominiumId,
       salarioBase: Number(formData.salarioBase),
       valeTransporte: Number(formData.valeTransporte) || null,
       valeRefeicao: Number(formData.valeRefeicao) || null,
@@ -1173,8 +1212,7 @@ export default function RecursosHumanos() {
                           <div className="flex items-center gap-2">
                             <h3 className="font-medium truncate">{func.nomeCompleto}</h3>
                             <Badge
-                              size="sm"
-                              className={`${status?.color} text-white`}
+                              className={`${status?.color} text-white text-xs`}
                             >
                               {status?.label}
                             </Badge>
