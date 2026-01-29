@@ -3983,4 +3983,329 @@ router.delete("/funcionarios/:id", requireSindicoOrAdmin, async (req, res) => {
   }
 });
 
+// ======================= MÓDULO FINANCEIRO =======================
+import { parseOFX, classifyTransaction } from "../../server/ofx-parser";
+
+// Categorias Financeiras
+router.get("/financial/categories", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não selecionado" });
+    }
+    const { data, error } = await supabaseAdmin
+      .from("financial_categories")
+      .select("*")
+      .eq("condominium_id", condominiumId)
+      .order("type", { ascending: true })
+      .order("name", { ascending: true });
+    if (error) throw error;
+    res.json(data.map(toCamelCase));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/financial/categories", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não selecionado" });
+    }
+    const insertData = toSnakeCase({ ...req.body, condominiumId });
+    const { data, error } = await supabaseAdmin
+      .from("financial_categories")
+      .insert(insertData)
+      .select()
+      .single();
+    if (error) throw error;
+    res.status(201).json(toCamelCase(data));
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.patch("/financial/categories/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const updateData = toSnakeCase({ ...req.body, updatedAt: new Date() });
+    const { data, error } = await supabaseAdmin
+      .from("financial_categories")
+      .update(updateData)
+      .eq("id", req.params.id)
+      .select()
+      .single();
+    if (error) throw error;
+    res.json(toCamelCase(data));
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.delete("/financial/categories/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const { error } = await supabaseAdmin
+      .from("financial_categories")
+      .delete()
+      .eq("id", req.params.id);
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Transações Financeiras
+router.get("/financial/transactions", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não selecionado" });
+    }
+    const { startDate, endDate, type, categoryId } = req.query;
+    
+    let query = supabaseAdmin
+      .from("financial_transactions")
+      .select("*")
+      .eq("condominium_id", condominiumId)
+      .order("date", { ascending: false });
+    
+    if (startDate) query = query.gte("date", startDate as string);
+    if (endDate) query = query.lte("date", endDate as string);
+    if (type) query = query.eq("type", type as string);
+    if (categoryId) query = query.eq("category_id", categoryId as string);
+    
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json(data.map(toCamelCase));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/financial/transactions", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const userId = getUserId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não selecionado" });
+    }
+    const insertData = toSnakeCase({ 
+      ...req.body, 
+      condominiumId,
+      createdBy: userId 
+    });
+    const { data, error } = await supabaseAdmin
+      .from("financial_transactions")
+      .insert(insertData)
+      .select()
+      .single();
+    if (error) throw error;
+    res.status(201).json(toCamelCase(data));
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.patch("/financial/transactions/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const updateData = toSnakeCase({ ...req.body, updatedAt: new Date() });
+    const { data, error } = await supabaseAdmin
+      .from("financial_transactions")
+      .update(updateData)
+      .eq("id", req.params.id)
+      .select()
+      .single();
+    if (error) throw error;
+    res.json(toCamelCase(data));
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.delete("/financial/transactions/:id", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const { error } = await supabaseAdmin
+      .from("financial_transactions")
+      .delete()
+      .eq("id", req.params.id);
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Importação OFX
+router.post("/financial/import-ofx", requireSindicoOrAdmin, upload.single("file"), async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    const userId = getUserId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não selecionado" });
+    }
+
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: "Nenhum arquivo enviado" });
+    }
+
+    const content = file.buffer.toString("utf-8");
+    const parsed = parseOFX(content);
+
+    // Buscar categorias para classificação automática
+    const { data: categories } = await supabaseAdmin
+      .from("financial_categories")
+      .select("id, name, type, keywords")
+      .eq("condominium_id", condominiumId);
+
+    // Verificar duplicatas pelo fitId
+    const { data: existingTrns } = await supabaseAdmin
+      .from("financial_transactions")
+      .select("fit_id")
+      .eq("condominium_id", condominiumId);
+    
+    const existingFitIds = new Set(existingTrns?.map(t => t.fit_id) || []);
+
+    // Filtrar transações que já existem
+    const newTransactions = parsed.transactions.filter(t => !existingFitIds.has(t.fitId));
+
+    // Classificar e inserir transações
+    const transactionsToInsert = newTransactions.map(trn => {
+      const matchingCategories = (categories || []).filter(c => c.type === trn.type);
+      const classification = classifyTransaction(trn.description, matchingCategories);
+      
+      return toSnakeCase({
+        condominiumId,
+        date: trn.date.toISOString().split('T')[0],
+        description: trn.description,
+        amount: trn.amount,
+        type: trn.type,
+        categoryId: classification.categoryId,
+        categoryName: classification.categoryName,
+        status: "pendente",
+        bankName: parsed.bankName,
+        accountNumber: parsed.accountNumber,
+        fitId: trn.fitId,
+        importedAt: new Date(),
+        createdBy: userId,
+      });
+    });
+
+    if (transactionsToInsert.length > 0) {
+      const { error: insertError } = await supabaseAdmin
+        .from("financial_transactions")
+        .insert(transactionsToInsert);
+      if (insertError) throw insertError;
+    }
+
+    // Calcular totais
+    const totalReceitas = newTransactions
+      .filter(t => t.type === 'receita')
+      .reduce((sum, t) => sum + t.amount, 0);
+    const totalDespesas = newTransactions
+      .filter(t => t.type === 'despesa')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    // Salvar registro de importação
+    const importRecord = toSnakeCase({
+      condominiumId,
+      fileName: file.originalname,
+      bankName: parsed.bankName,
+      accountNumber: parsed.accountNumber,
+      startDate: parsed.startDate?.toISOString().split('T')[0],
+      endDate: parsed.endDate?.toISOString().split('T')[0],
+      totalTransactions: newTransactions.length,
+      totalReceitas,
+      totalDespesas,
+      importedBy: userId,
+    });
+
+    const { data: importData, error: importError } = await supabaseAdmin
+      .from("ofx_imports")
+      .insert(importRecord)
+      .select()
+      .single();
+    if (importError) throw importError;
+
+    res.json({
+      success: true,
+      imported: newTransactions.length,
+      skipped: parsed.transactions.length - newTransactions.length,
+      totalReceitas,
+      totalDespesas,
+      import: toCamelCase(importData),
+    });
+  } catch (error: any) {
+    console.error("[OFX Import] Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Histórico de Importações
+router.get("/financial/imports", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não selecionado" });
+    }
+    const { data, error } = await supabaseAdmin
+      .from("ofx_imports")
+      .select("*")
+      .eq("condominium_id", condominiumId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    res.json(data.map(toCamelCase));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Resumo Financeiro para relatório
+router.get("/financial/summary", requireGestao, async (req, res) => {
+  try {
+    const condominiumId = getCondominiumId(req);
+    if (!condominiumId) {
+      return res.status(400).json({ error: "Condomínio não selecionado" });
+    }
+    const { startDate, endDate } = req.query;
+    
+    let query = supabaseAdmin
+      .from("financial_transactions")
+      .select("*")
+      .eq("condominium_id", condominiumId);
+    
+    if (startDate) query = query.gte("date", startDate as string);
+    if (endDate) query = query.lte("date", endDate as string);
+    
+    const { data: transactions, error } = await query;
+    if (error) throw error;
+
+    // Agrupar por categoria
+    const byCategory: Record<string, { name: string; type: string; total: number; count: number }> = {};
+    
+    for (const trn of transactions) {
+      const key = trn.category_name || "Não classificado";
+      if (!byCategory[key]) {
+        byCategory[key] = { name: key, type: trn.type, total: 0, count: 0 };
+      }
+      byCategory[key].total += trn.amount;
+      byCategory[key].count++;
+    }
+
+    const totalReceitas = transactions.filter(t => t.type === 'receita').reduce((sum, t) => sum + t.amount, 0);
+    const totalDespesas = transactions.filter(t => t.type === 'despesa').reduce((sum, t) => sum + t.amount, 0);
+
+    res.json({
+      totalReceitas,
+      totalDespesas,
+      saldo: totalReceitas - totalDespesas,
+      totalTransactions: transactions.length,
+      byCategory: Object.values(byCategory),
+      transactions: transactions.map(toCamelCase),
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

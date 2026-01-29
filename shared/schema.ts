@@ -2725,39 +2725,6 @@ export const insertFinancialCategorySchema = createInsertSchema(financialCategor
 export type InsertFinancialCategory = z.infer<typeof insertFinancialCategorySchema>;
 export type FinancialCategory = typeof financialCategories.$inferSelect;
 
-// Transações Financeiras (importadas do OFX ou manuais)
-export const financialTransactionStatuses = ["pendente", "confirmado", "cancelado"] as const;
-export type FinancialTransactionStatus = (typeof financialTransactionStatuses)[number];
-
-export const financialTransactions = pgTable("financial_transactions", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
-  date: date("date").notNull(),
-  description: text("description").notNull(),
-  amount: real("amount").notNull(), // positivo = receita, negativo = despesa
-  type: varchar("type", { length: 50 }).notNull(), // receita ou despesa
-  categoryId: uuid("category_id").references(() => financialCategories.id),
-  categoryName: varchar("category_name", { length: 200 }), // cache do nome da categoria
-  status: varchar("status", { length: 50 }).default("pendente"),
-  bankName: varchar("bank_name", { length: 200 }),
-  accountNumber: varchar("account_number", { length: 50 }),
-  fitId: varchar("fit_id", { length: 100 }), // ID único do OFX para evitar duplicatas
-  importedAt: timestamp("imported_at"),
-  notes: text("notes"),
-  createdBy: varchar("created_by"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-export const insertFinancialTransactionSchema = createInsertSchema(financialTransactions).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export type InsertFinancialTransaction = z.infer<typeof insertFinancialTransactionSchema>;
-export type FinancialTransaction = typeof financialTransactions.$inferSelect;
-
 // Importações OFX (histórico de importações)
 export const ofxImports = pgTable("ofx_imports", {
   id: uuid("id").primaryKey().defaultRandom(),
