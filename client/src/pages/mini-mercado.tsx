@@ -324,20 +324,21 @@ export default function MiniMercado() {
       const precoVenda = parseFloat(data.precoVenda) || 0;
       const margemLucro = precoCusto > 0 ? ((precoVenda - precoCusto) / precoCusto) * 100 : 0;
       
+      const categoriaId = data.categoriaId && data.categoriaId.trim() !== "" ? data.categoriaId : null;
       const { error } = await supabase.from("mercado_produtos").insert({
         condominium_id: condominiumId,
-        categoria_id: data.categoriaId || null,
+        categoria_id: categoriaId,
         nome: data.nome,
-        descricao: data.descricao || null,
-        codigo_barras: data.codigoBarras || null,
-        unidade: data.unidade,
+        descricao: data.descricao && data.descricao.trim() !== "" ? data.descricao : null,
+        codigo_barras: data.codigoBarras && data.codigoBarras.trim() !== "" ? data.codigoBarras : null,
+        unidade: data.unidade || "un",
         preco_custo: precoCusto,
         preco_venda: precoVenda,
         margem_lucro: margemLucro,
         estoque_atual: parseInt(data.estoqueAtual) || 0,
         estoque_minimo: parseInt(data.estoqueMinimo) || 5,
         estoque_maximo: parseInt(data.estoqueMaximo) || 100,
-        destaque: data.destaque,
+        destaque: data.destaque || false,
       });
       if (error) throw error;
     },
@@ -360,22 +361,23 @@ export default function MiniMercado() {
       const precoCusto = parseFloat(data.precoCusto) || 0;
       const precoVenda = parseFloat(data.precoVenda) || 0;
       const margemLucro = precoCusto > 0 ? ((precoVenda - precoCusto) / precoCusto) * 100 : 0;
+      const categoriaId = data.categoriaId && data.categoriaId.trim() !== "" ? data.categoriaId : null;
       
       const { error } = await supabase
         .from("mercado_produtos")
         .update({
-          categoria_id: data.categoriaId || null,
+          categoria_id: categoriaId,
           nome: data.nome,
-          descricao: data.descricao || null,
-          codigo_barras: data.codigoBarras || null,
-          unidade: data.unidade,
+          descricao: data.descricao && data.descricao.trim() !== "" ? data.descricao : null,
+          codigo_barras: data.codigoBarras && data.codigoBarras.trim() !== "" ? data.codigoBarras : null,
+          unidade: data.unidade || "un",
           preco_custo: precoCusto,
           preco_venda: precoVenda,
           margem_lucro: margemLucro,
           estoque_atual: parseInt(data.estoqueAtual) || 0,
           estoque_minimo: parseInt(data.estoqueMinimo) || 5,
           estoque_maximo: parseInt(data.estoqueMaximo) || 100,
-          destaque: data.destaque,
+          destaque: data.destaque || false,
           updated_at: new Date().toISOString(),
         })
         .eq("id", id);
