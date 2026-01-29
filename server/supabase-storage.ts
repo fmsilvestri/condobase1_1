@@ -1959,7 +1959,7 @@ export class SupabaseStorage implements IStorage {
     const { data, error } = await query;
     if (error) throw error;
     
-    return (data || []).map((row: any) => this.toCamelCase(row)) as Funcionario[];
+    return (data || []).map((row: any) => toCamelCase(row)) as Funcionario[];
   }
 
   async getFuncionarioById(id: string): Promise<Funcionario | undefined> {
@@ -1969,7 +1969,7 @@ export class SupabaseStorage implements IStorage {
     if (error && error.code !== 'PGRST116') throw error;
     if (!data) return undefined;
     
-    return this.toCamelCase(data) as Funcionario;
+    return toCamelCase(data) as Funcionario;
   }
 
   async createFuncionario(funcionario: InsertFuncionario): Promise<Funcionario> {
@@ -1980,7 +1980,7 @@ export class SupabaseStorage implements IStorage {
     const nextNumber = (count || 0) + 1;
     const matricula = `FUNC-${String(nextNumber).padStart(4, '0')}`;
     
-    const dataToInsert = this.toSnakeCase({
+    const dataToInsert = toSnakeCase({
       ...funcionario,
       matricula,
     });
@@ -1988,13 +1988,13 @@ export class SupabaseStorage implements IStorage {
     const { data, error } = await sb.from('funcionarios').insert(dataToInsert).select().single();
     if (error) throw error;
     
-    return this.toCamelCase(data) as Funcionario;
+    return toCamelCase(data) as Funcionario;
   }
 
   async updateFuncionario(id: string, funcionario: Partial<InsertFuncionario>): Promise<Funcionario | undefined> {
     const sb = supabaseAdmin || this.sb;
     
-    const dataToUpdate = this.toSnakeCase({
+    const dataToUpdate = toSnakeCase({
       ...funcionario,
       updatedAt: new Date().toISOString(),
     });
@@ -2002,7 +2002,7 @@ export class SupabaseStorage implements IStorage {
     const { data, error } = await sb.from('funcionarios').update(dataToUpdate).eq('id', id).select().single();
     if (error) throw error;
     
-    return this.toCamelCase(data) as Funcionario;
+    return toCamelCase(data) as Funcionario;
   }
 
   async deleteFuncionario(id: string): Promise<boolean> {
