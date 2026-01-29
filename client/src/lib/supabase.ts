@@ -38,3 +38,44 @@ async function initializeSupabase() {
 }
 
 export const supabaseReady = initializeSupabase();
+
+// Upload file to Supabase Storage
+export async function uploadToSupabaseStorage(
+  file: File,
+  bucket: string = "uploads",
+  folder: string = "photos"
+): Promise<string | null> {
+  await supabaseReady;
+  
+  if (!supabase) {
+    console.error("Supabase not configured");
+    return null;
+  }
+
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+    
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (error) {
+      console.error("Supabase storage upload error:", error);
+      return null;
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(data.path);
+
+    return urlData.publicUrl;
+  } catch (error) {
+    console.error("Upload error:", error);
+    return null;
+  }
+}

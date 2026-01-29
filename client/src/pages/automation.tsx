@@ -51,7 +51,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { PageHeader } from "@/components/page-header";
-import { queryClient, apiRequest, getAuthHeaders } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { uploadToSupabaseStorage } from "@/lib/supabase";
 import {
   AreaChart,
   Area,
@@ -158,45 +159,14 @@ export default function Automation() {
   const waterPhotoInputRef = useRef<HTMLInputElement>(null);
   const gasPhotoInputRef = useRef<HTMLInputElement>(null);
 
-  // Função para upload de foto
+  // Função para upload de foto usando Supabase Storage
   const uploadPhoto = async (file: File): Promise<string | null> => {
     try {
-      const authHeaders = getAuthHeaders();
-      
-      // Solicitar URL de upload (requer autenticação)
-      const response = await fetch("/api/uploads/request-url", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          ...authHeaders,
-        },
-        body: JSON.stringify({
-          name: file.name,
-          size: file.size,
-          contentType: file.type,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Falha ao obter URL de upload");
-      }
-
-      const { uploadURL, objectPath } = await response.json();
-
-      // Upload direto para o storage
-      const uploadResponse = await fetch(uploadURL, {
-        method: "PUT",
-        body: file,
-        headers: {
-          "Content-Type": file.type,
-        },
-      });
-
-      if (!uploadResponse.ok) {
+      const photoUrl = await uploadToSupabaseStorage(file, "uploads", "automation");
+      if (!photoUrl) {
         throw new Error("Falha no upload do arquivo");
       }
-
-      return objectPath;
+      return photoUrl;
     } catch (error) {
       console.error("Erro no upload:", error);
       toast({ title: "Erro ao fazer upload da foto", variant: "destructive" });
