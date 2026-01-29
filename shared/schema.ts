@@ -2696,3 +2696,88 @@ export const insertMercadoNotificacaoSchema = createInsertSchema(mercadoNotifica
 
 export type InsertMercadoNotificacao = z.infer<typeof insertMercadoNotificacaoSchema>;
 export type MercadoNotificacao = typeof mercadoNotificacoes.$inferSelect;
+
+// ======================= MÓDULO FINANCEIRO =======================
+
+// Categorias Financeiras (tipos de receita e despesa)
+export const financialCategoryTypes = ["receita", "despesa"] as const;
+export type FinancialCategoryType = (typeof financialCategoryTypes)[number];
+
+export const financialCategories = pgTable("financial_categories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  name: varchar("name", { length: 200 }).notNull(),
+  type: varchar("type", { length: 50 }).notNull(), // receita ou despesa
+  description: text("description"),
+  keywords: text("keywords"), // palavras-chave para classificação automática
+  color: varchar("color", { length: 20 }).default("#6366f1"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFinancialCategorySchema = createInsertSchema(financialCategories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertFinancialCategory = z.infer<typeof insertFinancialCategorySchema>;
+export type FinancialCategory = typeof financialCategories.$inferSelect;
+
+// Transações Financeiras (importadas do OFX ou manuais)
+export const financialTransactionStatuses = ["pendente", "confirmado", "cancelado"] as const;
+export type FinancialTransactionStatus = (typeof financialTransactionStatuses)[number];
+
+export const financialTransactions = pgTable("financial_transactions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  date: date("date").notNull(),
+  description: text("description").notNull(),
+  amount: real("amount").notNull(), // positivo = receita, negativo = despesa
+  type: varchar("type", { length: 50 }).notNull(), // receita ou despesa
+  categoryId: uuid("category_id").references(() => financialCategories.id),
+  categoryName: varchar("category_name", { length: 200 }), // cache do nome da categoria
+  status: varchar("status", { length: 50 }).default("pendente"),
+  bankName: varchar("bank_name", { length: 200 }),
+  accountNumber: varchar("account_number", { length: 50 }),
+  fitId: varchar("fit_id", { length: 100 }), // ID único do OFX para evitar duplicatas
+  importedAt: timestamp("imported_at"),
+  notes: text("notes"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFinancialTransactionSchema = createInsertSchema(financialTransactions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertFinancialTransaction = z.infer<typeof insertFinancialTransactionSchema>;
+export type FinancialTransaction = typeof financialTransactions.$inferSelect;
+
+// Importações OFX (histórico de importações)
+export const ofxImports = pgTable("ofx_imports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condominiumId: varchar("condominium_id").notNull().references(() => condominiums.id),
+  fileName: varchar("file_name", { length: 255 }).notNull(),
+  bankName: varchar("bank_name", { length: 200 }),
+  accountNumber: varchar("account_number", { length: 50 }),
+  startDate: date("start_date"),
+  endDate: date("end_date"),
+  totalTransactions: integer("total_transactions").default(0),
+  totalReceitas: real("total_receitas").default(0),
+  totalDespesas: real("total_despesas").default(0),
+  importedBy: varchar("imported_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertOfxImportSchema = createInsertSchema(ofxImports).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertOfxImport = z.infer<typeof insertOfxImportSchema>;
+export type OfxImport = typeof ofxImports.$inferSelect;
