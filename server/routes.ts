@@ -3769,7 +3769,9 @@ export async function registerRoutes(
   app.get("/api/funcionarios", requireGestao, async (req, res) => {
     try {
       const condominiumId = req.condominiumContext?.condominiumId;
+      console.log("[funcionarios] GET - condominiumId:", condominiumId);
       const funcionarios = await storage.getFuncionarios(condominiumId);
+      console.log("[funcionarios] GET - found:", funcionarios.length, "records");
       res.json(funcionarios);
     } catch (error: any) {
       console.error("Error fetching funcionarios:", error);
@@ -3793,6 +3795,8 @@ export async function registerRoutes(
   app.post("/api/funcionarios", requireSindicoOrAdmin, async (req, res) => {
     try {
       const condominiumId = req.condominiumContext?.condominiumId;
+      console.log("[funcionarios] POST - condominiumId:", condominiumId);
+      console.log("[funcionarios] POST - body:", JSON.stringify(req.body, null, 2));
       if (!condominiumId) {
         return res.status(401).json({ error: "Condomínio não selecionado" });
       }
@@ -3800,6 +3804,7 @@ export async function registerRoutes(
         ...req.body,
         condominiumId,
       });
+      console.log("[funcionarios] POST - created:", funcionario.id);
       res.status(201).json(funcionario);
     } catch (error: any) {
       console.error("Error creating funcionario:", error);
@@ -5563,6 +5568,328 @@ export async function registerRoutes(
       res.status(201).json(avaliacao);
     } catch (error: any) {
       res.status(500).json({ error: "Falha ao criar avaliacao" });
+    }
+  });
+
+  // ========== MINI MERCADO ==========
+
+  // Categorias
+  app.get("/api/mercado/categorias", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) return res.status(401).json({ error: "Condomínio não selecionado" });
+      const categorias = await storage.getMercadoCategorias(condominiumId);
+      res.json(categorias);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar categorias" });
+    }
+  });
+
+  app.post("/api/mercado/categorias", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) return res.status(401).json({ error: "Condomínio não selecionado" });
+      const categoria = await storage.createMercadoCategoria({ ...req.body, condominiumId });
+      res.status(201).json(categoria);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Falha ao criar categoria" });
+    }
+  });
+
+  app.patch("/api/mercado/categorias/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const categoria = await storage.updateMercadoCategoria(req.params.id, req.body);
+      res.json(categoria);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Falha ao atualizar categoria" });
+    }
+  });
+
+  app.delete("/api/mercado/categorias/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteMercadoCategoria(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Falha ao deletar categoria" });
+    }
+  });
+
+  // Produtos
+  app.get("/api/mercado/produtos", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) return res.status(401).json({ error: "Condomínio não selecionado" });
+      const produtos = await storage.getMercadoProdutos(condominiumId);
+      res.json(produtos);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar produtos" });
+    }
+  });
+
+  app.get("/api/mercado/produtos/:id", requireGestao, async (req, res) => {
+    try {
+      const produto = await storage.getMercadoProdutoById(req.params.id);
+      if (!produto) return res.status(404).json({ error: "Produto não encontrado" });
+      res.json(produto);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar produto" });
+    }
+  });
+
+  app.post("/api/mercado/produtos", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) return res.status(401).json({ error: "Condomínio não selecionado" });
+      const produto = await storage.createMercadoProduto({ ...req.body, condominiumId });
+      res.status(201).json(produto);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Falha ao criar produto" });
+    }
+  });
+
+  app.patch("/api/mercado/produtos/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const produto = await storage.updateMercadoProduto(req.params.id, req.body);
+      res.json(produto);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Falha ao atualizar produto" });
+    }
+  });
+
+  app.delete("/api/mercado/produtos/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteMercadoProduto(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Falha ao deletar produto" });
+    }
+  });
+
+  // Promoções
+  app.get("/api/mercado/promocoes", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) return res.status(401).json({ error: "Condomínio não selecionado" });
+      const promocoes = await storage.getMercadoPromocoes(condominiumId);
+      res.json(promocoes);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar promoções" });
+    }
+  });
+
+  app.post("/api/mercado/promocoes", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) return res.status(401).json({ error: "Condomínio não selecionado" });
+      const promocao = await storage.createMercadoPromocao({ ...req.body, condominiumId });
+      res.status(201).json(promocao);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Falha ao criar promoção" });
+    }
+  });
+
+  app.patch("/api/mercado/promocoes/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const promocao = await storage.updateMercadoPromocao(req.params.id, req.body);
+      res.json(promocao);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Falha ao atualizar promoção" });
+    }
+  });
+
+  app.delete("/api/mercado/promocoes/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteMercadoPromocao(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Falha ao deletar promoção" });
+    }
+  });
+
+  // Vendas
+  app.get("/api/mercado/vendas", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) return res.status(401).json({ error: "Condomínio não selecionado" });
+      const vendas = await storage.getMercadoVendas(condominiumId);
+      res.json(vendas);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar vendas" });
+    }
+  });
+
+  app.get("/api/mercado/vendas/:id", requireGestao, async (req, res) => {
+    try {
+      const venda = await storage.getMercadoVendaById(req.params.id);
+      if (!venda) return res.status(404).json({ error: "Venda não encontrada" });
+      res.json(venda);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar venda" });
+    }
+  });
+
+  app.post("/api/mercado/vendas", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) return res.status(401).json({ error: "Condomínio não selecionado" });
+      
+      const { itens, ...vendaData } = req.body;
+      
+      // Create the sale
+      const venda = await storage.createMercadoVenda({ ...vendaData, condominiumId });
+      
+      // Create sale items
+      if (itens && Array.isArray(itens)) {
+        for (const item of itens) {
+          await storage.createMercadoVendaItem({ ...item, vendaId: venda.id });
+          
+          // Update product stock
+          const produto = await storage.getMercadoProdutoById(item.produtoId);
+          if (produto) {
+            await storage.updateMercadoProduto(item.produtoId, {
+              estoque: produto.estoque - item.quantidade
+            });
+          }
+        }
+      }
+      
+      // Calculate and add cashback (3%)
+      const cashbackValor = parseFloat(vendaData.total) * 0.03;
+      await storage.createMercadoCashback({
+        condominiumId,
+        unidade: vendaData.unidade,
+        tipo: 'credito',
+        valor: cashbackValor,
+        descricao: `Cashback da venda #${venda.id.slice(0, 8)}`,
+        vendaId: venda.id
+      });
+      
+      // Update or create consumption profile
+      let perfil = await storage.getMercadoPerfilConsumoByUnidade(condominiumId, vendaData.unidade);
+      if (perfil) {
+        await storage.updateMercadoPerfilConsumo(perfil.id, {
+          totalCompras: (perfil.totalCompras || 0) + 1,
+          totalGasto: parseFloat(perfil.totalGasto || 0) + parseFloat(vendaData.total),
+          saldoCashback: parseFloat(perfil.saldoCashback || 0) + cashbackValor,
+          ultimaCompra: new Date().toISOString()
+        });
+      } else {
+        await storage.createMercadoPerfilConsumo({
+          condominiumId,
+          unidade: vendaData.unidade,
+          nomeMorador: vendaData.nomeMorador || '',
+          totalCompras: 1,
+          totalGasto: parseFloat(vendaData.total),
+          saldoCashback: cashbackValor,
+          ultimaCompra: new Date().toISOString()
+        });
+      }
+      
+      res.status(201).json(venda);
+    } catch (error: any) {
+      console.error("Error creating venda:", error);
+      res.status(500).json({ error: error.message || "Falha ao criar venda" });
+    }
+  });
+
+  // Perfil de Consumo
+  app.get("/api/mercado/perfis", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) return res.status(401).json({ error: "Condomínio não selecionado" });
+      const perfis = await storage.getMercadoPerfisConsumo(condominiumId);
+      res.json(perfis);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar perfis de consumo" });
+    }
+  });
+
+  app.post("/api/mercado/perfis", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) return res.status(401).json({ error: "Condomínio não selecionado" });
+      const perfil = await storage.createMercadoPerfilConsumo({ ...req.body, condominiumId });
+      res.status(201).json(perfil);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Falha ao criar perfil" });
+    }
+  });
+
+  app.patch("/api/mercado/perfis/:id", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const perfil = await storage.updateMercadoPerfilConsumo(req.params.id, req.body);
+      res.json(perfil);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Falha ao atualizar perfil" });
+    }
+  });
+
+  // Cashback
+  app.get("/api/mercado/cashback", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) return res.status(401).json({ error: "Condomínio não selecionado" });
+      const unidade = req.query.unidade as string | undefined;
+      const cashback = unidade
+        ? await storage.getMercadoCashbackByUnidade(condominiumId, unidade)
+        : await storage.getMercadoCashback(condominiumId);
+      res.json(cashback);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar cashback" });
+    }
+  });
+
+  app.post("/api/mercado/cashback", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) return res.status(401).json({ error: "Condomínio não selecionado" });
+      const cashback = await storage.createMercadoCashback({ ...req.body, condominiumId });
+      
+      // Update consumption profile cashback balance
+      const perfil = await storage.getMercadoPerfilConsumoByUnidade(condominiumId, req.body.unidade);
+      if (perfil) {
+        const valorAjuste = req.body.tipo === 'credito' ? req.body.valor : -req.body.valor;
+        await storage.updateMercadoPerfilConsumo(perfil.id, {
+          saldoCashback: parseFloat(perfil.saldoCashback || 0) + valorAjuste
+        });
+      }
+      
+      res.status(201).json(cashback);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Falha ao criar cashback" });
+    }
+  });
+
+  // Notificações do Mercado
+  app.get("/api/mercado/notificacoes", requireGestao, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) return res.status(401).json({ error: "Condomínio não selecionado" });
+      const unidade = req.query.unidade as string | undefined;
+      const notificacoes = await storage.getMercadoNotificacoes(condominiumId, unidade);
+      res.json(notificacoes);
+    } catch (error: any) {
+      res.status(500).json({ error: "Falha ao buscar notificações" });
+    }
+  });
+
+  app.post("/api/mercado/notificacoes", requireSindicoOrAdmin, async (req, res) => {
+    try {
+      const condominiumId = req.condominiumContext?.condominiumId;
+      if (!condominiumId) return res.status(401).json({ error: "Condomínio não selecionado" });
+      const notificacao = await storage.createMercadoNotificacao({ ...req.body, condominiumId });
+      res.status(201).json(notificacao);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Falha ao criar notificação" });
+    }
+  });
+
+  app.patch("/api/mercado/notificacoes/:id", requireGestao, async (req, res) => {
+    try {
+      const notificacao = await storage.updateMercadoNotificacao(req.params.id, req.body);
+      res.json(notificacao);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Falha ao atualizar notificação" });
     }
   });
 

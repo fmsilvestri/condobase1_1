@@ -3644,6 +3644,210 @@ export class SupabaseStorage implements IStorage {
     
     return stats;
   }
+
+  // ========== MINI MERCADO ==========
+
+  // Categorias
+  async getMercadoCategorias(condominiumId: string): Promise<any[]> {
+    const { data, error } = await supabase.from("mercado_categorias").select("*").eq("condominium_id", condominiumId).order("nome", { ascending: true });
+    if (error) return [];
+    return (data || []).map((item: any) => toCamelCase(item));
+  }
+
+  async createMercadoCategoria(categoria: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(categoria);
+    const { data, error } = await supabase.from("mercado_categorias").insert(snakeCaseData).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  async updateMercadoCategoria(id: string, categoria: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(categoria);
+    const { data, error } = await supabase.from("mercado_categorias").update(snakeCaseData).eq("id", id).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  async deleteMercadoCategoria(id: string): Promise<void> {
+    const { error } = await supabase.from("mercado_categorias").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  }
+
+  // Produtos
+  async getMercadoProdutos(condominiumId: string): Promise<any[]> {
+    const { data, error } = await supabase.from("mercado_produtos").select("*, mercado_categorias(*)").eq("condominium_id", condominiumId).order("nome", { ascending: true });
+    if (error) return [];
+    return (data || []).map((item: any) => toCamelCase(item));
+  }
+
+  async getMercadoProdutoById(id: string): Promise<any | null> {
+    const { data, error } = await supabase.from("mercado_produtos").select("*, mercado_categorias(*)").eq("id", id).single();
+    if (error) return null;
+    return toCamelCase(data);
+  }
+
+  async createMercadoProduto(produto: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(produto);
+    const { data, error } = await supabase.from("mercado_produtos").insert(snakeCaseData).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  async updateMercadoProduto(id: string, produto: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(produto);
+    const { data, error } = await supabase.from("mercado_produtos").update(snakeCaseData).eq("id", id).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  async deleteMercadoProduto(id: string): Promise<void> {
+    const { error } = await supabase.from("mercado_produtos").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  }
+
+  // Promoções
+  async getMercadoPromocoes(condominiumId: string): Promise<any[]> {
+    const { data, error } = await supabase.from("mercado_promocoes").select("*, mercado_produtos(*)").eq("condominium_id", condominiumId).order("created_at", { ascending: false });
+    if (error) return [];
+    return (data || []).map((item: any) => toCamelCase(item));
+  }
+
+  async createMercadoPromocao(promocao: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(promocao);
+    const { data, error } = await supabase.from("mercado_promocoes").insert(snakeCaseData).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  async updateMercadoPromocao(id: string, promocao: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(promocao);
+    const { data, error } = await supabase.from("mercado_promocoes").update(snakeCaseData).eq("id", id).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  async deleteMercadoPromocao(id: string): Promise<void> {
+    const { error } = await supabase.from("mercado_promocoes").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  }
+
+  // Vendas
+  async getMercadoVendas(condominiumId: string): Promise<any[]> {
+    const { data, error } = await supabase.from("mercado_vendas").select("*").eq("condominium_id", condominiumId).order("created_at", { ascending: false });
+    if (error) return [];
+    return (data || []).map((item: any) => toCamelCase(item));
+  }
+
+  async getMercadoVendaById(id: string): Promise<any | null> {
+    const { data, error } = await supabase.from("mercado_vendas").select("*, mercado_venda_itens(*, mercado_produtos(*))").eq("id", id).single();
+    if (error) return null;
+    return toCamelCase(data);
+  }
+
+  async createMercadoVenda(venda: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(venda);
+    const { data, error } = await supabase.from("mercado_vendas").insert(snakeCaseData).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  async updateMercadoVenda(id: string, venda: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(venda);
+    const { data, error } = await supabase.from("mercado_vendas").update(snakeCaseData).eq("id", id).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  // Venda Itens
+  async getMercadoVendaItens(vendaId: string): Promise<any[]> {
+    const { data, error } = await supabase.from("mercado_venda_itens").select("*, mercado_produtos(*)").eq("venda_id", vendaId);
+    if (error) return [];
+    return (data || []).map((item: any) => toCamelCase(item));
+  }
+
+  async createMercadoVendaItem(item: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(item);
+    const { data, error } = await supabase.from("mercado_venda_itens").insert(snakeCaseData).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  // Perfil de Consumo
+  async getMercadoPerfisConsumo(condominiumId: string): Promise<any[]> {
+    const { data, error } = await supabase.from("mercado_perfil_consumo").select("*").eq("condominium_id", condominiumId).order("nome_morador", { ascending: true });
+    if (error) return [];
+    return (data || []).map((item: any) => toCamelCase(item));
+  }
+
+  async getMercadoPerfilConsumoByUnidade(condominiumId: string, unidade: string): Promise<any | null> {
+    const { data, error } = await supabase.from("mercado_perfil_consumo").select("*").eq("condominium_id", condominiumId).eq("unidade", unidade).single();
+    if (error) return null;
+    return toCamelCase(data);
+  }
+
+  async createMercadoPerfilConsumo(perfil: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(perfil);
+    const { data, error } = await supabase.from("mercado_perfil_consumo").insert(snakeCaseData).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  async updateMercadoPerfilConsumo(id: string, perfil: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(perfil);
+    const { data, error } = await supabase.from("mercado_perfil_consumo").update(snakeCaseData).eq("id", id).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  // Cashback
+  async getMercadoCashback(condominiumId: string): Promise<any[]> {
+    const { data, error } = await supabase.from("mercado_cashback").select("*").eq("condominium_id", condominiumId).order("created_at", { ascending: false });
+    if (error) return [];
+    return (data || []).map((item: any) => toCamelCase(item));
+  }
+
+  async getMercadoCashbackByUnidade(condominiumId: string, unidade: string): Promise<any[]> {
+    const { data, error } = await supabase.from("mercado_cashback").select("*").eq("condominium_id", condominiumId).eq("unidade", unidade).order("created_at", { ascending: false });
+    if (error) return [];
+    return (data || []).map((item: any) => toCamelCase(item));
+  }
+
+  async createMercadoCashback(cashback: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(cashback);
+    const { data, error } = await supabase.from("mercado_cashback").insert(snakeCaseData).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  async updateMercadoCashback(id: string, cashback: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(cashback);
+    const { data, error } = await supabase.from("mercado_cashback").update(snakeCaseData).eq("id", id).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  // Notificações do Mercado
+  async getMercadoNotificacoes(condominiumId: string, unidade?: string): Promise<any[]> {
+    let query = supabase.from("mercado_notificacoes").select("*").eq("condominium_id", condominiumId);
+    if (unidade) query = query.eq("unidade", unidade);
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (error) return [];
+    return (data || []).map((item: any) => toCamelCase(item));
+  }
+
+  async createMercadoNotificacao(notificacao: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(notificacao);
+    const { data, error } = await supabase.from("mercado_notificacoes").insert(snakeCaseData).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
+
+  async updateMercadoNotificacao(id: string, notificacao: any): Promise<any> {
+    const snakeCaseData = toSnakeCase(notificacao);
+    const { data, error } = await supabase.from("mercado_notificacoes").update(snakeCaseData).eq("id", id).select().single();
+    if (error) throw new Error(error.message);
+    return toCamelCase(data);
+  }
 }
 
 export function createStorage(): IStorage {

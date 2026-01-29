@@ -1,8 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { supabase, supabaseReady } from "@/lib/supabase";
 import type {
   MercadoCategoria,
   MercadoProduto,
@@ -67,20 +66,6 @@ const formatCurrency = (value: number) => {
     currency: "BRL",
   }).format(value || 0);
 };
-
-function toCamelCase<T>(obj: Record<string, unknown>): T {
-  if (!obj) return obj as T;
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    const camelKey = key.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
-    result[camelKey] = value;
-  }
-  return result as T;
-}
-
-function mapArrayToCamelCase<T>(arr: Record<string, unknown>[]): T[] {
-  return (arr || []).map(item => toCamelCase<T>(item));
-}
 
 const formatDate = (date: string | Date | null) => {
   if (!date) return "-";
@@ -148,103 +133,32 @@ export default function MiniMercado() {
   const condominiumId = localStorage.getItem("selectedCondominiumId");
 
   const { data: categorias = [], isLoading: loadingCategorias } = useQuery<MercadoCategoria[]>({
-    queryKey: ["mercado-categorias", condominiumId],
-    queryFn: async () => {
-      await supabaseReady;
-      if (!supabase || !condominiumId) return [];
-      const { data, error } = await supabase
-        .from("mercado_categorias")
-        .select("*")
-        .eq("condominium_id", condominiumId)
-        .eq("ativo", true)
-        .order("ordem");
-      if (error) throw error;
-      return mapArrayToCamelCase<MercadoCategoria>(data || []);
-    },
+    queryKey: ["/api/mercado/categorias", condominiumId],
     enabled: !!condominiumId,
   });
 
   const { data: produtos = [], isLoading: loadingProdutos } = useQuery<MercadoProduto[]>({
-    queryKey: ["mercado-produtos", condominiumId],
-    queryFn: async () => {
-      await supabaseReady;
-      if (!supabase || !condominiumId) return [];
-      const { data, error } = await supabase
-        .from("mercado_produtos")
-        .select("*")
-        .eq("condominium_id", condominiumId)
-        .eq("ativo", true)
-        .order("nome");
-      if (error) throw error;
-      return mapArrayToCamelCase<MercadoProduto>(data || []);
-    },
+    queryKey: ["/api/mercado/produtos", condominiumId],
     enabled: !!condominiumId,
   });
 
   const { data: promocoes = [], isLoading: loadingPromocoes } = useQuery<MercadoPromocao[]>({
-    queryKey: ["mercado-promocoes", condominiumId],
-    queryFn: async () => {
-      await supabaseReady;
-      if (!supabase || !condominiumId) return [];
-      const { data, error } = await supabase
-        .from("mercado_promocoes")
-        .select("*")
-        .eq("condominium_id", condominiumId)
-        .eq("ativo", true)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return mapArrayToCamelCase<MercadoPromocao>(data || []);
-    },
+    queryKey: ["/api/mercado/promocoes", condominiumId],
     enabled: !!condominiumId,
   });
 
   const { data: vendas = [], isLoading: loadingVendas } = useQuery<MercadoVenda[]>({
-    queryKey: ["mercado-vendas", condominiumId],
-    queryFn: async () => {
-      await supabaseReady;
-      if (!supabase || !condominiumId) return [];
-      const { data, error } = await supabase
-        .from("mercado_vendas")
-        .select("*")
-        .eq("condominium_id", condominiumId)
-        .order("data_venda", { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      return mapArrayToCamelCase<MercadoVenda>(data || []);
-    },
+    queryKey: ["/api/mercado/vendas", condominiumId],
     enabled: !!condominiumId,
   });
 
   const { data: perfisConsumo = [] } = useQuery<MercadoPerfilConsumo[]>({
-    queryKey: ["mercado-perfil-consumo", condominiumId],
-    queryFn: async () => {
-      await supabaseReady;
-      if (!supabase || !condominiumId) return [];
-      const { data, error } = await supabase
-        .from("mercado_perfil_consumo")
-        .select("*")
-        .eq("condominium_id", condominiumId)
-        .order("total_compras", { ascending: false });
-      if (error) throw error;
-      return mapArrayToCamelCase<MercadoPerfilConsumo>(data || []);
-    },
+    queryKey: ["/api/mercado/perfis", condominiumId],
     enabled: !!condominiumId,
   });
 
   const { data: cashbacks = [] } = useQuery<MercadoCashback[]>({
-    queryKey: ["mercado-cashback", condominiumId],
-    queryFn: async () => {
-      await supabaseReady;
-      if (!supabase || !condominiumId) return [];
-      const { data, error } = await supabase
-        .from("mercado_cashback")
-        .select("*")
-        .eq("condominium_id", condominiumId)
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      return mapArrayToCamelCase<MercadoCashback>(data || []);
-    },
+    queryKey: ["/api/mercado/cashback", condominiumId],
     enabled: !!condominiumId,
   });
 
@@ -294,18 +208,14 @@ export default function MiniMercado() {
 
   const createCategoriaMutation = useMutation({
     mutationFn: async (data: typeof categoriaForm) => {
-      await supabaseReady;
-      if (!supabase || !condominiumId) throw new Error("Não configurado");
-      const { error } = await supabase.from("mercado_categorias").insert({
-        condominium_id: condominiumId,
+      return apiRequest("POST", "/api/mercado/categorias", {
         nome: data.nome,
         icone: data.icone,
         cor: data.cor,
       });
-      if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["mercado-categorias"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mercado/categorias"] });
       setIsCategoriaDialogOpen(false);
       setCategoriaForm({ nome: "", icone: "Package", cor: "#FF6B35" });
       toast({ title: "Categoria criada com sucesso!" });
@@ -317,33 +227,28 @@ export default function MiniMercado() {
 
   const createProdutoMutation = useMutation({
     mutationFn: async (data: typeof produtoForm) => {
-      await supabaseReady;
-      if (!supabase || !condominiumId) throw new Error("Não configurado");
-      
       const precoCusto = parseFloat(data.precoCusto) || 0;
       const precoVenda = parseFloat(data.precoVenda) || 0;
       const margemLucro = precoCusto > 0 ? ((precoVenda - precoCusto) / precoCusto) * 100 : 0;
-      
       const categoriaId = data.categoriaId && data.categoriaId.trim() !== "" ? data.categoriaId : null;
-      const { error } = await supabase.from("mercado_produtos").insert({
-        condominium_id: condominiumId,
-        categoria_id: categoriaId,
+      
+      return apiRequest("POST", "/api/mercado/produtos", {
+        categoriaId,
         nome: data.nome,
         descricao: data.descricao && data.descricao.trim() !== "" ? data.descricao : null,
-        codigo_barras: data.codigoBarras && data.codigoBarras.trim() !== "" ? data.codigoBarras : null,
+        codigoBarras: data.codigoBarras && data.codigoBarras.trim() !== "" ? data.codigoBarras : null,
         unidade: data.unidade || "un",
-        preco_custo: precoCusto,
-        preco_venda: precoVenda,
-        margem_lucro: margemLucro,
-        estoque_atual: parseInt(data.estoqueAtual) || 0,
-        estoque_minimo: parseInt(data.estoqueMinimo) || 5,
-        estoque_maximo: parseInt(data.estoqueMaximo) || 100,
+        precoCusto,
+        precoVenda,
+        margemLucro,
+        estoqueAtual: parseInt(data.estoqueAtual) || 0,
+        estoqueMinimo: parseInt(data.estoqueMinimo) || 5,
+        estoqueMaximo: parseInt(data.estoqueMaximo) || 100,
         destaque: data.destaque || false,
       });
-      if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["mercado-produtos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mercado/produtos"] });
       setIsProdutoDialogOpen(false);
       resetProdutoForm();
       toast({ title: "Produto cadastrado com sucesso!" });
@@ -355,36 +260,28 @@ export default function MiniMercado() {
 
   const updateProdutoMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: typeof produtoForm }) => {
-      await supabaseReady;
-      if (!supabase) throw new Error("Não configurado");
-      
       const precoCusto = parseFloat(data.precoCusto) || 0;
       const precoVenda = parseFloat(data.precoVenda) || 0;
       const margemLucro = precoCusto > 0 ? ((precoVenda - precoCusto) / precoCusto) * 100 : 0;
       const categoriaId = data.categoriaId && data.categoriaId.trim() !== "" ? data.categoriaId : null;
       
-      const { error } = await supabase
-        .from("mercado_produtos")
-        .update({
-          categoria_id: categoriaId,
-          nome: data.nome,
-          descricao: data.descricao && data.descricao.trim() !== "" ? data.descricao : null,
-          codigo_barras: data.codigoBarras && data.codigoBarras.trim() !== "" ? data.codigoBarras : null,
-          unidade: data.unidade || "un",
-          preco_custo: precoCusto,
-          preco_venda: precoVenda,
-          margem_lucro: margemLucro,
-          estoque_atual: parseInt(data.estoqueAtual) || 0,
-          estoque_minimo: parseInt(data.estoqueMinimo) || 5,
-          estoque_maximo: parseInt(data.estoqueMaximo) || 100,
-          destaque: data.destaque || false,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id);
-      if (error) throw error;
+      return apiRequest("PATCH", `/api/mercado/produtos/${id}`, {
+        categoriaId,
+        nome: data.nome,
+        descricao: data.descricao && data.descricao.trim() !== "" ? data.descricao : null,
+        codigoBarras: data.codigoBarras && data.codigoBarras.trim() !== "" ? data.codigoBarras : null,
+        unidade: data.unidade || "un",
+        precoCusto,
+        precoVenda,
+        margemLucro,
+        estoqueAtual: parseInt(data.estoqueAtual) || 0,
+        estoqueMinimo: parseInt(data.estoqueMinimo) || 5,
+        estoqueMaximo: parseInt(data.estoqueMaximo) || 100,
+        destaque: data.destaque || false,
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["mercado-produtos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mercado/produtos"] });
       setIsProdutoDialogOpen(false);
       setSelectedProduto(null);
       resetProdutoForm();
@@ -397,16 +294,10 @@ export default function MiniMercado() {
 
   const deleteProdutoMutation = useMutation({
     mutationFn: async (id: string) => {
-      await supabaseReady;
-      if (!supabase) throw new Error("Não configurado");
-      const { error } = await supabase
-        .from("mercado_produtos")
-        .update({ ativo: false })
-        .eq("id", id);
-      if (error) throw error;
+      return apiRequest("DELETE", `/api/mercado/produtos/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["mercado-produtos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mercado/produtos"] });
       toast({ title: "Produto removido com sucesso!" });
     },
     onError: (error: any) => {
@@ -416,23 +307,19 @@ export default function MiniMercado() {
 
   const createPromocaoMutation = useMutation({
     mutationFn: async (data: typeof promocaoForm) => {
-      await supabaseReady;
-      if (!supabase || !condominiumId) throw new Error("Não configurado");
       const produtoId = data.produtoId && data.produtoId.trim() !== "" ? data.produtoId : null;
-      const { error } = await supabase.from("mercado_promocoes").insert({
-        condominium_id: condominiumId,
-        produto_id: produtoId,
+      return apiRequest("POST", "/api/mercado/promocoes", {
+        produtoId,
         titulo: data.titulo,
         descricao: data.descricao && data.descricao.trim() !== "" ? data.descricao : null,
-        desconto_percentual: parseFloat(data.descontoPercentual) || null,
-        preco_promocional: parseFloat(data.precoPromocional) || null,
-        data_inicio: data.dataInicio,
-        data_fim: data.dataFim,
+        descontoPercentual: parseFloat(data.descontoPercentual) || null,
+        precoPromocional: parseFloat(data.precoPromocional) || null,
+        dataInicio: data.dataInicio,
+        dataFim: data.dataFim,
       });
-      if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["mercado-promocoes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mercado/promocoes"] });
       setIsPromocaoDialogOpen(false);
       resetPromocaoForm();
       toast({ title: "Promoção criada com sucesso!" });
@@ -444,73 +331,32 @@ export default function MiniMercado() {
 
   const createVendaMutation = useMutation({
     mutationFn: async () => {
-      await supabaseReady;
-      if (!supabase || !condominiumId) throw new Error("Não configurado");
       if (carrinho.length === 0) throw new Error("Carrinho vazio");
       
       const subtotal = carrinho.reduce((sum, item) => sum + item.preco * item.quantidade, 0);
-      const cashbackGerado = subtotal * 0.03;
-      
-      const { data: venda, error: vendaError } = await supabase
-        .from("mercado_vendas")
-        .insert({
-          condominium_id: condominiumId,
-          unidade: vendaForm.unidade || null,
-          morador_nome: vendaForm.moradorNome || null,
-          subtotal,
-          total: subtotal,
-          forma_pagamento: vendaForm.formaPagamento,
-          observacoes: vendaForm.observacoes || null,
-        })
-        .select()
-        .single();
-      
-      if (vendaError) throw vendaError;
       
       const itens = carrinho.map(item => ({
-        venda_id: venda.id,
-        produto_id: item.produtoId,
+        produtoId: item.produtoId,
         quantidade: item.quantidade,
-        preco_unitario: item.preco,
+        precoUnitario: item.preco,
         total: item.preco * item.quantidade,
       }));
       
-      const { error: itensError } = await supabase
-        .from("mercado_venda_itens")
-        .insert(itens);
-      
-      if (itensError) throw itensError;
-      
-      for (const item of carrinho) {
-        const produto = produtos.find(p => p.id === item.produtoId);
-        if (produto && supabase) {
-          const novoEstoque = Math.max(0, (produto.estoqueAtual || 0) - item.quantidade);
-          await supabase
-            .from("mercado_produtos")
-            .update({ estoque_atual: novoEstoque })
-            .eq("id", item.produtoId);
-        }
-      }
-      
-      if (vendaForm.unidade) {
-        await supabase.from("mercado_cashback").insert({
-          condominium_id: condominiumId,
-          unidade: vendaForm.unidade,
-          morador_nome: vendaForm.moradorNome || null,
-          tipo: "compra",
-          valor: cashbackGerado,
-          descricao: `Cashback 3% da compra`,
-          venda_id: venda.id,
-          data_expiracao: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-        });
-      }
-      
-      return venda;
+      return apiRequest("POST", "/api/mercado/vendas", {
+        unidade: vendaForm.unidade || null,
+        nomeMorador: vendaForm.moradorNome || null,
+        subtotal,
+        total: subtotal,
+        formaPagamento: vendaForm.formaPagamento,
+        observacoes: vendaForm.observacoes || null,
+        itens,
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["mercado-vendas"] });
-      queryClient.invalidateQueries({ queryKey: ["mercado-produtos"] });
-      queryClient.invalidateQueries({ queryKey: ["mercado-cashback"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mercado/vendas"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mercado/produtos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mercado/cashback"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mercado/perfis"] });
       setIsVendaDialogOpen(false);
       setCarrinho([]);
       setVendaForm({ unidade: "", moradorNome: "", formaPagamento: "pix", observacoes: "" });
