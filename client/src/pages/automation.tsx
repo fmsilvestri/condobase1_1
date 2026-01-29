@@ -293,7 +293,8 @@ export default function Automation() {
       }
       
       setIsUploading(false);
-      return apiRequest("POST", "/api/water", { ...data, photo: photoUrl });
+      const condominiumId = localStorage.getItem("selectedCondominiumId");
+      return apiRequest("POST", "/api/water", { ...data, photo: photoUrl, condominiumId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/water"] });
@@ -318,7 +319,8 @@ export default function Automation() {
       }
       
       setIsUploading(false);
-      return apiRequest("POST", "/api/gas", { ...data, photo: photoUrl });
+      const condominiumId = localStorage.getItem("selectedCondominiumId");
+      return apiRequest("POST", "/api/gas", { ...data, photo: photoUrl, condominiumId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/gas"] });
@@ -335,7 +337,8 @@ export default function Automation() {
 
   const createEnergyEvent = useMutation({
     mutationFn: async (data: EnergyEventFormData) => {
-      return apiRequest("POST", "/api/energy", data);
+      const condominiumId = localStorage.getItem("selectedCondominiumId");
+      return apiRequest("POST", "/api/energy", { ...data, condominiumId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/energy"] });
