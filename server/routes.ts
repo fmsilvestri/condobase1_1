@@ -3769,9 +3769,9 @@ export async function registerRoutes(
   app.get("/api/funcionarios", requireGestao, async (req, res) => {
     try {
       const condominiumId = req.condominiumContext?.condominiumId;
-      console.log("[funcionarios] GET - condominiumId:", condominiumId);
+      console.log("[funcionarios] GET - condominiumId:", condominiumId, "x-condominium-id header:", req.headers["x-condominium-id"]);
       const funcionarios = await storage.getFuncionarios(condominiumId);
-      console.log("[funcionarios] GET - found:", funcionarios.length, "records");
+      console.log("[funcionarios] GET - found:", funcionarios.length, "records, ids:", funcionarios.map(f => f.id).join(", "));
       res.json(funcionarios);
     } catch (error: any) {
       console.error("Error fetching funcionarios:", error);
@@ -3795,16 +3795,16 @@ export async function registerRoutes(
   app.post("/api/funcionarios", requireSindicoOrAdmin, async (req, res) => {
     try {
       const condominiumId = req.condominiumContext?.condominiumId;
-      console.log("[funcionarios] POST - condominiumId:", condominiumId);
-      console.log("[funcionarios] POST - body:", JSON.stringify(req.body, null, 2));
+      console.log("[funcionarios] POST - condominiumId from context:", condominiumId);
+      console.log("[funcionarios] POST - x-condominium-id header:", req.headers["x-condominium-id"]);
+      console.log("[funcionarios] POST - body condominiumId:", req.body.condominiumId);
       if (!condominiumId) {
         return res.status(401).json({ error: "Condomínio não selecionado" });
       }
-      const funcionario = await storage.createFuncionario({
-        ...req.body,
-        condominiumId,
-      });
-      console.log("[funcionarios] POST - created:", funcionario.id);
+      const dataToCreate = { ...req.body, condominiumId };
+      console.log("[funcionarios] POST - creating with condominiumId:", dataToCreate.condominiumId);
+      const funcionario = await storage.createFuncionario(dataToCreate);
+      console.log("[funcionarios] POST - created successfully, id:", funcionario.id, "condominiumId:", funcionario.condominiumId);
       res.status(201).json(funcionario);
     } catch (error: any) {
       console.error("Error creating funcionario:", error);
