@@ -317,8 +317,7 @@ export default function RecursosHumanos() {
 
   const createMutation = useMutation({
     mutationFn: async (data: Partial<InsertFuncionario> & { condominiumId?: string }) => {
-      const response = await apiRequest("POST", "/api/funcionarios", data);
-      return response.json();
+      await apiRequest("POST", "/api/funcionarios", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/funcionarios"] });
@@ -333,8 +332,7 @@ export default function RecursosHumanos() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<InsertFuncionario> & { condominiumId?: string } }) => {
-      const response = await apiRequest("PATCH", `/api/funcionarios/${id}`, data);
-      return response.json();
+      await apiRequest("PATCH", `/api/funcionarios/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/funcionarios"] });
