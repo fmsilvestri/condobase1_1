@@ -203,24 +203,26 @@ export default function Insurance() {
 
     setIsUploading(true);
     try {
-      const urlRes = await apiRequest("POST", "/api/uploads/request-url", {
-        name: file.name,
-        size: file.size,
-        contentType: file.type,
-      }) as unknown as { uploadURL: string; objectPath: string };
-      const { uploadURL, objectPath } = urlRes;
+      const formData = new FormData();
+      formData.append("file", file);
 
-      await fetch(uploadURL, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
+      const response = await fetch("/api/insurance/upload-document", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
       });
 
-      setPendingDocumentUrl(objectPath);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Upload failed");
+      }
+
+      const { documentUrl } = await response.json();
+      setPendingDocumentUrl(documentUrl);
       toast({ title: "Documento enviado com sucesso" });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Upload error:", error);
-      toast({ title: "Erro ao enviar documento", variant: "destructive" });
+      toast({ title: error.message || "Erro ao enviar documento", variant: "destructive" });
     } finally {
       setIsUploading(false);
     }

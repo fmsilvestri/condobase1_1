@@ -1,8 +1,15 @@
 import { Router } from "express";
+import multer from "multer";
 import { createStorage } from "../../server/supabase-storage";
 import { sendNotificationToUser } from "../../server/websocket";
 import { optionalJWT, requireAuth } from "../../server/auth-middleware";
+import { supabaseAdmin } from "../../server/supabase";
 import jwt from "jsonwebtoken";
+
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
 import { 
   condominiumContextMiddleware, 
   getCondominiumId, 
@@ -2196,6 +2203,53 @@ router.delete("/faqs/:id", requireSindicoOrAdmin, async (req, res) => {
 // ===========================
 // INSURANCE POLICIES (SEGUROS)
 // ===========================
+
+router.post("/insurance/upload-document", requireSindicoOrAdmin, upload.single("file"), async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: "Supabase not configured" });
+    }
+    
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: "No file provided" });
+    }
+
+    const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
+    if (!allowedTypes.includes(file.mimetype)) {
+      return res.status(400).json({ error: "Invalid file type. Use PDF, JPG or PNG" });
+    }
+
+    const condominiumId = getCondominiumId(req);
+    const timestamp = Date.now();
+    const ext = file.originalname.split(".").pop() || "pdf";
+    const fileName = `seguros/${condominiumId}/${timestamp}.${ext}`;
+
+    const { data, error } = await supabaseAdmin.storage
+      .from("documents")
+      .upload(fileName, file.buffer, {
+        contentType: file.mimetype,
+        upsert: true,
+      });
+
+    if (error) {
+      console.error("[insurance upload] Storage error:", error);
+      return res.status(500).json({ error: "Failed to upload file", details: error.message });
+    }
+
+    const { data: publicUrl } = supabaseAdmin.storage
+      .from("documents")
+      .getPublicUrl(fileName);
+
+    res.json({ 
+      documentUrl: publicUrl.publicUrl,
+      path: fileName
+    });
+  } catch (error: any) {
+    console.error("[insurance upload] Error:", error);
+    res.status(500).json({ error: "Failed to upload document", details: error?.message });
+  }
+});
 
 router.get("/insurance/policies", requireGestao, async (req, res) => {
   try {
