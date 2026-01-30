@@ -149,8 +149,13 @@ export default function Water() {
   });
 
   const updateReservoirMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: z.infer<typeof reservoirFormSchema> }) =>
-      apiRequest("PATCH", `/api/reservoirs/${id}`, data),
+    mutationFn: ({ id, data }: { id: string; data: z.infer<typeof reservoirFormSchema> }) => {
+      const updateData = { ...data };
+      if (updateData.iotApiKey === "••••••••" || updateData.iotApiKey === "") {
+        delete (updateData as any).iotApiKey;
+      }
+      return apiRequest("PATCH", `/api/reservoirs/${id}`, updateData);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reservoirs"] });
       toast({ title: "Reservatório atualizado com sucesso!" });
@@ -197,7 +202,7 @@ export default function Water() {
         apiEndpoint: reservoir.iotApiEndpoint,
         apiKey: reservoir.iotApiKey,
         sensorId: reservoir.iotSensorId,
-      }) as { success: boolean; message: string };
+      }) as unknown as { success: boolean; message: string };
       setIotTestResult({ success: result.success, message: result.message });
     } catch (error: any) {
       setIotTestResult({ success: false, message: error.message || "Falha na conexão" });

@@ -60,7 +60,7 @@ The application consists of these main feature modules:
 - **Ativos & Manutenções**: Equipment management and maintenance requests
 - **Manutenção Preventiva**: Preventive maintenance module with asset registry, automated maintenance plans, digital checklists, alerts for overdue/upcoming maintenance, technical history timeline, and management reports
 - **Piscina & Qualidade**: Pool chemical readings (pH, chlorine, alkalinity)
-- **Água & Reservatórios**: Water tank levels and consumption tracking
+- **Água & Reservatórios**: Water tank levels and consumption tracking with IoT sensor integration for automatic water level monitoring. Features include: reservoir registry with capacity/location, manual and IoT-based readings, hydrometer tracking, consumption charts. IoT integration supports: configurable API endpoints, sensor IDs, API keys (securely stored), refresh intervals, connection status monitoring, and automatic water reading creation from sensor data.
 - **Gás**: Gas level monitoring with consumption estimates
 - **Energia**: Power status and outage event logging
 - **Resíduos**: Waste collection schedule and recycling guidelines

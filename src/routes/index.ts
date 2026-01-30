@@ -1096,7 +1096,11 @@ router.get("/reservoirs", async (req, res) => {
   try {
     const condominiumId = req.condominiumContext?.condominiumId || undefined;
     const reservoirs = await storage.getReservoirs(condominiumId);
-    res.json(reservoirs);
+    const safeReservoirs = reservoirs.map(r => ({
+      ...r,
+      iotApiKey: r.iotApiKey ? "••••••••" : null,
+    }));
+    res.json(safeReservoirs);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch reservoirs" });
   }
@@ -1108,7 +1112,11 @@ router.get("/reservoirs/:id", async (req, res) => {
     if (!reservoir) {
       return res.status(404).json({ error: "Reservoir not found" });
     }
-    res.json(reservoir);
+    const safeReservoir = {
+      ...reservoir,
+      iotApiKey: reservoir.iotApiKey ? "••••••••" : null,
+    };
+    res.json(safeReservoir);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch reservoir" });
   }
