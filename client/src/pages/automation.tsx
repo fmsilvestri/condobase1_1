@@ -490,18 +490,15 @@ export default function Automation() {
 
         {/* Abas de conteúdo */}
         <Tabs defaultValue="water" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="water" data-testid="tab-water">
-              <Droplets className="mr-2 h-4 w-4" />
-              Água
+          <TabsList className="flex-wrap gap-1 h-auto p-1">
+            <TabsTrigger value="water" data-testid="tab-water" className="gap-2 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400">
+              <span>💧</span> Água
             </TabsTrigger>
-            <TabsTrigger value="gas" data-testid="tab-gas">
-              <Flame className="mr-2 h-4 w-4" />
-              Gás
+            <TabsTrigger value="gas" data-testid="tab-gas" className="gap-2 data-[state=active]:bg-orange-500/20 data-[state=active]:text-orange-600 dark:data-[state=active]:text-orange-400">
+              <span>🔥</span> Gás
             </TabsTrigger>
-            <TabsTrigger value="energy" data-testid="tab-energy">
-              <Zap className="mr-2 h-4 w-4" />
-              Energia
+            <TabsTrigger value="energy" data-testid="tab-energy" className="gap-2 data-[state=active]:bg-yellow-500/20 data-[state=active]:text-yellow-600 dark:data-[state=active]:text-yellow-400">
+              <span>⚡</span> Energia
             </TabsTrigger>
           </TabsList>
 

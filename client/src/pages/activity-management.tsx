@@ -1037,18 +1037,15 @@ export default function ActivityManagement() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="templates" data-testid="tab-templates">
-            <ListChecks className="w-4 h-4 mr-2" />
-            Templates de Listas
+        <TabsList className="grid w-full grid-cols-3 h-auto p-1 gap-1">
+          <TabsTrigger value="templates" data-testid="tab-templates" className="gap-2 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400">
+            <span>📝</span> Templates de Listas
           </TabsTrigger>
-          <TabsTrigger value="envio" data-testid="tab-envio">
-            <Send className="w-4 h-4 mr-2" />
-            Enviar em Lote
+          <TabsTrigger value="envio" data-testid="tab-envio" className="gap-2 data-[state=active]:bg-green-500/20 data-[state=active]:text-green-600 dark:data-[state=active]:text-green-400">
+            <span>📤</span> Enviar em Lote
           </TabsTrigger>
-          <TabsTrigger value="historico" data-testid="tab-historico">
-            <History className="w-4 h-4 mr-2" />
-            Histórico
+          <TabsTrigger value="historico" data-testid="tab-historico" className="gap-2 data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400">
+            <span>📜</span> Histórico
           </TabsTrigger>
         </TabsList>
 

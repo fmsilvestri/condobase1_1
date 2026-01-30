@@ -597,29 +597,29 @@ export default function MiniMercado() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 gap-1">
-          <TabsTrigger value="dashboard" className="gap-2" data-testid="tab-dashboard">
-            <BarChart3 className="w-4 h-4" />
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 gap-1 h-auto p-1">
+          <TabsTrigger value="dashboard" className="gap-2 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400" data-testid="tab-dashboard">
+            <span>📊</span>
             <span className="hidden md:inline">Dashboard</span>
           </TabsTrigger>
-          <TabsTrigger value="produtos" className="gap-2" data-testid="tab-produtos">
-            <Package className="w-4 h-4" />
+          <TabsTrigger value="produtos" className="gap-2 data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400" data-testid="tab-produtos">
+            <span>📦</span>
             <span className="hidden md:inline">Produtos</span>
           </TabsTrigger>
-          <TabsTrigger value="promocoes" className="gap-2" data-testid="tab-promocoes">
-            <Tag className="w-4 h-4" />
+          <TabsTrigger value="promocoes" className="gap-2 data-[state=active]:bg-pink-500/20 data-[state=active]:text-pink-600 dark:data-[state=active]:text-pink-400" data-testid="tab-promocoes">
+            <span>🏷️</span>
             <span className="hidden md:inline">Promoções</span>
           </TabsTrigger>
-          <TabsTrigger value="vendas" className="gap-2" data-testid="tab-vendas">
-            <ShoppingCart className="w-4 h-4" />
+          <TabsTrigger value="vendas" className="gap-2 data-[state=active]:bg-green-500/20 data-[state=active]:text-green-600 dark:data-[state=active]:text-green-400" data-testid="tab-vendas">
+            <span>🛒</span>
             <span className="hidden md:inline">Vendas</span>
           </TabsTrigger>
-          <TabsTrigger value="perfil" className="gap-2" data-testid="tab-perfil">
-            <Users className="w-4 h-4" />
+          <TabsTrigger value="perfil" className="gap-2 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-600 dark:data-[state=active]:text-cyan-400" data-testid="tab-perfil">
+            <span>👥</span>
             <span className="hidden md:inline">Perfil Consumo</span>
           </TabsTrigger>
-          <TabsTrigger value="cashback" className="gap-2" data-testid="tab-cashback">
-            <Coins className="w-4 h-4" />
+          <TabsTrigger value="cashback" className="gap-2 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-600 dark:data-[state=active]:text-amber-400" data-testid="tab-cashback">
+            <span>💰</span>
             <span className="hidden md:inline">Cashback</span>
           </TabsTrigger>
         </TabsList>

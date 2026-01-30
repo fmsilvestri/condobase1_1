@@ -1265,11 +1265,19 @@ export default function RecursosHumanos() {
 
           {selectedFuncionario && (
             <Tabs defaultValue="dados">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="dados">Dados</TabsTrigger>
-                <TabsTrigger value="profissional">Profissional</TabsTrigger>
-                <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
-                <TabsTrigger value="passivo">Passivo</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-4 h-auto p-1 gap-1">
+                <TabsTrigger value="dados" className="gap-2 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400">
+                  <span>👤</span> Dados
+                </TabsTrigger>
+                <TabsTrigger value="profissional" className="gap-2 data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400">
+                  <span>💼</span> Profissional
+                </TabsTrigger>
+                <TabsTrigger value="financeiro" className="gap-2 data-[state=active]:bg-green-500/20 data-[state=active]:text-green-600 dark:data-[state=active]:text-green-400">
+                  <span>💰</span> Financeiro
+                </TabsTrigger>
+                <TabsTrigger value="passivo" className="gap-2 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-600 dark:data-[state=active]:text-amber-400">
+                  <span>⏰</span> Passivo
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="dados" className="space-y-4">

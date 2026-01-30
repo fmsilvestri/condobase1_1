@@ -1326,20 +1326,20 @@ export default function Maintenance() {
       </div>
 
       <Tabs defaultValue="equipment" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="equipment" data-testid="tab-equipment">
-            Equipamentos ({equipment.length})
+        <TabsList className="flex-wrap gap-1 h-auto p-1">
+          <TabsTrigger value="equipment" data-testid="tab-equipment" className="gap-2 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400">
+            <span>🔧</span> Equipamentos ({equipment.length})
           </TabsTrigger>
-          <TabsTrigger value="requests" data-testid="tab-requests">
-            Chamados
+          <TabsTrigger value="requests" data-testid="tab-requests" className="gap-2 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-600 dark:data-[state=active]:text-amber-400">
+            <span>🎫</span> Chamados
             {openRequestsCount > 0 && (
               <Badge variant="destructive" className="ml-2">
                 {openRequestsCount}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="completions" data-testid="tab-completions">
-            Histórico ({completions.length})
+          <TabsTrigger value="completions" data-testid="tab-completions" className="gap-2 data-[state=active]:bg-green-500/20 data-[state=active]:text-green-600 dark:data-[state=active]:text-green-400">
+            <span>📜</span> Histórico ({completions.length})
           </TabsTrigger>
         </TabsList>
 

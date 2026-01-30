@@ -272,14 +272,12 @@ export default function Waste() {
           </Card>
 
           <Tabs defaultValue="recyclable" className="mt-6">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="recyclable" data-testid="tab-recyclable">
-                <Recycle className="mr-2 h-4 w-4" />
-                Recicláveis
+            <TabsList className="grid w-full grid-cols-2 h-auto p-1 gap-1">
+              <TabsTrigger value="recyclable" data-testid="tab-recyclable" className="gap-2 data-[state=active]:bg-green-500/20 data-[state=active]:text-green-600 dark:data-[state=active]:text-green-400">
+                <span>♻️</span> Recicláveis
               </TabsTrigger>
-              <TabsTrigger value="organic" data-testid="tab-organic">
-                <Trash2 className="mr-2 h-4 w-4" />
-                Orgânicos
+              <TabsTrigger value="organic" data-testid="tab-organic" className="gap-2 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-600 dark:data-[state=active]:text-amber-400">
+                <span>🍂</span> Orgânicos
               </TabsTrigger>
             </TabsList>
 

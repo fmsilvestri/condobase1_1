@@ -452,10 +452,16 @@ export default function Financeiro() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="transacoes" data-testid="tab-transacoes">Transações</TabsTrigger>
-          <TabsTrigger value="categorias" data-testid="tab-categorias">Categorias</TabsTrigger>
-          <TabsTrigger value="resumo" data-testid="tab-resumo">Resumo por Categoria</TabsTrigger>
+        <TabsList className="flex-wrap gap-1 h-auto p-1">
+          <TabsTrigger value="transacoes" data-testid="tab-transacoes" className="gap-2 data-[state=active]:bg-green-500/20 data-[state=active]:text-green-600 dark:data-[state=active]:text-green-400">
+            <span>💰</span> Transações
+          </TabsTrigger>
+          <TabsTrigger value="categorias" data-testid="tab-categorias" className="gap-2 data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400">
+            <span>🏷️</span> Categorias
+          </TabsTrigger>
+          <TabsTrigger value="resumo" data-testid="tab-resumo" className="gap-2 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400">
+            <span>📊</span> Resumo por Categoria
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="transacoes" className="space-y-4">

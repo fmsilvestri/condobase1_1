@@ -295,14 +295,12 @@ export default function Marketplace() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="ofertas" data-testid="tab-ofertas">
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            Ofertas
+        <TabsList className="flex-wrap gap-1 h-auto p-1">
+          <TabsTrigger value="ofertas" data-testid="tab-ofertas" className="gap-2 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400">
+            <span>🛒</span> Ofertas
           </TabsTrigger>
-          <TabsTrigger value="minhas-contratacoes" data-testid="tab-contratacoes">
-            <CheckCircle className="h-4 w-4 mr-2" />
-            Minhas Contratacoes
+          <TabsTrigger value="minhas-contratacoes" data-testid="tab-contratacoes" className="gap-2 data-[state=active]:bg-green-500/20 data-[state=active]:text-green-600 dark:data-[state=active]:text-green-400">
+            <span>✅</span> Minhas Contratações
           </TabsTrigger>
         </TabsList>
 

@@ -526,11 +526,19 @@ export default function Energy() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="ocorrencias" data-testid="tab-ocorrencias">Ocorrências</TabsTrigger>
-          <TabsTrigger value="consumo" data-testid="tab-consumo">Consumo</TabsTrigger>
-          <TabsTrigger value="solar" data-testid="tab-solar">Placa Solar</TabsTrigger>
-          <TabsTrigger value="graficos" data-testid="tab-graficos">Gráficos</TabsTrigger>
+        <TabsList className="flex-wrap gap-1 h-auto p-1">
+          <TabsTrigger value="ocorrencias" data-testid="tab-ocorrencias" className="gap-2 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-600 dark:data-[state=active]:text-amber-400">
+            <span>⚡</span> Ocorrências
+          </TabsTrigger>
+          <TabsTrigger value="consumo" data-testid="tab-consumo" className="gap-2 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400">
+            <span>📊</span> Consumo
+          </TabsTrigger>
+          <TabsTrigger value="solar" data-testid="tab-solar" className="gap-2 data-[state=active]:bg-yellow-500/20 data-[state=active]:text-yellow-600 dark:data-[state=active]:text-yellow-400">
+            <span>☀️</span> Placa Solar
+          </TabsTrigger>
+          <TabsTrigger value="graficos" data-testid="tab-graficos" className="gap-2 data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400">
+            <span>📈</span> Gráficos
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="ocorrencias" className="space-y-4">

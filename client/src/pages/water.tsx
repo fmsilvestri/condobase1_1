@@ -843,18 +843,18 @@ export default function Water() {
       </div>
 
       <Tabs defaultValue="reservoirs" className="space-y-4">
-        <TabsList className="flex-wrap gap-1">
-          <TabsTrigger value="reservoirs" data-testid="tab-reservoirs">
-            Reservatórios ({reservoirs.length})
+        <TabsList className="flex-wrap gap-1 h-auto p-1">
+          <TabsTrigger value="reservoirs" data-testid="tab-reservoirs" className="gap-2 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400">
+            <span>🏊</span> Reservatórios ({reservoirs.length})
           </TabsTrigger>
-          <TabsTrigger value="readings" data-testid="tab-readings">
-            Leituras ({readings.length})
+          <TabsTrigger value="readings" data-testid="tab-readings" className="gap-2 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-600 dark:data-[state=active]:text-cyan-400">
+            <span>📋</span> Leituras ({readings.length})
           </TabsTrigger>
-          <TabsTrigger value="hydrometer" data-testid="tab-hydrometer">
-            Hidrômetro ({hydrometerReadings.length})
+          <TabsTrigger value="hydrometer" data-testid="tab-hydrometer" className="gap-2 data-[state=active]:bg-green-500/20 data-[state=active]:text-green-600 dark:data-[state=active]:text-green-400">
+            <span>🔢</span> Hidrômetro ({hydrometerReadings.length})
           </TabsTrigger>
-          <TabsTrigger value="chart" data-testid="tab-chart">
-            Histórico
+          <TabsTrigger value="chart" data-testid="tab-chart" className="gap-2 data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400">
+            <span>📈</span> Histórico
           </TabsTrigger>
         </TabsList>
 

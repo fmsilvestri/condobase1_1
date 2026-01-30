@@ -715,14 +715,12 @@ export default function TeamManagement() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="team" data-testid="tab-team">
-            <Users className="mr-2 h-4 w-4" />
-            Equipe
+        <TabsList className="flex-wrap gap-1 h-auto p-1">
+          <TabsTrigger value="team" data-testid="tab-team" className="gap-2 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400">
+            <span>👥</span> Equipe
           </TabsTrigger>
-          <TabsTrigger value="processes" data-testid="tab-processes">
-            <ClipboardList className="mr-2 h-4 w-4" />
-            Processos
+          <TabsTrigger value="processes" data-testid="tab-processes" className="gap-2 data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400">
+            <span>📋</span> Processos
           </TabsTrigger>
         </TabsList>
 

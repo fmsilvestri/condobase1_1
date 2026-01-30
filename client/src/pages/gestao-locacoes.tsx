@@ -410,15 +410,15 @@ export default function GestaoLocacoesPage() {
       </div>
 
       <Tabs defaultValue="ativas" className="w-full">
-        <TabsList data-testid="tabs-list">
-          <TabsTrigger value="ativas" data-testid="tab-ativas">
-            Ativas ({hospedagensAtivas.length})
+        <TabsList data-testid="tabs-list" className="flex-wrap gap-1 h-auto p-1">
+          <TabsTrigger value="ativas" data-testid="tab-ativas" className="gap-2 data-[state=active]:bg-green-500/20 data-[state=active]:text-green-600 dark:data-[state=active]:text-green-400">
+            <span>🏠</span> Ativas ({hospedagensAtivas.length})
           </TabsTrigger>
-          <TabsTrigger value="concluidas" data-testid="tab-concluidas">
-            Concluídas ({hospedagensConcluidas.length})
+          <TabsTrigger value="concluidas" data-testid="tab-concluidas" className="gap-2 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400">
+            <span>✅</span> Concluídas ({hospedagensConcluidas.length})
           </TabsTrigger>
-          <TabsTrigger value="canceladas" data-testid="tab-canceladas">
-            Canceladas ({hospedagensCanceladas.length})
+          <TabsTrigger value="canceladas" data-testid="tab-canceladas" className="gap-2 data-[state=active]:bg-red-500/20 data-[state=active]:text-red-600 dark:data-[state=active]:text-red-400">
+            <span>❌</span> Canceladas ({hospedagensCanceladas.length})
           </TabsTrigger>
         </TabsList>
 

@@ -405,29 +405,29 @@ export default function PreventiveMaintenance() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="assets" className="flex items-center gap-2" data-testid="tab-assets">
-            <Building className="h-4 w-4" />
+        <TabsList className="grid w-full grid-cols-6 h-auto p-1 gap-1">
+          <TabsTrigger value="assets" className="flex items-center gap-2 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400" data-testid="tab-assets">
+            <span>🏢</span>
             <span className="hidden sm:inline">Ativos</span>
           </TabsTrigger>
-          <TabsTrigger value="plans" className="flex items-center gap-2" data-testid="tab-plans">
-            <ClipboardList className="h-4 w-4" />
+          <TabsTrigger value="plans" className="flex items-center gap-2 data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400" data-testid="tab-plans">
+            <span>📋</span>
             <span className="hidden sm:inline">Planos</span>
           </TabsTrigger>
-          <TabsTrigger value="executions" className="flex items-center gap-2" data-testid="tab-executions">
-            <Wrench className="h-4 w-4" />
+          <TabsTrigger value="executions" className="flex items-center gap-2 data-[state=active]:bg-green-500/20 data-[state=active]:text-green-600 dark:data-[state=active]:text-green-400" data-testid="tab-executions">
+            <span>🔧</span>
             <span className="hidden sm:inline">Execuções</span>
           </TabsTrigger>
-          <TabsTrigger value="alerts" className="flex items-center gap-2" data-testid="tab-alerts">
-            <Bell className="h-4 w-4" />
+          <TabsTrigger value="alerts" className="flex items-center gap-2 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-600 dark:data-[state=active]:text-amber-400" data-testid="tab-alerts">
+            <span>🔔</span>
             <span className="hidden sm:inline">Alertas</span>
           </TabsTrigger>
-          <TabsTrigger value="history" className="flex items-center gap-2" data-testid="tab-history">
-            <History className="h-4 w-4" />
+          <TabsTrigger value="history" className="flex items-center gap-2 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-600 dark:data-[state=active]:text-cyan-400" data-testid="tab-history">
+            <span>📜</span>
             <span className="hidden sm:inline">Histórico</span>
           </TabsTrigger>
-          <TabsTrigger value="reports" className="flex items-center gap-2" data-testid="tab-reports">
-            <BarChart3 className="h-4 w-4" />
+          <TabsTrigger value="reports" className="flex items-center gap-2 data-[state=active]:bg-pink-500/20 data-[state=active]:text-pink-600 dark:data-[state=active]:text-pink-400" data-testid="tab-reports">
+            <span>📊</span>
             <span className="hidden sm:inline">Relatórios</span>
           </TabsTrigger>
         </TabsList>
