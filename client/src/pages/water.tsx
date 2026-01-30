@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Droplets, Plus, TrendingUp, Clock, AlertTriangle, Check, MapPin, Edit, Trash2, Loader2, Gauge, Camera, Calendar } from "lucide-react";
+import { Droplets, Plus, TrendingUp, Clock, AlertTriangle, Check, MapPin, Edit, Trash2, Loader2, Gauge, Camera, Calendar, Wifi, WifiOff, RefreshCw, Settings } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { GaugeChart } from "@/components/gauge-chart";
 import { StatCard } from "@/components/stat-card";
@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -49,6 +50,11 @@ const reservoirFormSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
   location: z.string().min(1, "Localização é obrigatória"),
   capacityLiters: z.coerce.number().min(1, "Capacidade deve ser maior que 0"),
+  iotEnabled: z.boolean().optional().default(false),
+  iotSensorId: z.string().optional(),
+  iotApiEndpoint: z.string().optional(),
+  iotApiKey: z.string().optional(),
+  iotRefreshIntervalMinutes: z.coerce.number().min(1).optional().default(15),
 });
 
 const waterFormSchema = z.object({
@@ -92,8 +98,17 @@ export default function Water() {
       name: "",
       location: "",
       capacityLiters: 0,
+      iotEnabled: false,
+      iotSensorId: "",
+      iotApiEndpoint: "",
+      iotApiKey: "",
+      iotRefreshIntervalMinutes: 15,
     },
   });
+
+  const [iotConfigReservoirId, setIotConfigReservoirId] = useState<string | null>(null);
+  const [testingIot, setTestingIot] = useState(false);
+  const [iotTestResult, setIotTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const hydrometerForm = useForm<z.infer<typeof hydrometerFormSchema>>({
     resolver: zodResolver(hydrometerFormSchema),
@@ -157,6 +172,39 @@ export default function Water() {
       toast({ title: "Erro ao remover reservatório", description: error.message, variant: "destructive" });
     },
   });
+
+  const syncIotMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/reservoirs/${id}/iot-sync`),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reservoirs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/water"] });
+      toast({ title: "Sincronização IoT realizada!", description: `Leitura: ${data.reading}%` });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro na sincronização IoT", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const testIotConnection = async (reservoirId: string) => {
+    const reservoir = reservoirs.find(r => r.id === reservoirId);
+    if (!reservoir) return;
+    
+    setTestingIot(true);
+    setIotTestResult(null);
+    
+    try {
+      const result = await apiRequest("POST", `/api/reservoirs/${reservoirId}/test-iot`, {
+        apiEndpoint: reservoir.iotApiEndpoint,
+        apiKey: reservoir.iotApiKey,
+        sensorId: reservoir.iotSensorId,
+      }) as { success: boolean; message: string };
+      setIotTestResult({ success: result.success, message: result.message });
+    } catch (error: any) {
+      setIotTestResult({ success: false, message: error.message || "Falha na conexão" });
+    } finally {
+      setTestingIot(false);
+    }
+  };
 
   const createReadingMutation = useMutation({
     mutationFn: async (data: z.infer<typeof waterFormSchema>) => {
@@ -265,6 +313,11 @@ export default function Water() {
       name: reservoir.name,
       location: reservoir.location,
       capacityLiters: reservoir.capacityLiters,
+      iotEnabled: reservoir.iotEnabled ?? false,
+      iotSensorId: reservoir.iotSensorId ?? "",
+      iotApiEndpoint: reservoir.iotApiEndpoint ?? "",
+      iotApiKey: reservoir.iotApiKey ?? "",
+      iotRefreshIntervalMinutes: reservoir.iotRefreshIntervalMinutes ?? 15,
     });
   };
 
@@ -372,6 +425,88 @@ export default function Water() {
                           </FormItem>
                         )}
                       />
+                      
+                      <div className="border-t pt-4 mt-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <Wifi className="h-4 w-4" />
+                            <span className="font-medium">Integração IoT</span>
+                          </div>
+                          <FormField
+                            control={reservoirForm.control}
+                            name="iotEnabled"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormControl>
+                                  <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    data-testid="switch-iot-enabled"
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        
+                        {reservoirForm.watch("iotEnabled") && (
+                          <div className="space-y-4">
+                            <FormField
+                              control={reservoirForm.control}
+                              name="iotSensorId"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>ID do Sensor</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="Ex: sensor-001" {...field} data-testid="input-iot-sensor-id" />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={reservoirForm.control}
+                              name="iotApiEndpoint"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Endpoint da API</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="https://api.sensor.com/v1/reading" {...field} data-testid="input-iot-api-endpoint" />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={reservoirForm.control}
+                              name="iotApiKey"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Chave da API</FormLabel>
+                                  <FormControl>
+                                    <Input type="password" placeholder="Chave de acesso" {...field} data-testid="input-iot-api-key" />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={reservoirForm.control}
+                              name="iotRefreshIntervalMinutes"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Intervalo de Atualização (min)</FormLabel>
+                                  <FormControl>
+                                    <Input type="number" min={1} placeholder="15" {...field} data-testid="input-iot-refresh-interval" />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        )}
+                      </div>
+                      
                       <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setIsNewReservoirOpen(false)}>
                           Cancelar
@@ -572,6 +707,88 @@ export default function Water() {
                   </FormItem>
                 )}
               />
+              
+              <div className="border-t pt-4 mt-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Wifi className="h-4 w-4" />
+                    <span className="font-medium">Integração IoT</span>
+                  </div>
+                  <FormField
+                    control={reservoirForm.control}
+                    name="iotEnabled"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            data-testid="switch-edit-iot-enabled"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                {reservoirForm.watch("iotEnabled") && (
+                  <div className="space-y-4">
+                    <FormField
+                      control={reservoirForm.control}
+                      name="iotSensorId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>ID do Sensor</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ex: sensor-001" {...field} data-testid="input-edit-iot-sensor-id" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={reservoirForm.control}
+                      name="iotApiEndpoint"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Endpoint da API</FormLabel>
+                          <FormControl>
+                            <Input placeholder="https://api.sensor.com/v1/reading" {...field} data-testid="input-edit-iot-api-endpoint" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={reservoirForm.control}
+                      name="iotApiKey"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Chave da API</FormLabel>
+                          <FormControl>
+                            <Input type="password" placeholder="Chave de acesso" {...field} data-testid="input-edit-iot-api-key" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={reservoirForm.control}
+                      name="iotRefreshIntervalMinutes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Intervalo de Atualização (min)</FormLabel>
+                          <FormControl>
+                            <Input type="number" min={1} placeholder="15" {...field} data-testid="input-edit-iot-refresh-interval" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+              </div>
+              
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setEditingReservoir(null)}>
                   Cancelar
@@ -667,37 +884,93 @@ export default function Water() {
                         {reservoir.location}
                       </div>
                     </div>
-                    <Badge variant="secondary">
-                      {(reservoir.capacityLiters / 1000).toFixed(0)}k L
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      {reservoir.iotEnabled && (
+                        <Badge 
+                          variant={reservoir.iotStatus === "connected" ? "default" : "secondary"}
+                          className={reservoir.iotStatus === "connected" ? "bg-emerald-500/10 text-emerald-600" : reservoir.iotStatus === "error" ? "bg-red-500/10 text-red-600" : ""}
+                        >
+                          {reservoir.iotStatus === "connected" ? (
+                            <Wifi className="h-3 w-3 mr-1" />
+                          ) : (
+                            <WifiOff className="h-3 w-3 mr-1" />
+                          )}
+                          IoT
+                        </Badge>
+                      )}
+                      <Badge variant="secondary">
+                        {(reservoir.capacityLiters / 1000).toFixed(0)}k L
+                      </Badge>
+                    </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">
                         Capacidade: {reservoir.capacityLiters.toLocaleString("pt-BR")} L
                       </span>
-                      {canEdit && (
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEditReservoir(reservoir)}
-                            data-testid={`button-edit-reservoir-${reservoir.id}`}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => deleteReservoirMutation.mutate(reservoir.id)}
-                            className="text-destructive"
-                            data-testid={`button-delete-reservoir-${reservoir.id}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
                     </div>
+                    
+                    {reservoir.iotEnabled && (
+                      <div className="rounded-lg bg-muted/50 p-3 space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Sensor IoT</span>
+                          <Badge variant="outline" className="text-xs">
+                            {reservoir.iotSensorId || "N/A"}
+                          </Badge>
+                        </div>
+                        {reservoir.iotLastReading !== null && reservoir.iotLastReading !== undefined && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Última Leitura</span>
+                            <span className="font-medium">{reservoir.iotLastReading}%</span>
+                          </div>
+                        )}
+                        {reservoir.iotLastSync && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Última Sinc.</span>
+                            <span className="text-xs">{new Date(reservoir.iotLastSync).toLocaleString("pt-BR")}</span>
+                          </div>
+                        )}
+                        {canEdit && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full mt-2"
+                            onClick={() => syncIotMutation.mutate(reservoir.id)}
+                            disabled={syncIotMutation.isPending}
+                            data-testid={`button-sync-iot-${reservoir.id}`}
+                          >
+                            {syncIotMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                            )}
+                            Sincronizar Sensor
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                    
+                    {canEdit && (
+                      <div className="flex items-center justify-end gap-1 pt-2 border-t">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditReservoir(reservoir)}
+                          data-testid={`button-edit-reservoir-${reservoir.id}`}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteReservoirMutation.mutate(reservoir.id)}
+                          className="text-destructive"
+                          data-testid={`button-delete-reservoir-${reservoir.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}

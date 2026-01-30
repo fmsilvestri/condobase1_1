@@ -1149,6 +1149,137 @@ router.delete("/reservoirs/:id", async (req, res) => {
   }
 });
 
+router.post("/reservoirs/:id/iot-sync", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const reservoir = await storage.getReservoirById(req.params.id);
+    if (!reservoir) {
+      return res.status(404).json({ error: "Reservoir not found" });
+    }
+    
+    if (!reservoir.iotEnabled || !reservoir.iotApiEndpoint) {
+      return res.status(400).json({ error: "IoT integration not configured for this reservoir" });
+    }
+    
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (reservoir.iotApiKey) {
+        headers["Authorization"] = `Bearer ${reservoir.iotApiKey}`;
+        headers["X-API-Key"] = reservoir.iotApiKey;
+      }
+      
+      const response = await fetch(reservoir.iotApiEndpoint, { headers });
+      
+      if (!response.ok) {
+        await storage.updateReservoir(req.params.id, {
+          iotStatus: "error",
+          iotLastSync: new Date(),
+        } as any);
+        return res.status(502).json({ error: "Failed to connect to IoT sensor API" });
+      }
+      
+      const sensorData = await response.json();
+      
+      const reading = sensorData.level ?? sensorData.tankLevel ?? sensorData.value ?? sensorData.reading ?? null;
+      
+      if (reading !== null && typeof reading === "number") {
+        const updatedReservoir = await storage.updateReservoir(req.params.id, {
+          iotLastReading: reading,
+          iotLastSync: new Date(),
+          iotStatus: "connected",
+        } as any);
+        
+        const condominiumId = reservoir.condominiumId;
+        const volumeAvailable = (reading / 100) * reservoir.capacityLiters;
+        
+        await storage.createWaterReading({
+          condominiumId,
+          reservoirId: reservoir.id,
+          tankLevel: reading,
+          volumeAvailable,
+          quality: "boa",
+          casanStatus: "normal",
+          notes: "Leitura automática via sensor IoT",
+          recordedBy: null,
+        });
+        
+        res.json({
+          success: true,
+          reading,
+          lastSync: new Date(),
+          status: "connected",
+          reservoir: updatedReservoir,
+        });
+      } else {
+        await storage.updateReservoir(req.params.id, {
+          iotStatus: "error",
+          iotLastSync: new Date(),
+        } as any);
+        res.status(400).json({ error: "Invalid sensor data format" });
+      }
+    } catch (fetchError: any) {
+      await storage.updateReservoir(req.params.id, {
+        iotStatus: "error",
+        iotLastSync: new Date(),
+      } as any);
+      res.status(502).json({ error: "Failed to connect to IoT sensor: " + fetchError.message });
+    }
+  } catch (error: any) {
+    console.error("[IoT Sync] Error:", error);
+    res.status(500).json({ error: "Failed to sync IoT sensor" });
+  }
+});
+
+router.post("/reservoirs/:id/test-iot", requireSindicoOrAdmin, async (req, res) => {
+  try {
+    const { apiEndpoint, apiKey, sensorId } = req.body;
+    
+    if (!apiEndpoint) {
+      return res.status(400).json({ error: "API endpoint is required" });
+    }
+    
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (apiKey) {
+        headers["Authorization"] = `Bearer ${apiKey}`;
+        headers["X-API-Key"] = apiKey;
+      }
+      
+      const response = await fetch(apiEndpoint, { headers, signal: AbortSignal.timeout(10000) });
+      
+      if (!response.ok) {
+        return res.json({ 
+          success: false, 
+          status: "error",
+          message: `API returned status ${response.status}` 
+        });
+      }
+      
+      const data = await response.json();
+      const reading = data.level ?? data.tankLevel ?? data.value ?? data.reading ?? null;
+      
+      res.json({
+        success: true,
+        status: "connected",
+        reading,
+        rawData: data,
+        message: reading !== null ? `Connection successful. Current reading: ${reading}%` : "Connected but no reading found",
+      });
+    } catch (fetchError: any) {
+      res.json({ 
+        success: false, 
+        status: "error",
+        message: fetchError.message || "Failed to connect to sensor" 
+      });
+    }
+  } catch (error: any) {
+    res.status(500).json({ error: "Test failed: " + error.message });
+  }
+});
+
 router.get("/water", async (req, res) => {
   try {
     const condominiumId = req.condominiumContext?.condominiumId || undefined;

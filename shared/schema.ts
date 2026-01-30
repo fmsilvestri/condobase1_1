@@ -240,12 +240,25 @@ export const reservoirs = pgTable("reservoirs", {
   name: text("name").notNull(),
   location: text("location").notNull(),
   capacityLiters: real("capacity_liters").notNull(),
+  iotEnabled: boolean("iot_enabled").default(false),
+  iotSensorId: text("iot_sensor_id"),
+  iotApiEndpoint: text("iot_api_endpoint"),
+  iotApiKey: text("iot_api_key"),
+  iotRefreshIntervalMinutes: integer("iot_refresh_interval_minutes").default(15),
+  iotLastSync: timestamp("iot_last_sync"),
+  iotLastReading: real("iot_last_reading"),
+  iotStatus: text("iot_status").default("disconnected"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const insertReservoirSchema = createInsertSchema(reservoirs).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
+  iotLastSync: true,
+  iotLastReading: true,
+  iotStatus: true,
 });
 
 export type InsertReservoir = z.infer<typeof insertReservoirSchema>;
