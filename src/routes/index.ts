@@ -1309,7 +1309,7 @@ router.post("/water", async (req, res) => {
 });
 
 
-router.get("/hydrometers", async (req, res) => {
+router.get("/hydrometer", async (req, res) => {
   try {
     const condominiumId = req.condominiumContext?.condominiumId || undefined;
     const readings = await storage.getHydrometerReadings(condominiumId);
@@ -1319,17 +1319,22 @@ router.get("/hydrometers", async (req, res) => {
   }
 });
 
-router.post("/hydrometers", async (req, res) => {
+router.post("/hydrometer", async (req, res) => {
   try {
-    const validatedData = insertHydrometerReadingSchema.parse(req.body);
+    const condominiumId = getCondominiumId(req);
+    const validatedData = insertHydrometerReadingSchema.parse({
+      ...req.body,
+      condominiumId,
+    });
     const reading = await storage.createHydrometerReading(validatedData);
     res.status(201).json(reading);
   } catch (error: any) {
+    console.error("Hydrometer reading validation error:", error?.message || error);
     res.status(400).json({ error: "Invalid hydrometer reading data", details: error?.message });
   }
 });
 
-router.patch("/hydrometers/:id", async (req, res) => {
+router.patch("/hydrometer/:id", async (req, res) => {
   try {
     const reading = await storage.updateHydrometerReading(req.params.id, req.body);
     if (!reading) {
@@ -1341,7 +1346,7 @@ router.patch("/hydrometers/:id", async (req, res) => {
   }
 });
 
-router.delete("/hydrometers/:id", async (req, res) => {
+router.delete("/hydrometer/:id", async (req, res) => {
   try {
     const deleted = await storage.deleteHydrometerReading(req.params.id);
     if (!deleted) {
